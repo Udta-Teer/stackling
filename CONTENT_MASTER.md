@@ -134,7 +134,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 |---|---------|--------|------|
 | 1 | How the internet works | ✅ done | `content/01-how-the-internet-works.json` |
 | 2 | Client–server & HTTP | ✅ done | `content/02-client-server-http.json` |
-| 3 | APIs | ⬜ | — |
+| 3 | APIs | ✅ done | `content/03-apis.json` |
 | 4 | Latency vs throughput | ⬜ | — |
 | 5 | Statelessness | ⬜ | — |
 | 6 | What a database is | ⬜ | — |
