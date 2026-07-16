@@ -155,8 +155,8 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 11 | Scaling: vertical vs horizontal | ✅ done | `content/11-scaling-vertical-vs-horizontal.json` |
 | 12 | Load balancing | ✅ done | `content/12-load-balancing.json` |
 | 13 | Caching | ✅ done | `content/13-caching.json` |
-| 14 | CDNs | ⬜ | — |
-| 15 | Sharding / partitioning | ⬜ | — |
+| 14 | CDNs | ✅ done | `content/14-cdns.json` |
+| 15 | Sharding / partitioning | ✅ done | `content/15-sharding.json` |
 | 16 | Message queues & async | ⬜ | — |
 | 17 | Rate limiting | ⬜ | — |
 | 18 | CAP theorem | ⬜ | — |

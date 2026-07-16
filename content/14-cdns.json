@@ -1,0 +1,327 @@
+{
+  "unitId": "cdns",
+  "tier": 2,
+  "title": "CDNs",
+  "subtitle": "You can't outrun light — so move the content closer",
+  "objectives": [
+    "Explain why distance is a latency floor and what putting content at the edge buys",
+    "Decide what belongs on a CDN and what doesn't, using cacheability rather than file type",
+    "Invalidate edge caches correctly, and know why versioned URLs beat purging",
+    "Reason about hit ratio, origin shielding, and what a CDN cannot do for you"
+  ],
+  "lessons": [
+    {
+      "id": "cdn-1",
+      "title": "Distance is the enemy",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Your servers are in Virginia. A user in Sydney loads your site. Your server responds in 5ms. Why does the page still feel slow?",
+          "choices": [
+            "The server is underpowered",
+            "The request has to cross the planet and back — physics puts a floor under that round trip that no server speed can fix",
+            "Sydney has bad internet",
+            "The database is slow"
+          ],
+          "answer": 1,
+          "why": "A Virginia–Sydney round trip is on the order of 200ms through fibre, so a 5ms server response is a rounding error next to the journey. This is the wall from unit 4: you can optimize your code to zero and the user still waits, because you're paying the speed of light. The only lever left is to stop making them cross the planet."
+        },
+        {
+          "type": "fill_blank",
+          "prompt": "A ______ is a network of servers spread around the world that keep copies of your content close to users.",
+          "choices": ["CDN", "VPN", "LAN", "DNS"],
+          "answer": 0,
+          "why": "Content Delivery Network — the name is literal. It's copies of your content, delivered from somewhere near the person asking for it."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "So what does a CDN actually do about the Sydney problem?",
+          "choices": [
+            "It makes your Virginia server faster",
+            "It keeps a copy of your content in Sydney, so the user's request never crosses the ocean",
+            "It compresses the response so it travels faster",
+            "It upgrades the user's connection"
+          ],
+          "answer": 1,
+          "why": "A CDN shortens the distance rather than speeding up the trip. The user hits an edge server a few milliseconds away that already has your logo, and the ocean crossing simply doesn't happen. Notice this is unit 5's lesson at planetary scale: a CDN is a cache, so it's a derived copy, and every consequence in this unit follows from that."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A CDN edge server in Sydney doesn't have the file a user asks for. What happens?",
+          "choices": [
+            "The user gets a 404",
+            "The edge fetches it from your origin server, serves it, and keeps a copy so the next Sydney user is fast",
+            "The request fails and retries",
+            "The CDN generates the file itself"
+          ],
+          "answer": 1,
+          "why": "That's a cache miss, and the first Sydney user pays full price — the edge has to cross the ocean on their behalf. They get no benefit; they're the one who warms the cache for everyone after them. Which is why a CDN's value depends entirely on how often the next person asks for the same thing."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each CDN term to what it means.",
+          "pairs": [
+            { "left": "Edge / PoP", "right": "A CDN server near users" },
+            { "left": "Origin", "right": "Your actual server, the source of truth" },
+            { "left": "Cache hit", "right": "The edge already had it" },
+            { "left": "Cache miss", "right": "The edge had to ask the origin" }
+          ],
+          "why": "Edges are the copies, the origin is the truth, and every request is one of two outcomes. Almost every CDN decision you'll make is really about moving requests from the second column into the first."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Besides latency, what does serving from the edge also reduce?",
+          "choices": [
+            "Nothing else",
+            "Load on your origin — requests served at the edge never reach your servers at all",
+            "The size of your files",
+            "Your database's storage"
+          ],
+          "answer": 1,
+          "why": "Every cache hit is a request your origin never sees, so a CDN is capacity relief as well as a speed win. For a site whose traffic is mostly images, scripts, and video, the CDN can absorb the overwhelming majority of requests — which means your origin only has to be sized for the small fraction that genuinely needs it."
+        }
+      ]
+    },
+    {
+      "id": "cdn-2",
+      "title": "What belongs at the edge",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Which of these is the easiest thing to serve from a CDN?",
+          "choices": [
+            "A user's personalized dashboard",
+            "Your logo image — identical for every user, changes almost never",
+            "A bank balance",
+            "A live chat message"
+          ],
+          "answer": 1,
+          "why": "The logo is the ideal case because it's identical for everyone and rarely changes, so one cached copy serves millions of people and being slightly stale costs nothing. The dashboard and balance are personal, and the chat message is live — caching any of them at the edge would show someone another person's data or the past."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What actually decides whether something can be cached at the edge?",
+          "choices": [
+            "Whether it's an image or a script",
+            "Whether many people ask for the identical thing, and whether being slightly out of date is acceptable",
+            "Its file size",
+            "Whether it's compressed"
+          ],
+          "answer": 1,
+          "why": "Cacheability isn't about file type, it's about shared-ness and staleness tolerance. 'Static assets' is a rule of thumb that works only because images and scripts happen to be identical for everyone — but an HTML page that's the same for all logged-out visitors caches beautifully, while a personalized SVG cannot cache at all."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which of these can usually be served from a CDN? Select all.",
+          "choices": [
+            "Your JavaScript bundle",
+            "A product image",
+            "A public blog post's HTML",
+            "A page showing the logged-in user's name"
+          ],
+          "answer": [0, 1, 2],
+          "why": "The bundle, the image, and the public post are identical for every visitor, so one copy serves everyone. The personalized page is different for each user — caching it at the edge risks the classic catastrophe of serving one user's page to another, which is how sites leak accounts to strangers."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "How does the edge know how long it may keep a copy?",
+          "choices": [
+            "It guesses",
+            "Your origin tells it, using cache headers like Cache-Control with a max-age",
+            "It always keeps things for 24 hours",
+            "The user's browser decides"
+          ],
+          "answer": 1,
+          "why": "The origin sets the policy and the edge obeys it — Cache-Control max-age is you saying how long a copy stays fresh. This is the same mechanism from unit 2 doing a bigger job: the headers you send aren't decoration, they're instructions to every cache between you and the user, and setting them badly is how you end up either with no caching at all or with a mistake pinned in place for a year."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You set max-age to 1 year on a file you might need to change. Reckless?",
+          "choices": [
+            "Yes — you can never update it",
+            "No, provided the filename changes whenever the content does: app.a3f9c1.js is cached forever precisely because a new build produces a new name",
+            "Yes — a year is always too long",
+            "No, because you can always purge"
+          ],
+          "answer": 1,
+          "why": "A content-hashed filename makes the URL and the bytes inseparable, so that URL's content can never change and caching it forever is safe rather than reckless. Updating means shipping a new filename that nothing has cached, and the old one simply stops being referenced — which is why this pattern is everywhere in modern builds. You get permanent caching and instant updates at once, by never reusing a name."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why is the index.html that references those hashed files usually cached for a very short time — or not at all?",
+          "choices": [
+            "HTML is too big to cache",
+            "Because it's the one file whose name never changes, so it's the only place that can tell browsers which new hashed files to fetch",
+            "HTML can't be cached by CDNs",
+            "It's personalized"
+          ],
+          "answer": 1,
+          "why": "Something has to be the entry point with a stable name, and that file is the pointer to everything else — cache it hard and users keep fetching the old bundle no matter how many times you deploy. So the shape is: a short-lived pointer naming immutable assets, giving you fast repeat loads and deploys that actually reach people."
+        }
+      ]
+    },
+    {
+      "id": "cdn-3",
+      "title": "Getting rid of stale copies",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "You publish a typo, then fix it. But the wrong version is cached at 300 edge locations with a 24-hour max-age. What's the problem?",
+          "choices": [
+            "Nothing — the fix deploys instantly",
+            "Your fix is live at the origin, but users keep getting the typo from the edge until those copies expire",
+            "The edges will notice the change automatically",
+            "Only Sydney users see the typo"
+          ],
+          "answer": 1,
+          "why": "The edges have no idea anything changed — they hold a copy they were told is fresh for 24 hours, and they'll serve it confidently for 24 hours. This is unit 5's invalidation problem spread across 300 machines you don't control: the copy isn't wrong from the cache's point of view, it's doing exactly what you told it to."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each way of dealing with stale edge copies.",
+          "pairs": [
+            { "left": "TTL expiry", "right": "Wait it out — the copy dies on schedule" },
+            { "left": "Purge", "right": "Tell the CDN to drop it now" },
+            { "left": "Versioned URL", "right": "Change the name so nothing is stale" },
+            { "left": "Revalidation", "right": "Edge asks the origin: still current?" }
+          ],
+          "why": "Four options with very different costs: waiting is free but slow, purging is fast but is an operation you must remember to run, versioning sidesteps the problem entirely, and revalidation trades a small origin request for confidence."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why do versioned URLs beat purging as a default strategy?",
+          "choices": [
+            "Purging is slower to propagate",
+            "Purging is an action someone must remember to perform correctly every time, while a new filename makes staleness impossible by construction",
+            "CDNs charge for purges",
+            "Versioned URLs are shorter"
+          ],
+          "answer": 1,
+          "why": "Purging is a process that depends on humans and pipelines doing the right thing under pressure, and the failure mode is silent — you think you shipped, users see the old thing. Versioned URLs remove the decision: a new build produces a new name, nothing has it cached, and there's no stale copy to hunt down. Prefer designs where the bad state can't exist over designs where you clean it up."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "When is purging genuinely the right tool?",
+          "choices": [
+            "Never",
+            "When the URL must stay the same and the content changed — a published article being corrected, say",
+            "For every deploy",
+            "Only for images"
+          ],
+          "answer": 1,
+          "why": "Some URLs are the product and can't be renamed — an article's link is shared, bookmarked, and indexed, so you can't ship a correction by shipping a new URL. That's exactly when purging earns its place: you accept the operational burden because the alternative, changing the address, would break the thing that makes it valuable."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your CDN supports 'stale-while-revalidate': serve the cached copy immediately, and refresh it in the background. What are you buying?",
+          "choices": [
+            "Perfect freshness",
+            "Speed for the user right now, at the cost of that one response being slightly out of date",
+            "Lower storage costs",
+            "Fewer purges"
+          ],
+          "answer": 1,
+          "why": "Nobody waits on the origin — the edge answers instantly from its copy and refreshes afterwards, so the next visitor gets the update. You've decided this content's staleness costs less than its latency, which is the same question from unit 5 asked at the edge: what does being a few seconds behind actually cost here?"
+        },
+        {
+          "type": "tradeoff_slider",
+          "prompt": "You're serving a news homepage that updates every few minutes and gets enormous traffic. Slide toward your caching policy.",
+          "leftLabel": "Very short TTL (fresh, more origin load)",
+          "rightLabel": "Long TTL (fast + cheap, can be minutes stale)",
+          "answerRange": [30, 70],
+          "why": "Neither extreme fits: no caching hands enormous traffic straight to your origin, and a long TTL means a breaking story sits invisible for an hour. A short TTL of seconds-to-a-minute collapses millions of requests into one origin fetch per interval while keeping the page current enough for news — and stale-while-revalidate makes even that refresh invisible to users."
+        }
+      ]
+    },
+    {
+      "id": "cdn-4",
+      "title": "The hard parts",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Your CDN reports a 60% cache hit ratio. Is that good?",
+          "choices": [
+            "Yes — most requests are cached",
+            "It depends what's in the other 40%, but for static assets it's poor: 40% of requests are still crossing to your origin",
+            "It's perfect",
+            "Hit ratio doesn't matter"
+          ],
+          "answer": 1,
+          "why": "For a static asset workload, mature CDN configurations typically run far higher, so 60% usually means something is defeating the cache — cache-busting query strings, missing headers, or Vary headers fragmenting one file into many variants. The number worth watching is what fraction of ORIGIN load you removed, because that's what the CDN was bought for."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A popular file expires at 300 edge locations at the same moment, and traffic is heavy. What happens to your origin?",
+          "choices": [
+            "Nothing — the edges handle it",
+            "Up to 300 simultaneous fetches for the same file hit your origin at once — a thundering herd",
+            "The CDN blocks the requests",
+            "The file serves stale forever"
+          ],
+          "answer": 1,
+          "why": "Every edge independently discovers the copy expired and independently goes to fetch it, so your origin gets hit by a synchronized stampede for a file it thought the CDN was handling. The defenses are request coalescing at the edge (many waiting users, one origin fetch) and origin shielding, where a designated edge fronts the origin so the other 299 ask it instead."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What is origin shielding?",
+          "choices": [
+            "A firewall in front of your origin",
+            "One designated edge that fronts the origin, so other edges fetch from it rather than all going to you",
+            "Encrypting traffic to the origin",
+            "A backup origin server"
+          ],
+          "answer": 1,
+          "why": "It's a cache in front of your cache: a shield edge that other edges treat as the origin, turning 300 potential origin fetches into one. The cost is an extra hop for misses and one more thing that can be down — and it's the same hierarchy idea a CPU uses with L1 and L2, applied to the planet."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which of these quietly destroy your cache hit ratio? Select all.",
+          "choices": [
+            "Appending a unique tracking parameter like ?t=1234 to asset URLs",
+            "A Vary header that splits one file into many per-browser variants",
+            "Forgetting Cache-Control, so the CDN won't cache at all",
+            "Serving the same file to every user"
+          ],
+          "answer": [0, 1, 2],
+          "why": "Unique query strings make every request a distinct URL and therefore a guaranteed miss; an over-broad Vary shatters one cached object into dozens of near-identical copies that each have to be warmed; and no Cache-Control means the CDN often declines to cache at all. Serving everyone the identical file is the opposite — it's precisely the condition that makes caching work."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your API returns per-user data and is slow. Will a CDN fix it?",
+          "choices": [
+            "Yes — CDNs speed everything up",
+            "No — the responses are unique per user, so there's nothing to share and every request goes to your origin anyway",
+            "Yes, with a long TTL",
+            "Yes, if you purge often"
+          ],
+          "answer": 1,
+          "why": "A CDN's entire economics rest on many people wanting the identical bytes, and per-user responses have an audience of one — so you'd add a hop and cache nothing. A CDN can still terminate TLS closer to the user and hold a warm connection back to your origin, which helps a little, but the slow API needs the fixes from unit 4: less work, or the work done nearer the user."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You deploy a fix. Some users see it, some still see the bug, and refreshing sometimes helps. What's the most likely explanation?",
+          "choices": [
+            "The deploy failed",
+            "Different caches are at different stages — some edges hold the old copy, and some browsers hold their own copy too",
+            "The users are on old devices",
+            "A database replication issue"
+          ],
+          "answer": 1,
+          "why": "There isn't one cache between you and a user, there's a chain — browser, possibly a corporate proxy, the edge, maybe a shield — and each holds its own copy on its own schedule. That's why 'it works for me' is meaningless during a cache incident and why versioned URLs are such a relief: with a new name, none of those layers has anything stale to serve."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What's the honest summary of a CDN?",
+          "choices": [
+            "It makes your whole site faster automatically",
+            "It's a cache near your users: it shortens distance and absorbs origin load for content many people share — and it hands you invalidation across machines you don't control",
+            "It replaces your servers",
+            "It only helps with images"
+          ],
+          "answer": 1,
+          "why": "It buys latency and origin relief for shared content, and charges you in staleness you now have to manage across hundreds of locations. Every rule in this unit came from the same source: a CDN is a copy, so unit 5's bill arrives — freshness, invalidation, and the question of what being out of date costs — just spread across the planet."
+        }
+      ]
+    }
+  ]
+}

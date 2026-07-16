@@ -1,0 +1,315 @@
+{
+  "unitId": "sharding",
+  "tier": 2,
+  "title": "Sharding / Partitioning",
+  "subtitle": "Splitting the data across machines — and what you give up to do it",
+  "objectives": [
+    "Explain when replication stops being enough and splitting is the only option left",
+    "Choose a shard key, and predict the hot shard it will create",
+    "Compare range and hash partitioning, and explain what consistent hashing solves",
+    "Account for what sharding costs: cross-shard queries, transactions, and resharding"
+  ],
+  "lessons": [
+    {
+      "id": "shard-1",
+      "title": "When copies aren't enough",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Your database is drowning in WRITES. You add five read replicas. Does it help?",
+          "choices": [
+            "Yes — five more machines share the work",
+            "No — every replica must apply every write, so you've added five machines that each do all the writing and none that do less",
+            "Yes, if you route writes to the replicas",
+            "Only during peak hours"
+          ],
+          "answer": 1,
+          "why": "Replication scales reads because any copy can answer a read, but every copy must perform every write — so a write bottleneck is untouched, and you've slightly worsened it by giving the leader five more followers to ship changes to. This is the asymmetry from unit 10 collecting its debt: copies cannot reduce write load, which leaves exactly one option — stop making every machine hold everything."
+        },
+        {
+          "type": "fill_blank",
+          "prompt": "______ splits your data across machines so each one holds only a subset of it.",
+          "choices": ["Sharding", "Replication", "Caching", "Indexing"],
+          "answer": 0,
+          "why": "Replication copies the whole dataset onto each machine; sharding divides it so each machine owns a slice. Copies versus slices — that one distinction is the whole difference between units 10 and 15."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each approach to what it does.",
+          "pairs": [
+            { "left": "Replication", "right": "Every machine holds all the data" },
+            { "left": "Sharding", "right": "Each machine holds a slice of the data" },
+            { "left": "Replication scales", "right": "Reads, and survival" },
+            { "left": "Sharding scales", "right": "Writes, and total data size" }
+          ],
+          "why": "They solve different problems and compose rather than compete: shard to divide the write load and the data, then replicate each shard so losing a machine doesn't lose that slice. Real systems at scale do both, because sharding alone gives you no redundancy — it just gives you more single points of failure."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which problems does sharding actually solve? Select all.",
+          "choices": [
+            "Write throughput beyond one machine",
+            "A dataset too large to fit on one machine",
+            "Surviving a machine dying",
+            "Read throughput"
+          ],
+          "answer": [0, 1],
+          "why": "Splitting the data means each machine takes only its share of the writes and stores only its share of the bytes, so both scale past one box. It does nothing for survival — lose a shard and that slice of your data is simply gone unless you also replicated it — and replication was already the cheaper answer for reads."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You shard users across 4 machines. Where does user 12345 live?",
+          "choices": [
+            "On whichever machine is least busy",
+            "Wherever the shard key says — a rule maps that user's id to exactly one shard, and everyone applies the same rule",
+            "On all four",
+            "The load balancer decides"
+          ],
+          "answer": 1,
+          "why": "Sharding needs a deterministic rule mapping each row to one shard, because otherwise nobody could find it again — every reader and writer must independently compute the same answer. That rule's input is the shard key, and choosing it is the single most consequential decision in this unit: it decides where every row lives, forever, and it is brutally hard to change later."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why is 'don't shard until you have to' such common advice?",
+          "choices": [
+            "Sharding is expensive in hardware",
+            "Because it permanently costs you cross-shard queries, cross-shard transactions, and painful resharding — costs you pay daily, for a scale you may not have",
+            "Because sharding is unreliable",
+            "Because databases can't be sharded safely"
+          ],
+          "answer": 1,
+          "why": "Sharding is a one-way door that changes what your database can do: queries spanning shards get slow, transactions spanning shards get hard, and the shard key becomes an assumption baked into everything. Those bills arrive every day from the moment you shard, while the benefit only arrives when one machine genuinely can't cope — so the order matters enormously. Scale up, cache, and replicate first; shard when the ceiling is actually in sight."
+        }
+      ]
+    },
+    {
+      "id": "shard-2",
+      "title": "Choosing how to split",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "You shard by user_id using ranges: users 1–1M on shard A, 1M–2M on B, and so on. Your ids auto-increment. What happens?",
+          "choices": [
+            "Load spreads evenly across shards",
+            "Every new signup lands on the newest shard, so all your write traffic hammers one machine while the others idle",
+            "Old shards get all the writes",
+            "The database rebalances automatically"
+          ],
+          "answer": 1,
+          "why": "Sequential ids mean today's users all fall in the same range, so range-partitioning on them sends every insert to whichever shard owns the highest range — you built four machines and kept a one-machine write bottleneck. The general trap: range partitioning on any value that increases with time concentrates all new writes on one shard, which is exactly what you sharded to avoid."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each partitioning strategy to its behaviour.",
+          "pairs": [
+            { "left": "Range partitioning", "right": "Ordered slices — keeps range queries fast" },
+            { "left": "Hash partitioning", "right": "Scatters keys evenly — destroys ordering" },
+            { "left": "Range's risk", "right": "Sequential keys create a hot shard" },
+            { "left": "Hash's cost", "right": "'All rows between X and Y' now hits every shard" }
+          ],
+          "why": "It's the same tradeoff as B-trees versus hashing from unit 8, promoted to the level of machines: ordering buys you range scans and risks hotspots, while hashing buys you even distribution by deliberately destroying the order you'd need for ranges."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You hash user_id to pick a shard. What did that fix, and what did it break?",
+          "choices": [
+            "Nothing changed",
+            "Writes now spread evenly across shards — but 'give me all users created last week' must now ask every shard, because related rows are deliberately scattered",
+            "It fixed everything with no cost",
+            "It broke writes but fixed reads"
+          ],
+          "answer": 1,
+          "why": "Hashing spreads keys uniformly regardless of what the values mean, which is precisely why the hot shard disappears — and precisely why ordering does too. Rows that are adjacent in time or alphabet now sit on different machines by design, so any query defined by a range has to fan out to all of them and combine the results."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A chat app shards messages by hash(message_id). Loading one conversation is now slow. Why?",
+          "choices": [
+            "The hash is slow to compute",
+            "A conversation's messages are scattered across every shard, so reading one chat means querying all of them",
+            "Messages are too large",
+            "The shard key is too long"
+          ],
+          "answer": 1,
+          "why": "The shard key decided the physical layout, and hashing by message_id scattered messages that belong together — so the app's single most common query became a fan-out to every machine. Sharding by conversation_id instead would put a whole conversation on one shard and turn that query back into a single-shard read. The lesson: shard by whatever your hottest query filters on, so that query stays local."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "So what's the rule for choosing a shard key?",
+          "choices": [
+            "Always use the primary key",
+            "Pick something with many distinct values that spreads load evenly AND matches how you query, so your common reads stay on one shard",
+            "Always hash a random value",
+            "Pick the smallest column"
+          ],
+          "answer": 1,
+          "why": "You're satisfying two demands at once: even distribution (or one machine becomes the bottleneck again) and query locality (or every read fans out). A random key nails the first and destroys the second; a sequential key does the reverse — the art is finding a key with high cardinality that also happens to be what your hot queries filter on."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You shard a multi-tenant SaaS app by tenant_id. What should worry you?",
+          "choices": [
+            "Nothing — tenants are naturally separate",
+            "Tenants aren't the same size: one enormous customer can outgrow a single shard, and no amount of rebalancing splits one tenant",
+            "Tenant ids are too long",
+            "Queries will be slow"
+          ],
+          "answer": 1,
+          "why": "Sharding by tenant gives beautiful query locality since almost every query is scoped to one tenant anyway — but it also means a tenant is indivisible, so your biggest customer must fit on one machine. That's usually a great trade right up until you land a whale, and then the fix is a composite key that can split a giant tenant further, which is much easier to design now than to retrofit."
+        }
+      ]
+    },
+    {
+      "id": "shard-3",
+      "title": "Hot shards and moving data",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "You shard a social app by user_id. One user has 200 million followers. What breaks?",
+          "choices": [
+            "Nothing — it's one row",
+            "Everything about that user lives on one shard, so that machine takes a wildly disproportionate share of traffic — a hot shard",
+            "The user can't post",
+            "All shards slow down equally"
+          ],
+          "answer": 1,
+          "why": "Even a perfect hash spreads KEYS evenly, not LOAD — and load follows popularity, which is never uniform. This is the celebrity problem, and it's why real systems special-case their outliers: caching that user's data aggressively, or splitting their activity across a composite key. Any sharding scheme that assumes keys are equally busy will eventually meet a key that isn't."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You have 4 shards, assigned by hash(key) % 4. You add a fifth machine, making it % 5. What happens?",
+          "choices": [
+            "Only the new shard's data moves",
+            "Almost every key now maps somewhere new, so the vast majority of your data has to move at once",
+            "Nothing moves",
+            "Only 20% moves"
+          ],
+          "answer": 1,
+          "why": "Changing the modulus changes the answer for nearly every key, so adding one machine triggers a near-total reshuffle of the dataset — while serving traffic. That's why naive modulo sharding is a trap you only discover on the day you need to grow, which is the worst possible day to discover it."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What does consistent hashing fix about that?",
+          "choices": [
+            "It makes hashing faster",
+            "Adding or removing a node only remaps the keys near it, so roughly 1/n of the data moves instead of nearly all of it",
+            "It removes the need for a shard key",
+            "It prevents hot shards"
+          ],
+          "answer": 1,
+          "why": "Keys and nodes are placed on the same ring, and each key belongs to the next node clockwise — so adding a node only steals the arc between it and its predecessor, leaving every other key exactly where it was. It makes growth incremental rather than catastrophic, which is the entire point. Note what it doesn't fix: a celebrity key is still one key, and the ring will happily hand it to one node."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Consistent hashing with few nodes distributes data unevenly. What's the standard fix?",
+          "choices": [
+            "Add more physical machines",
+            "Virtual nodes — place each machine at many points on the ring, so the averaging smooths out the arcs",
+            "Use a different hash function",
+            "Sort the keys first"
+          ],
+          "answer": 1,
+          "why": "With three machines you get three arcs, and arcs land wherever the hash puts them — so one machine can easily own twice its share. Giving each machine hundreds of positions on the ring means it owns hundreds of small arcs whose sizes average out, and it also means a departing machine's load is inherited by many peers rather than dumped entirely on its one neighbour."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "How does an application know which shard to talk to?",
+          "choices": [
+            "It tries each one",
+            "It computes the rule itself, or asks a routing layer or directory that knows the current mapping",
+            "The database broadcasts",
+            "The load balancer decides"
+          ],
+          "answer": 1,
+          "why": "Either every client embeds the rule — fast, but now the mapping is duplicated in every deploy and changing it means coordinating a fleet — or a routing tier owns it, which costs a hop and becomes something that must itself be replicated. A directory adds flexibility, letting you move individual shards without redeploying clients, at the price of one more component in the request path that must never be wrong."
+        },
+        {
+          "type": "tradeoff_slider",
+          "prompt": "You need to move a shard's data to new machines while staying online. Slide toward your approach.",
+          "leftLabel": "Big-bang cutover (fast, risky)",
+          "rightLabel": "Dual-write + backfill + verify (slow, safer)",
+          "answerRange": [55, 100],
+          "why": "A big-bang move is short but has no safe abort: if the copy is wrong you discover it with live traffic on the new machines and no clean way back. The incremental path — write to both, backfill history, verify they agree, then shift reads — is longer and lets you stop at any step with the old shard still authoritative. When the thing you're moving is the source of truth, reversibility is worth far more than speed."
+        }
+      ]
+    },
+    {
+      "id": "shard-4",
+      "title": "What sharding costs",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Your users are sharded across 16 machines. You run: 'count all users who signed up today.' What happens?",
+          "choices": [
+            "One shard answers",
+            "All 16 are queried and the results combined — a scatter-gather, as slow as the slowest shard",
+            "It's rejected",
+            "The router knows the answer"
+          ],
+          "answer": 1,
+          "why": "The data for that question is spread across every machine, so the query has to visit all of them and merge — and it can't finish until the slowest one replies. That's unit 4's tail-latency problem structurally guaranteed: with 16 shards you draw 16 samples from the latency distribution every time, so your p99 shard becomes your typical query."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You need to transfer money between two users who live on different shards, atomically. How hard is that?",
+          "choices": [
+            "Easy — wrap it in a transaction",
+            "Hard: a normal transaction covers one database, so spanning shards needs distributed coordination — two-phase commit or a saga",
+            "Impossible",
+            "The router handles it"
+          ],
+          "answer": 1,
+          "why": "Unit 9's boundary is exactly the shard: BEGIN/COMMIT protects one machine's data and knows nothing about the other shard, so atomicity across them needs the machinery you hoped to avoid — a coordinator that can block, or compensating actions and eventual consistency. This is why people shard so that transactions stay within a shard: put things that change together on the same machine, and the hard problem never arises."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which get harder once you shard? Select all.",
+          "choices": [
+            "Queries that span shards",
+            "Transactions across shards",
+            "Joins between tables on different shards",
+            "Looking up a single row by shard key"
+          ],
+          "answer": [0, 1, 2],
+          "why": "Anything requiring data from more than one machine becomes coordination — fan out and merge, or a distributed protocol. The single-key lookup is the one that stays easy, and in fact gets faster, since each shard is smaller. That asymmetry is the whole design principle: sharding rewards you for asking questions that live on one machine, and punishes every question that doesn't."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A year in, you realize you sharded by the wrong key. How bad is that?",
+          "choices": [
+            "Minor — just change the config",
+            "Severe: the key determined where every row physically lives, so changing it means relocating the entire dataset while serving traffic",
+            "Impossible to fix",
+            "Only affects new data"
+          ],
+          "answer": 1,
+          "why": "The shard key isn't a setting, it's the physical layout of your data — so changing it is a full migration of everything, live, with application code that assumes the old key threaded throughout. This is why the choice deserves real thought before you make it: sharding is a one-way door, and the key is the hinge."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your app is read-heavy, fits comfortably on one machine, but reads are overwhelming it. Should you shard?",
+          "choices": [
+            "Yes — sharding is how you scale",
+            "No — the data fits and writes are fine, so caching and read replicas solve this without any of sharding's costs",
+            "Yes, shard by user_id",
+            "Only if you have more than a million users"
+          ],
+          "answer": 1,
+          "why": "Sharding addresses write throughput and data size, and you have neither problem — so you'd take on cross-shard queries, distributed transactions, and a permanent key decision to fix something a cache handles for free. Match the tool to the actual bottleneck: reads want caching and replicas, writes and size want sharding."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What's the honest summary of sharding?",
+          "choices": [
+            "It's how real systems scale, so do it early",
+            "It's the only way past one machine's write and storage limits — and it costs you cross-shard queries, cross-shard transactions, and a key you can't easily change",
+            "It's obsolete now that machines are large",
+            "It's the same as replication"
+          ],
+          "answer": 1,
+          "why": "It's the last tool you reach for, because it's the only one that solves the write and size ceilings — and the only one whose costs are permanent and structural rather than tunable. Everything hard in this unit traced back to one fact: your data no longer lives in one place, so every question spanning it becomes coordination, which is precisely what unit 11 warned you that scaling out buys."
+        }
+      ]
+    }
+  ]
+}
