@@ -46,7 +46,7 @@
           ],
           "answer": 1,
           "why": "COMMIT applies your whole transaction as one unit. ROLLBACK is the opposite: discard everything since BEGIN, as though it never happened.",
-          "goDeeper": "The load-bearing word is 'together': at COMMIT every change takes effect as a single unit — there's no instant where half your writes have landed and half haven't. That's atomicity: a claim about all-or-nothing, and nothing else. Keep its two neighbours separate. DURABILITY is the promise that committed work survives a crash (unit 6's write-ahead log). ISOLATION is the promise about what other transactions can see — lesson 3. COMMIT delivers all three at the same moment, which is precisely why they're so easy to blur together."
+          "goDeeper": "The load-bearing word is 'together': at COMMIT every change takes effect as a single unit — there's no instant where half your writes have landed and half haven't. That's atomicity: a claim about all-or-nothing, and nothing else. Its two neighbours are easy to blur with it. DURABILITY also lands at COMMIT — it's the promise that committed work survives a crash (unit 6's write-ahead log) — and sharing that moment is exactly why these two get confused. ISOLATION is a different kind of thing altogether: it isn't something COMMIT does. It's the rule for what other transactions can see WHILE you're still running — and at some levels they can see your uncommitted writes. That's lesson 3."
         },
         {
           "type": "multiple_choice",
