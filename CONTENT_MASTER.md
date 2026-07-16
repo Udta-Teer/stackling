@@ -82,7 +82,7 @@ Ordered dependency-first. Each concept = one **unit** (3–5 lessons). Grouped i
 | 2 | **Client–server & HTTP** | Your app asks (request), a server answers (response); status codes; methods |
 | 3 | **APIs** | A contract for talking to a server; REST, JSON, endpoints |
 | 4 | **Latency vs throughput** | Speed of one trip vs how many trips per second; the numbers to memorize |
-| 5 | **Statelessness** | Servers that remember nothing per-request scale; where state actually lives |
+| 5 | **Where state lives** | State is the hard part; the map of places state can live, source of truth vs copies, and how to decide *(re-scoped 2026-07-16 from "Statelessness" — that angle is already covered deeply in #2's boss lesson; this broader lens sets up caching, replication, and CAP)* |
 
 ### Tier 1 — Storing data (Databases)
 | # | Concept | Core idea |
@@ -136,7 +136,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 2 | Client–server & HTTP | ✅ done | `content/02-client-server-http.json` |
 | 3 | APIs | ✅ done | `content/03-apis.json` |
 | 4 | Latency vs throughput | ✅ done | `content/04-latency-vs-throughput.json` |
-| 5 | Statelessness | ⬜ | — |
+| 5 | Where state lives *(re-scoped)* | ✅ done | `content/05-where-state-lives.json` |
 | 6 | What a database is | ⬜ | — |
 | 7 | SQL vs NoSQL | ⬜ | — |
 | 8 | Indexes | ⬜ | — |
