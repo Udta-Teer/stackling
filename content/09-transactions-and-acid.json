@@ -40,13 +40,13 @@
           "prompt": "What does COMMIT actually mean?",
           "choices": [
             "Save the data to memory",
-            "Make every change in the transaction permanent — all of them, together",
+            "Apply every change in the transaction — all of them, together",
             "Close the connection",
             "Write to a log file for later"
           ],
           "answer": 1,
-          "why": "COMMIT is the moment your work becomes permanent, all at once. ROLLBACK is the opposite: discard everything since BEGIN, as though it never happened.",
-          "goDeeper": "The load-bearing word is 'together': at COMMIT every change lands as one unit, so there's no instant where half your writes are permanent and half aren't. That's atomicity, and notice it's a claim about what SURVIVES. It says nothing at all about who can SEE your work — that's a different property called isolation, and it's lesson 3."
+          "why": "COMMIT applies your whole transaction as one unit. ROLLBACK is the opposite: discard everything since BEGIN, as though it never happened.",
+          "goDeeper": "The load-bearing word is 'together': at COMMIT every change takes effect as a single unit — there's no instant where half your writes have landed and half haven't. That's atomicity: a claim about all-or-nothing, and nothing else. Keep its two neighbours separate. DURABILITY is the promise that committed work survives a crash (unit 6's write-ahead log). ISOLATION is the promise about what other transactions can see — lesson 3. COMMIT delivers all three at the same moment, which is precisely why they're so easy to blur together."
         },
         {
           "type": "multiple_choice",
@@ -59,7 +59,7 @@
           ],
           "answer": 1,
           "why": "That's atomicity: the transaction is indivisible, so a failure anywhere undoes everything since BEGIN. You can never be left with a half-finished transfer sitting in the data.",
-          "goDeeper": "Be careful with a related-but-different question: could OTHER transactions have seen those 5 writes before you committed? That is NOT atomicity — that's isolation, and the answer depends on the isolation level you're running. At Read Uncommitted they genuinely could (a 'dirty read'). Atomicity governs what survives failure; isolation governs what others can see. Lesson 3 is entirely about that second question."
+          "goDeeper": "Be careful with a related-but-different question: could OTHER transactions have seen those 5 writes before you committed? That is NOT atomicity — that's isolation, and the answer depends on the isolation level you're running. At Read Uncommitted they genuinely could (a 'dirty read'). Atomicity governs whether you can be left half-done; isolation governs what others can see. Lesson 3 is entirely about that second question."
         },
         {
           "type": "order_steps",
@@ -69,9 +69,9 @@
             "Debit account A",
             "Credit account B",
             "COMMIT",
-            "All the changes become permanent together"
+            "All the changes take effect together"
           ],
-          "why": "Open it, do the work, commit — and only at COMMIT do all the changes become permanent, as one unit. Anything before that point can still be undone.",
+          "why": "Open it, do the work, commit — and only at COMMIT do all the changes take effect, as one unit. Anything before that point can still be undone.",
           "goDeeper": "If anything fails between BEGIN and COMMIT — an error, a crash, a ROLLBACK — the database rewinds to the state at BEGIN. That rewind is exactly what the write-ahead log from unit 6 makes possible."
         },
         {
