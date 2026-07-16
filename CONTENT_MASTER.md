@@ -140,7 +140,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 6 | What a database is | ✅ done | `content/06-what-a-database-is.json` |
 | 7 | SQL vs NoSQL | ✅ done | `content/07-sql-vs-nosql.json` |
 | 8 | Indexes | ✅ done | `content/08-indexes.json` |
-| 9 | Transactions & ACID | ⬜ | — |
+| 9 | Transactions & ACID | ✅ done | `content/09-transactions-and-acid.json` |
 | 10 | Replication | ⬜ | — |
 | 11 | Scaling: vertical vs horizontal | ⬜ | — |
 | 12 | Load balancing | ⬜ | — |
