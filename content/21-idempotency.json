@@ -181,12 +181,12 @@
           "prompt": "Order the server's handling of a request with an idempotency key.",
           "steps": [
             "Receive the request with key K",
-            "Look up K in the idempotency store",
-            "If K exists, return the stored result without redoing the work",
-            "If K is new, do the work",
-            "Store K with the result before responding"
+            "Atomically insert K as in-progress — the store's unique constraint picks the winner",
+            "If that insert conflicts, K was already claimed: return the stored result, or wait if it's still in progress",
+            "If the insert won, do the work",
+            "Update K with the result before responding"
           ],
-          "why": "Check first, work only if new, and record the outcome against the key. The ordering of the last step is the whole trick — storing the result before responding is what makes the NEXT retry able to find it, and getting that order wrong is how systems 'have idempotency keys' and still double-charge."
+          "why": "The trick is step 2. Reserving the key atomically BEFORE doing the work is what makes two simultaneous retries resolve to exactly one winner — the store's uniqueness constraint arbitrates, and the loser is told K already exists rather than finding nothing. Looking the key up and then acting on what you found is check-then-act, the same race from unit 6, and under concurrency it double-charges: both retries look, both find nothing, both proceed. That matters because a timeout typically triggers the client's retry AND a proxy's retry at once, so the concurrent case is the normal case rather than the exotic one."
         },
         {
           "type": "multiple_choice",

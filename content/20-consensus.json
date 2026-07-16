@@ -121,15 +121,15 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "Why does a majority quorum guarantee the new leader has all committed writes?",
+          "prompt": "A write is committed once a majority stored it, and a leader needs a majority to be elected. Is quorum overlap ALONE enough to guarantee the new leader has every committed write?",
           "choices": [
-            "The leader keeps a backup",
-            "A write is only committed once a majority stored it, and any new leader must be elected by a majority — those two majorities must overlap, so someone in the electing group has the write",
-            "Writes are broadcast to everyone",
-            "The old leader hands over its log"
+            "Yes — the two majorities must overlap, so it's proven",
+            "No — overlap only proves some VOTER has the write; you also need the rule that a voter refuses to vote for a candidate whose log is behind its own",
+            "Yes, because writes are broadcast to every node",
+            "No — committed writes are always lost during a failover"
           ],
           "answer": 1,
-          "why": "It's the same pigeonhole argument as unit 19's W+R>N: two majorities of the same set always share at least one member, so the electing quorum necessarily contains a node that saw every committed write. That's why committed data survives a leader dying — not because anyone hands it over, but because it was impossible for a majority to have missed it."
+          "why": "Overlap gets you halfway. Two majorities of the same set always share a member, so the electing group definitely contains someone holding every committed write — but that's a fact about the VOTERS, not the candidate. Without more, a node with a stale log could still collect a majority and be elected while missing committed entries. Raft closes the gap with an election restriction: a voter grants its vote only if the candidate's log is at least as up to date as its own, so the only candidate who can win is one that already has those writes. Overlap plus that rule is what makes committed data survive a leader dying — and the gap between them is exactly the kind of subtlety that makes hand-rolled consensus lose data."
         },
         {
           "type": "multiple_choice",

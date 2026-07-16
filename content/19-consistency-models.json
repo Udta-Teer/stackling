@@ -244,15 +244,15 @@
       "exercises": [
         {
           "type": "multiple_choice",
-          "prompt": "Quorum reads and writes: N=3 replicas, W=2, R=2. Why does that give you the latest value?",
+          "prompt": "Quorum reads and writes: N=3 replicas, W=2, R=2. What does W + R > N actually guarantee?",
           "choices": [
-            "Because 2 is a majority",
-            "Because W + R > N forces the read set and the write set to overlap by at least one replica — so at least one node you read from saw the write",
-            "Because writes are ordered",
-            "Because replicas sync in the background"
+            "That every read returns the latest value, always",
+            "Overlap: the read set and the write set must share at least one replica, so at least one node you read has seen the newest completed write",
+            "Nothing — the arithmetic is a coincidence",
+            "That writes are applied in order"
           ],
           "answer": 1,
-          "why": "It's pigeonhole arithmetic rather than magic: if you wrote to 2 of 3 and read from 2 of 3, the two sets cannot be disjoint, so at least one replica you asked holds the newest value. That's the whole trick behind tunable consistency — W+R>N buys strong reads, and dropping below it trades that guarantee for lower latency and better availability, on purpose."
+          "why": "It's pigeonhole arithmetic: write to 2 of 3 and read from 2 of 3, and the sets cannot be disjoint, so at least one replica you asked holds the newest completed write. Read that guarantee narrowly, though — overlap is necessary for a fresh read and NOT sufficient for strong consistency. A read racing an in-flight write can legitimately come back with either value; concurrent writes still have to be merged by some rule; and a 'sloppy' quorum that accepts writes onto substitute nodes can overlap with a set that never held the write at all. Real linearizability needs coordination — a leader, or consensus — which is what unit 20 is about. Arithmetic alone doesn't buy it."
         },
         {
           "type": "multiple_choice",
