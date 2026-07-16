@@ -258,7 +258,7 @@
           ],
           "answer": 1,
           "why": "An index earns its keep by NARROWING. Matching 95% of the table narrows nothing, so you pay the write cost for essentially no read benefit.",
-          "goDeeper": "Rule of thumb: index high-cardinality columns (many distinct values — email, user_id). Indexing a boolean is usually cargo cult. But note the subtlety: an index for is_active = FALSE, where only 1% are false, can be excellent — that's a partial index. Selectivity is a property of the QUERY, not just the column."
+          "goDeeper": "Rule of thumb: index high-cardinality columns (many distinct values — email, user_id). Indexing a boolean is usually cargo cult. But note the subtlety: the SAME column can be worth indexing for the opposite query — WHERE is_active = false matches only 1% of rows, so it's highly selective and an index genuinely helps. Selectivity is a property of the QUERY, not just the column. And if that rare case is all you ever query, reach for a partial index: one defined with its own WHERE clause (CREATE INDEX ... WHERE is_active = false) so it physically contains only those 1% of rows — far smaller, and cheaper to maintain on every write."
         },
         {
           "type": "multiple_choice",
