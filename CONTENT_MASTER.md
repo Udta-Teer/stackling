@@ -50,6 +50,26 @@ Write for this arc within every unit:
 
 *All 27 units were rewritten to fold that depth into the `why` (not concatenated — rewritten so each claim justifies its own answer).*
 
+### 3.3 Field tasks — sending the learner outside the app
+
+An optional `fieldTask` on a **lesson** sends the learner to their Terminal or browser to see one idea for real. It renders on the **lesson-complete screen only** — after the XP is banked — and is dismissible. It never appears mid-lesson and never blocks progress.
+
+```jsonc
+"fieldTask": {
+  "where": "Terminal",              // REQUIRED. "Terminal" or "Browser" — nothing else.
+  "seconds": 20,                    // REQUIRED. 1–60. Longer is homework, not a side quest.
+  "do": "traceroute google.com",    // REQUIRED. The exact thing to do.
+  "alt": "On Windows: `tracert …`", // optional: platform note / fallback
+  "notice": "Every numbered line…"  // REQUIRED. What to look at, and why it's the lesson.
+}
+```
+
+**⛔ Always say WHERE.** *"Run `traceroute google.com`"* is ambiguous to the exact learner this app is for — a basic coder may reasonably try the browser address bar. The `where` field is mandatory and validated against a closed set for precisely this reason.
+
+**⛔ Use them sparingly — this is enforced, not advised.** Every field task is an exit from the app, and an exit is a chance not to come back; retention is the whole product. `scripts/validate-content.py` **fails the build** on: more than **6 course-wide**, more than **1 per unit**, a missing/invalid `where`, or `seconds` over 60.
+
+**Only add one where doing the thing teaches something reading cannot** — hops you can count, a latency gap you can feel, a `304` you can watch. If prose conveys it just as well, don't spend an exit on it. Current: **3 of 6** (≈1 per 36 lessons).
+
 ### 3.2 Markdown in content strings
 
 The renderer runs `md()` over **every** displayed string — prompts, choices, `why`, match pairs, steps, diagram nodes and palette, and slider labels. It supports:

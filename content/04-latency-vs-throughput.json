@@ -112,6 +112,13 @@
     {
       "id": "lat-2",
       "title": "The numbers worth memorizing",
+      "fieldTask": {
+        "where": "Terminal",
+        "seconds": 30,
+        "do": "ping google.com   then   ping www.aeroflot.ru",
+        "alt": "Ctrl+C to stop each one. Any far-away site works — pick one on another continent.",
+        "notice": "Compare the two `time=` numbers. The gap isn't slow servers — it's distance, at the speed of light through fibre. You're measuring physics from your kitchen, and no engineering removes it."
+      },
       "exercises": [
         {
           "id": "lat-2-1",

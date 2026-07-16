@@ -13,6 +13,13 @@
     {
       "id": "hiw-1",
       "title": "It's just computers passing notes",
+      "fieldTask": {
+        "where": "Terminal",
+        "seconds": 20,
+        "do": "traceroute google.com",
+        "alt": "On Windows, it's `tracert google.com`",
+        "notice": "Every numbered line is one router your packets actually passed through. Count them — that's the 10–20 hops from this lesson, and they're real machines in real buildings between you and Google."
+      },
       "exercises": [
         {
           "id": "hiw-1-1",
@@ -25,7 +32,7 @@
             "Exactly 100"
           ],
           "answer": 2,
-          "why": "Your data hops through many routers along the way — often 10 to 20 — each one passing it a step closer to the destination. You can watch this happen yourself: run `traceroute google.com` (or `tracert` on Windows) and it prints every hop your packets take across the world."
+          "why": "Your data hops through many routers along the way — often 10 to 20 — each one passing it a step closer to the destination. Nothing about this is theoretical: your computer can list those hops for you, one line each, and you'll do exactly that in a moment."
         },
         {
           "id": "hiw-1-2",

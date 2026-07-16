@@ -207,6 +207,13 @@
     {
       "id": "csh-3",
       "title": "Reading status codes",
+      "fieldTask": {
+        "where": "Browser",
+        "seconds": 30,
+        "do": "Right-click any page → Inspect → Network tab → reload",
+        "alt": "Click any row to see its status code, method, and headers",
+        "notice": "You're watching real requests: dozens per page, each with a method and a status code. Look for a `200`, then hunt for a `304` — that's the browser being told 'you already have this', which is why the reload felt instant."
+      },
       "exercises": [
         {
           "id": "csh-3-1",

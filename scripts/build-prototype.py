@@ -67,17 +67,20 @@ def build_block():
         labels.append(TIER_LABEL[tier])
 
         # Strip fields the renderer doesn't read, so the embed stays lean.
+        def lesson(l):
+            out = {
+                "id": l.get("id"),
+                "title": l.get("title"),
+                "exercises": l.get("exercises", []),
+            }
+            if l.get("fieldTask"):          # optional post-lesson side quest
+                out["fieldTask"] = l["fieldTask"]
+            return out
+
         unit = {
             "unitId": d.get("unitId"),
             "title": d.get("title"),
-            "lessons": [
-                {
-                    "id": l.get("id"),
-                    "title": l.get("title"),
-                    "exercises": l.get("exercises", []),
-                }
-                for l in d.get("lessons", [])
-            ],
+            "lessons": [lesson(l) for l in d.get("lessons", [])],
         }
         lines.append(f"/* ---- {os.path.basename(f)} ---- */")
         lines.append(

@@ -35,6 +35,17 @@ PROTOTYPE = os.path.join(ROOT, "prototype", "lesson.html")
 # the depth. Nothing should reintroduce the field.
 GODEEPER_RETIRED_FROM = 1
 
+# A field task sends the learner OUT of the app. That's great for the one idea
+# a terminal proves better than prose, and corrosive if it becomes a habit —
+# every exit is a chance not to come back, and retention is the whole product.
+# So the discipline is enforced here rather than left to judgement:
+FIELD_TASK_MAX_TOTAL = 6      # across the entire course
+FIELD_TASK_MAX_PER_UNIT = 1   # never two exits from one unit
+FIELD_TASK_MAX_SECONDS = 60   # if it's longer, it's homework, not a side quest
+FIELD_TASK_FIELDS = {"where", "seconds", "do", "alt", "notice"}
+FIELD_TASK_REQUIRED = {"where", "seconds", "do", "notice"}
+FIELD_TASK_WHERE = {"Terminal", "Browser"}  # must name where to run it
+
 ALLOWED_FIELDS = {
     "id",  # stable per-exercise id: progress tracking + spaced repetition
     "type", "prompt", "choices", "answer", "why", "hint",
@@ -51,6 +62,7 @@ KNOWN_TYPES = {
 errors = []
 warnings = []
 seen_ids = set()
+total_field_tasks = [0]
 
 
 def err(unit, lesson, msg):
@@ -65,6 +77,25 @@ def unit_number(path):
     base = os.path.basename(path)
     m = re.match(r"(\d+)", base)
     return int(m.group(1)) if m else None
+
+
+def check_field_task(unit_name, lesson_id, t):
+    """A field task must say WHERE to run the command — the whole point is that a
+    learner who doesn't already know 'terminal vs browser' is the target reader."""
+    stray = set(t) - FIELD_TASK_FIELDS
+    if stray:
+        err(unit_name, lesson_id, f"fieldTask stray field(s): {sorted(stray)}")
+    missing = FIELD_TASK_REQUIRED - set(t)
+    if missing:
+        err(unit_name, lesson_id, f"fieldTask missing: {sorted(missing)}")
+    if t.get("where") not in FIELD_TASK_WHERE:
+        err(unit_name, lesson_id,
+            f"fieldTask `where` must be one of {sorted(FIELD_TASK_WHERE)} "
+            f"— got {t.get('where')!r}. A learner must be told where to run it.")
+    secs = t.get("seconds")
+    if not isinstance(secs, int) or not (0 < secs <= FIELD_TASK_MAX_SECONDS):
+        err(unit_name, lesson_id,
+            f"fieldTask `seconds` must be 1..{FIELD_TASK_MAX_SECONDS} — got {secs!r}")
 
 
 def check_exercise(unit_no, unit_name, lesson_id, e):
@@ -210,9 +241,22 @@ def main():
             if key not in d:
                 errors.append(f"{name} :: missing top-level `{key}`")
 
+        unit_field_tasks = 0
         for lesson in d.get("lessons", []):
             lid = lesson.get("id", "<no id>")
             total_lessons += 1
+
+            if lesson.get("fieldTask"):
+                unit_field_tasks += 1
+                total_field_tasks[0] += 1
+                check_field_task(name, lid, lesson["fieldTask"])
+        if unit_field_tasks > FIELD_TASK_MAX_PER_UNIT:
+            errors.append(f"{name} :: {unit_field_tasks} field tasks — max "
+                          f"{FIELD_TASK_MAX_PER_UNIT} per unit (each one is an exit "
+                          f"from the app; don't stack them)")
+
+        for lesson in d.get("lessons", []):
+            lid = lesson.get("id", "<no id>")
             for e in lesson.get("exercises", []):
                 total_ex += 1
                 check_exercise(n, name, lid, e)
@@ -230,8 +274,16 @@ def main():
                     if frag and json.dumps(frag, ensure_ascii=False)[1:-1] not in html:
                         err(name, lid, f"NOT IN PROTOTYPE EMBED: {frag[:70]!r}")
 
+    if total_field_tasks[0] > FIELD_TASK_MAX_TOTAL:
+        errors.append(f"{total_field_tasks[0]} field tasks course-wide — max "
+                      f"{FIELD_TASK_MAX_TOTAL}. Each one sends the learner out of "
+                      f"the app; past a handful they stop being special and start "
+                      f"costing retention.")
+
     print(f"content: {len(files)} units, {total_lessons} lessons, {total_ex} exercises")
     print(f"goDeeper retired from unit {GODEEPER_RETIRED_FROM} onward")
+    print(f"field tasks: {total_field_tasks[0]}/{FIELD_TASK_MAX_TOTAL} "
+          f"(1 per ~{total_lessons // max(1, total_field_tasks[0])} lessons)")
 
     if not quiet and warnings:
         print(f"\n{len(warnings)} advisory warning(s) — human judgement required:")
