@@ -1,0 +1,344 @@
+{
+  "unitId": "indexes",
+  "tier": 1,
+  "title": "Indexes",
+  "subtitle": "How the database jumps instead of scanning — and what it charges you",
+  "objectives": [
+    "Explain what an index is and why it turns a scan into ~20 steps",
+    "Describe why databases use B-trees, and what sortedness buys you",
+    "Account for the real cost of an index: writes, disk, and when the planner ignores it",
+    "Design a composite index for a real query — right columns, right order — and verify with EXPLAIN"
+  ],
+  "lessons": [
+    {
+      "id": "idx-1",
+      "title": "The book index",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "A 1,000-page book. You want every page mentioning 'sharding.' You could read all 1,000 pages — or flip to the index at the back. What does that index give you?",
+          "choices": [
+            "A summary of the book",
+            "A sorted list of terms, each with page numbers — so you jump straight there",
+            "A faster way to read every page",
+            "Nothing you couldn't get by reading"
+          ],
+          "answer": 1,
+          "why": "That's literally what a database index is: a sorted structure mapping values to locations, so you go straight to what you want instead of reading everything.",
+          "goDeeper": "Notice three properties of that book index, because all three matter: it's SEPARATE from the content, it's SORTED (the content isn't), and it's SMALLER than the book. Those are exactly the properties that make a database index work."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "So what IS a database index?",
+          "choices": [
+            "A faster copy of the whole table",
+            "A separate, sorted data structure mapping column values to row locations",
+            "A cache of recent query results",
+            "A compressed version of the table"
+          ],
+          "answer": 1,
+          "why": "It's a separate structure holding one (or a few) columns, kept sorted, with pointers to where the full rows live — maintained automatically by the database.",
+          "goDeeper": "Redundant and derived should ring a bell from unit 5: an index is rebuildable state. It contains nothing that isn't already in the table. That's precisely why you can DROP an index and rebuild it without losing a single byte of data."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Finding a value among 1 million unsorted rows takes up to 1 million checks. Using a sorted index structure, roughly how many steps?",
+          "choices": ["1 million", "About 1,000", "About 20", "Exactly 1"],
+          "answer": 2,
+          "why": "Each step halves the remaining search space, so it's log₂(1,000,000) ≈ 20 steps. Twenty, versus a million.",
+          "goDeeper": "And it gets better as you grow, which is the genuinely magical part. A BILLION rows is only ~30 steps. Doubling your data adds exactly ONE step. That's why indexed lookups stay fast forever while scans fall off a cliff — they scale completely differently."
+        },
+        {
+          "type": "estimate",
+          "prompt": "Roughly how many steps does an index need to find one row among 1 billion? (It's log₂ of a billion.)",
+          "answer": 30,
+          "tolerance": 5,
+          "unit": "steps",
+          "why": "2³⁰ ≈ 1.07 billion, so about 30 steps. A billion rows, thirty comparisons.",
+          "goDeeper": "Sit with the gap: 30 steps versus 1,000,000,000. This is not an optimization — it's a different category of thing. Almost every 'the database got slow' story is really 'we started scanning where we used to jump.'"
+        },
+        {
+          "type": "fill_blank",
+          "prompt": "Without a useful index, the database performs a full table ______; with one, it jumps straight to the rows.",
+          "choices": ["scan", "backup", "commit", "join"],
+          "answer": 0,
+          "why": "Full table scan = read every row and check it. That's the default when no index can serve your query.",
+          "goDeeper": null
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "An index is derived data — everything in it also exists in the table. What follows from that?",
+          "choices": [
+            "You can drop and rebuild an index without losing any data",
+            "Dropping an index deletes the underlying rows",
+            "The index is the source of truth",
+            "Indexes must be backed up separately or data is lost"
+          ],
+          "answer": 0,
+          "why": "Indexes are pure optimization: rebuildable, droppable, and safe to experiment with. No data lives only in an index.",
+          "goDeeper": "Operationally this is liberating — you can tune performance by adding and removing indexes without risking data. It's also exactly why teams add too many of them: they feel free. The next lesson is about the bill."
+        }
+      ]
+    },
+    {
+      "id": "idx-2",
+      "title": "How it actually works",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Databases use B-trees for indexes rather than simple binary trees. Why?",
+          "choices": [
+            "Tradition — binary trees came later",
+            "A B-tree node holds hundreds of keys, matching how disks read in big blocks — so one disk read gets you hundreds of keys instead of one",
+            "B-trees use less memory",
+            "Binary trees can't stay sorted"
+          ],
+          "answer": 1,
+          "why": "Disks read in pages (say 8KB). A binary tree would cost one disk read per comparison — brutal. A B-tree is wide and shallow: each node is a page holding hundreds of keys, so even a billion rows is only ~3–4 disk reads deep.",
+          "goDeeper": "This is a gorgeous example of a data structure shaped by hardware. In RAM, a binary tree is perfectly fine. On disk — where a read costs ~100µs (unit 4's ladder) — you must minimize READS, not comparisons. The B-tree exists because disks read blocks, not bytes."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You create an index on the `email` column. What does the index actually store?",
+          "choices": [
+            "A complete copy of every row",
+            "The email values, kept sorted, each with a pointer to where the full row lives",
+            "Only a list of emails, with no way back to the row",
+            "A hash of the entire row"
+          ],
+          "answer": 1,
+          "why": "Sorted values plus pointers. That's why it's small (one column, not the whole row) and why it can find you the row once it locates the value.",
+          "goDeeper": "That pointer matters more than it looks. Finding the value in the index is fast — but then fetching the actual row is a separate, random read. Hold that thought; it explains the planner's behaviour in the next lesson."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why can an index on `created_at` efficiently answer 'all rows from last week'?",
+          "choices": [
+            "It can't — indexes only do exact matches",
+            "Because the index is SORTED: once you find the start of the range, the rest sit right next to each other",
+            "Because dates are small",
+            "It scans, but quickly"
+          ],
+          "answer": 1,
+          "why": "Sortedness is what gives you ranges. Find the start, then read sequentially — you never search again.",
+          "goDeeper": "This is why sorted beats hashed for most database work. A hash index is O(1) for `= value` but completely useless for `> value` or ORDER BY, because hashing deliberately destroys order. B-trees give you equality AND ranges AND sorting from one structure — which is why they're the default everywhere."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each approach to what it gives you.",
+          "pairs": [
+            { "left": "B-tree index", "right": "Sorted: equality, ranges, and ORDER BY" },
+            { "left": "Hash index", "right": "Equality only — order is destroyed" },
+            { "left": "Full table scan", "right": "Read every row and check it" },
+            { "left": "Index lookup", "right": "Jump via a sorted structure" }
+          ],
+          "why": "Different structures make different promises. The B-tree's sortedness is what makes it the versatile default.",
+          "goDeeper": "Hash indexes aren't useless — for pure key-value equality lookups they're faster and smaller. They're just too narrow to be a default, because real queries want ranges and ordering sooner or later."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your query ends with ORDER BY created_at, and there's an index on created_at. What's the bonus?",
+          "choices": [
+            "Nothing — indexes only help filtering",
+            "The index is already in sorted order, so the database can skip the sort step entirely",
+            "It makes the sort slower",
+            "The rows come back in random order"
+          ],
+          "answer": 1,
+          "why": "An index doesn't just find rows — it can hand them over already in order, eliminating an expensive sort.",
+          "goDeeper": "Sorting a large result set can dominate a query's cost, and if it doesn't fit in memory it spills to disk and collapses. A surprising share of 'nothing changed, but it got slow' incidents are a query that quietly started sorting on disk as the data grew."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What's the essential property that makes an index fast?",
+          "choices": [
+            "It's stored in RAM",
+            "It's sorted, so the database can eliminate most of the data with each step instead of checking rows one by one",
+            "It's compressed",
+            "It's written in C"
+          ],
+          "answer": 1,
+          "why": "Order is the whole trick. Sortedness lets you discard half (or, in a B-tree, the vast majority) of the remaining candidates at every step.",
+          "goDeeper": "Which is also the clue to every index's limitation: an index can only help when your query aligns with the order it's stored in. Ask it a question that doesn't match its ordering and it may as well not exist — the theme of lesson 4."
+        }
+      ]
+    },
+    {
+      "id": "idx-3",
+      "title": "Indexes aren't free",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "You add 5 indexes to a table to make reads fast. What happens to writes?",
+          "choices": [
+            "Nothing — indexes only affect reads",
+            "Every INSERT, UPDATE, and DELETE must now update all 5 indexes too, so writes get slower",
+            "Writes get faster too",
+            "Only INSERTs are affected"
+          ],
+          "answer": 1,
+          "why": "An index is a copy that must be kept in sync. Every write to the table pays to maintain every index on it.",
+          "goDeeper": "This is the central tradeoff of the unit: indexes buy read speed with write speed and disk. A table with 15 indexes can be several times slower to write than the same table with two. There is no free lookup — you're moving the cost, not removing it."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "What does each additional index cost you? Select all.",
+          "choices": [
+            "Slower writes",
+            "More disk space",
+            "More memory — indexes compete for cache",
+            "Slower reads on the indexed column"
+          ],
+          "answer": [0, 1, 2],
+          "why": "Writes, disk, and memory pressure. Reads on that column get FASTER — that's the entire point of paying the other three.",
+          "goDeeper": "The memory one is quietly important. Your indexes compete with your data for the database's cache. Enough unnecessary indexes and you evict the hot data you actually needed — so a pile of 'harmless' indexes can slow down reads they have nothing to do with."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A team adds an index on every column, 'just in case.' Result?",
+          "choices": [
+            "Every query is now fast",
+            "Writes crawl, disk balloons, the planner has more ways to choose wrong — and most of those indexes are never used at all",
+            "No measurable effect",
+            "The database refuses"
+          ],
+          "answer": 1,
+          "why": "Unused indexes are pure cost: maintained on every single write, read by nobody. 'Just in case' is a bill you pay forever for a benefit you never collect.",
+          "goDeeper": "Real databases track index usage statistics. Finding and dropping dead indexes is a classic, high-value, low-risk cleanup — it's common to find tables where half the indexes have never been used since the day they were created."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You have an index on `country`. For WHERE country = 'US', where 90% of rows are US, the planner does a full scan anyway. Why?",
+          "choices": [
+            "It's a bug in the planner",
+            "Reading 90% of the table via an index means randomly jumping to nearly every row — streaming the whole table sequentially is genuinely faster",
+            "The index is corrupt",
+            "Indexes don't work on text columns"
+          ],
+          "answer": 1,
+          "why": "The index gives you a pointer, then you pay a random read to fetch each row. Doing that for 90% of the table is far slower than just reading the table straight through.",
+          "goDeeper": "It's sequential-vs-random again — the same physics behind unit 6's write-ahead log. The planner is right and your intuition is wrong. It also reveals the rule that governs lesson 4: an index only helps when it's SELECTIVE — when it narrows to a small fraction of the table."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Which is cheaper to use as an indexed primary key: an auto-incrementing id, or a random UUID?",
+          "choices": [
+            "They're identical",
+            "The auto-incrementing id — new values always append at the end of the index, while random UUIDs scatter writes across the whole structure",
+            "The random UUID — randomness spreads load evenly",
+            "Neither can be indexed"
+          ],
+          "answer": 1,
+          "why": "Sequential ids append to one hot spot at the end of the index. Random UUIDs land anywhere, forcing the B-tree to split pages all over and destroying cache locality.",
+          "goDeeper": "This is a famous, real performance problem — random UUID primary keys can dramatically slow inserts on large tables. It's exactly why UUIDv7 (time-ordered) was standardized: you keep global uniqueness but restore write locality. A great example of a 'neutral' id choice quietly being a storage decision."
+        },
+        {
+          "type": "tradeoff_slider",
+          "prompt": "A write-heavy audit log: billions of appends, queried only during rare investigations. Slide toward how many indexes you'd add.",
+          "leftLabel": "Few or none (fast writes)",
+          "rightLabel": "Many (fast reads)",
+          "answerRange": [0, 35],
+          "why": "Write-heavy and read-rarely means indexes are almost pure cost — you'd pay on every one of billions of writes to speed up a query someone runs twice a year.",
+          "goDeeper": "Same rule as the social feed, pointed the other way: put the work where the traffic isn't. Here the traffic is writes, so keep the write path lean and accept that the rare investigation takes a slow scan. That's the correct trade, not a compromise."
+        }
+      ]
+    },
+    {
+      "id": "idx-4",
+      "title": "Designing indexes",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "You index a boolean `is_active` column where 95% of rows are true. Does it help WHERE is_active = true?",
+          "choices": [
+            "Yes — indexes always help",
+            "Barely — it matches 95% of rows, so it isn't selective, and the planner will likely scan anyway",
+            "Yes, because booleans are small",
+            "It makes the query fail"
+          ],
+          "answer": 1,
+          "why": "An index earns its keep by NARROWING. Matching 95% of the table narrows nothing, so you pay the write cost for essentially no read benefit.",
+          "goDeeper": "Rule of thumb: index high-cardinality columns (many distinct values — email, user_id). Indexing a boolean is usually cargo cult. But note the subtlety: an index for is_active = FALSE, where only 1% are false, can be excellent — that's a partial index. Selectivity is a property of the QUERY, not just the column."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You have a composite index on (last_name, first_name). Which query can use it?",
+          "choices": [
+            "WHERE first_name = 'Ada'",
+            "WHERE last_name = 'Lovelace'",
+            "Both work equally well",
+            "Neither"
+          ],
+          "answer": 1,
+          "why": "A composite index sorts by the first column, then the second — exactly like a phone book sorted by last name, then first. You can find all the Lovelaces instantly. You cannot find all the Adas, because they're scattered across every last name.",
+          "goDeeper": "This is the leftmost prefix rule, and it's one of the most misunderstood things in databases. An index on (a, b, c) serves queries on a, on (a, b), and on (a, b, c) — but NOT on b alone, c alone, or (b, c). The column ORDER in a composite index is a real design decision, not a formality."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Given an index on (a, b, c), which queries can use it? Select all.",
+          "choices": [
+            "WHERE a = 1",
+            "WHERE a = 1 AND b = 2",
+            "WHERE b = 2",
+            "WHERE a = 1 AND b = 2 AND c = 3"
+          ],
+          "answer": [0, 1, 3],
+          "why": "Leftmost prefix: you must start at `a`. Anything that begins with a can use the index; b on its own can't, because the index isn't sorted by b — it's sorted by b only within each a.",
+          "goDeeper": "Practical consequence: one well-ordered composite index on (a, b, c) can replace separate indexes on a and on (a, b) — three queries served, one index maintained. Getting the order right is how you get fast reads without drowning your writes."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Query: SELECT email FROM users WHERE email = 'x@y.com', with an index on email. How many times must the database touch the actual table?",
+          "choices": [
+            "Once, to fetch the row",
+            "Zero — the index already contains email, so the query is answered entirely from the index",
+            "Twice",
+            "Once per matching row"
+          ],
+          "answer": 1,
+          "why": "The index holds email values. The query only wants an email. So the answer is already in the index — the database never fetches the row at all.",
+          "goDeeper": "This is a covering index (an index-only scan), and it's a bigger deal than it sounds: you skip the random read to fetch the row, which is often the expensive half. It's why engineers sometimes add a column to an index they never filter on — purely so the index can answer the whole query alone."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "How do you find out whether your query is actually using an index?",
+          "choices": [
+            "Time it and compare",
+            "Run EXPLAIN — the database shows you the plan it chose",
+            "Read the database source code",
+            "You can't know for sure"
+          ],
+          "answer": 1,
+          "why": "Don't guess — ask. EXPLAIN shows the plan: whether you got a sequential scan or an index lookup, and what it estimates the cost to be.",
+          "goDeeper": "This is arguably the highest-leverage database skill for an average engineer. A huge share of 'the database is slow' turns out to be one missing index, and EXPLAIN finds it in about ten seconds. Learning to read a query plan pays for itself in a week."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A query filters WHERE user_id = 42 AND status = 'open', then sorts ORDER BY created_at. Which single composite index best serves it?",
+          "choices": [
+            "(created_at)",
+            "(user_id, status, created_at)",
+            "(status)",
+            "(created_at, user_id, status)"
+          ],
+          "answer": 1,
+          "why": "Equality columns first (user_id, status) to narrow hard, then the sort column (created_at). The index jumps to user 42's open rows, and they're already in created_at order — so the sort step disappears too.",
+          "goDeeper": "The general recipe: equality columns first, then your range/sort column. Get the order right and one index does the filtering AND the sorting. Get it backwards — (created_at, user_id, status) — and it's nearly useless here, because you'd have to scan every date to find user 42. Same columns, opposite outcome."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What's the honest one-sentence summary of indexing?",
+          "choices": [
+            "Index every column so every query is fast",
+            "An index is a derived, sorted copy that trades write speed and disk for read speed — so index deliberately: for real queries, on selective columns, in the right order, and verify with EXPLAIN",
+            "Avoid indexes; they slow down writes",
+            "Let the database figure it out automatically"
+          ],
+          "answer": 1,
+          "why": "Both extremes are wrong. Indexes are a deliberate purchase: you're spending write throughput and disk to buy read latency, and it's only a good deal when the index actually serves a query you really run.",
+          "goDeeper": "Step back and notice this is unit 5's lesson wearing new clothes: an index is a derived copy that buys speed and costs consistency work. The only difference is the database does the syncing for you — and bills you on every write. Same bargain, all the way down."
+        }
+      ]
+    }
+  ]
+}

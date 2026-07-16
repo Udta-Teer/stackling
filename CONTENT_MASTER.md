@@ -139,7 +139,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 5 | Where state lives *(re-scoped)* | ✅ done | `content/05-where-state-lives.json` |
 | 6 | What a database is | ✅ done | `content/06-what-a-database-is.json` |
 | 7 | SQL vs NoSQL | ✅ done | `content/07-sql-vs-nosql.json` |
-| 8 | Indexes | ⬜ | — |
+| 8 | Indexes | ✅ done | `content/08-indexes.json` |
 | 9 | Transactions & ACID | ⬜ | — |
 | 10 | Replication | ⬜ | — |
 | 11 | Scaling: vertical vs horizontal | ⬜ | — |
