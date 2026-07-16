@@ -142,7 +142,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 8 | Indexes | ✅ done | `content/08-indexes.json` |
 | 9 | Transactions & ACID | ✅ done | `content/09-transactions-and-acid.json` |
 | 10 | Replication | ✅ done | `content/10-replication.json` |
-| 11 | Scaling: vertical vs horizontal | ⬜ | — |
+| 11 | Scaling: vertical vs horizontal | ✅ done | `content/11-scaling-vertical-vs-horizontal.json` |
 | 12 | Load balancing | ⬜ | — |
 | 13 | Caching | ⬜ | — |
 | 14 | CDNs | ⬜ | — |
