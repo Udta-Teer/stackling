@@ -45,8 +45,8 @@
             "Write to a log file for later"
           ],
           "answer": 1,
-          "why": "COMMIT applies your whole transaction as one unit. ROLLBACK is the opposite: discard everything since BEGIN, as though it never happened.",
-          "goDeeper": "The load-bearing word is 'together': either the whole transaction takes effect, or none of it does — there is no outcome in which half of it stuck. That is all atomicity claims, and it's worth holding it exactly that narrowly. Note it's a claim about the OUTCOME, not about any moment along the way: mid-transaction, some of your writes have obviously happened and some haven't — that's just executing. The other ACID letters make their own, quite different promises, and quietly blurring them into atomicity is the most common way people misread what a transaction actually guarantees. Lesson 2 pulls them apart one at a time."
+          "why": "COMMIT applies your whole transaction as one unit: either the whole thing takes effect, or none of it does. ROLLBACK is the opposite — discard everything since BEGIN, as though it never happened.",
+          "goDeeper": null
         },
         {
           "type": "multiple_choice",

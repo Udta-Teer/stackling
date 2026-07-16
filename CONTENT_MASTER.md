@@ -141,7 +141,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 7 | SQL vs NoSQL | ✅ done | `content/07-sql-vs-nosql.json` |
 | 8 | Indexes | ✅ done | `content/08-indexes.json` |
 | 9 | Transactions & ACID | ✅ done | `content/09-transactions-and-acid.json` |
-| 10 | Replication | ⬜ | — |
+| 10 | Replication | ✅ done | `content/10-replication.json` |
 | 11 | Scaling: vertical vs horizontal | ⬜ | — |
 | 12 | Load balancing | ⬜ | — |
 | 13 | Caching | ⬜ | — |
