@@ -24,20 +24,18 @@
             "The database retries automatically"
           ],
           "answer": 1,
-          "why": "Two writes that must both happen or neither. Crash in the middle and you've destroyed money — with no error, and no way for either account to know.",
-          "goDeeper": "This is the canonical example for a reason: it's the clearest case where 'half done' is strictly worse than 'not done at all.' A failed transfer is an inconvenience. A half transfer is a corrupted ledger, and nobody can tell by looking at it."
+          "why": "Two writes that must both happen or neither — crash in the middle and you've destroyed money, with no error, and no way for either account to know. This is the canonical example for a reason: it's the clearest case where *half done* is strictly worse than *not done at all*. A failed transfer is an inconvenience; a half transfer is a corrupted ledger, and nobody can tell by looking at it."
         },
         {
           "type": "fill_blank",
           "prompt": "A ______ groups multiple operations so they all succeed together or all fail together.",
           "choices": ["transaction", "migration", "query", "connection"],
           "answer": 0,
-          "why": "A transaction turns many operations into one indivisible unit — the database's answer to 'half done.'",
-          "goDeeper": null
+          "why": "A transaction turns many operations into one indivisible unit — the database's answer to 'half done'."
         },
         {
           "type": "multiple_choice",
-          "prompt": "What does COMMIT actually mean?",
+          "prompt": "What does `COMMIT` actually mean?",
           "choices": [
             "Save the data to memory",
             "Apply every change in the transaction — all of them, together",
@@ -45,34 +43,31 @@
             "Write to a log file for later"
           ],
           "answer": 1,
-          "why": "COMMIT applies your whole transaction as one unit: either the whole thing takes effect, or none of it does. ROLLBACK is the opposite — discard everything since BEGIN, as though it never happened.",
-          "goDeeper": null
+          "why": "`COMMIT` applies your whole transaction as one unit: either the whole thing takes effect, or none of it does. `ROLLBACK` is the opposite — discard everything since `BEGIN`, as though it never happened."
         },
         {
           "type": "multiple_choice",
           "prompt": "You're 5 of 10 writes into a transaction when it hits an error and rolls back. What happens to those 5 writes?",
           "choices": [
             "They stay — they already succeeded",
-            "All 5 are undone: the database rewinds to the state at BEGIN",
+            "All 5 are undone: the database rewinds to the state at `BEGIN`",
             "Only the most recent one is undone",
             "The database pauses and asks you what to do"
           ],
           "answer": 1,
-          "why": "That's atomicity: the transaction is indivisible, so a failure anywhere undoes everything since BEGIN. You can never be left with a half-finished transfer sitting in the data.",
-          "goDeeper": "Be careful with a related-but-different question: could OTHER transactions have seen those 5 writes before you committed? That is NOT atomicity — it's isolation, and the answer depends on the isolation level you're running (at Read Uncommitted they genuinely could — a 'dirty read'). Atomicity is only about whether you can be left half-done. Lesson 3 takes isolation apart properly."
+          "why": "That's atomicity: the transaction is indivisible, so a failure anywhere undoes everything since `BEGIN` and you can never be left with a half-finished transfer sitting in the data. Be careful with a related-but-different question: could OTHER transactions have seen those 5 writes before you committed? That is NOT atomicity — it's isolation, and the answer depends on the isolation level you're running (at Read Uncommitted they genuinely could — a *dirty read*). Atomicity is only about whether you can be left half-done; lesson 3 takes isolation apart properly."
         },
         {
           "type": "order_steps",
           "prompt": "Order the life of a transaction.",
           "steps": [
-            "BEGIN",
+            "`BEGIN`",
             "Debit account A",
             "Credit account B",
-            "COMMIT",
+            "`COMMIT`",
             "All the changes take effect together"
           ],
-          "why": "Open it, do the work, commit — and only at COMMIT do all the changes take effect, as one unit. Anything before that point can still be undone.",
-          "goDeeper": "If anything fails between BEGIN and COMMIT — an error, a crash, a ROLLBACK — the database rewinds to the state at BEGIN. That rewind is exactly what the write-ahead log from unit 6 makes possible."
+          "why": "Open it, do the work, commit — and only at `COMMIT` do all the changes take effect, as one unit, with anything before that point still undoable. If anything fails between `BEGIN` and `COMMIT` — an error, a crash, a `ROLLBACK` — the database rewinds to the state at `BEGIN`, and that rewind is exactly what the write-ahead log from unit 6 makes possible."
         },
         {
           "type": "multiple_choice",
@@ -84,8 +79,7 @@
             "Transactions are always the right tool"
           ],
           "answer": 1,
-          "why": "Atomicity matters when several changes must hold together. A single independent insert is already all-or-nothing by itself — wrapping it in a transaction buys you nothing.",
-          "goDeeper": "Good instinct to build: reach for a transaction when there's an invariant across multiple writes. The question is never 'is this important data?' — it's 'is there a rule that would break if only some of this landed?'"
+          "why": "Atomicity matters when several changes must hold together; a single independent insert is already all-or-nothing by itself, so wrapping it in a transaction buys you nothing. Good instinct to build: reach for a transaction when there's an invariant across multiple writes. The question is never 'is this important data?' — it's 'is there a rule that would break if only some of this landed?'"
         }
       ]
     },
@@ -102,8 +96,7 @@
             { "left": "Isolation", "right": "Concurrent transactions don't corrupt each other" },
             { "left": "Durability", "right": "Committed means it survives a crash" }
           ],
-          "why": "Four promises: indivisible, rule-abiding, non-interfering, and permanent.",
-          "goDeeper": "They're not equally interesting, which the acronym hides. Two of them are essentially on/off, one is barely the database's doing, and one is a dial you're probably turning without realising. The rest of this lesson sorts out which is which."
+          "why": "Four promises: indivisible, rule-abiding, non-interfering, and permanent. They're not equally interesting, which the acronym hides — two are essentially on/off, one is barely the database's doing, and one is a dial you're probably turning without realising. The rest of this lesson sorts out which is which."
         },
         {
           "type": "multiple_choice",
@@ -115,21 +108,19 @@
             "Recovered only if you had a backup"
           ],
           "answer": 1,
-          "why": "That's the D, and it's the promise you met in unit 6: the write-ahead log is forced to disk before COMMIT returns.",
-          "goDeeper": "Which is why COMMIT isn't instant — it's waiting on physics. Every 'why are my writes slow?' question eventually arrives at this: you asked for a guarantee that requires the disk to confirm."
+          "why": "That's the D, and it's the promise you met in unit 6: the write-ahead log is forced to disk before `COMMIT` returns. Which is why `COMMIT` isn't instant — it's waiting on physics, and every 'why are my writes slow?' question eventually arrives here: you asked for a guarantee that requires the disk to confirm."
         },
         {
           "type": "multiple_choice",
           "prompt": "Which letter of ACID is really about YOUR rules rather than the database's own machinery?",
           "choices": [
             "Atomicity",
-            "Consistency — it just means the constraints you declared (unique, foreign keys, checks) hold before and after",
+            "Consistency — it just means the constraints you declared (`UNIQUE`, foreign keys, checks) hold before and after",
             "Isolation",
             "Durability"
           ],
           "answer": 1,
-          "why": "A, I, and D are properties the engine provides. C only says: the database won't let you violate the constraints you defined. If you declared no constraints, C promises approximately nothing.",
-          "goDeeper": "Plenty of practitioners argue the C is a bit of a cheat — it's really 'the database enforces your declared invariants,' which is just... constraints. The genuinely hard letters are A, I, and D. And watch out: the C in CAP means something completely different, a collision of names that has confused engineers for twenty years."
+          "why": "A, I, and D are properties the engine provides; C only says the database won't let you violate the constraints you defined — so if you declared no constraints, C promises approximately nothing. Plenty of practitioners argue the C is a bit of a cheat, since it's really 'the database enforces your declared invariants', which is just... constraints. And watch out: the C in CAP means something completely different, a collision of names that has confused engineers for twenty years."
         },
         {
           "type": "multiple_choice",
@@ -141,8 +132,7 @@
             "Consistency — you tune it per query"
           ],
           "answer": 1,
-          "why": "Atomicity and durability are essentially on or off — you get them. Isolation is a spectrum you configure, and the setting decides which concurrency bugs remain possible.",
-          "goDeeper": "Here's the uncomfortable part: most engineers cannot tell you what isolation level their production database runs at. They're relying on guarantees they've never looked up — and the defaults are not the strongest ones. That's the next lesson."
+          "why": "Atomicity and durability are essentially on or off — you get them — while isolation is a spectrum you configure, and the setting decides which concurrency bugs remain possible. Here's the uncomfortable part: most engineers cannot tell you what isolation level their production database runs at, so they're relying on guarantees they've never looked up — and the defaults are not the strongest ones."
         },
         {
           "type": "multi_select",
@@ -154,8 +144,7 @@
             "The C in ACID means something different from the C in CAP"
           ],
           "answer": [0, 1, 3],
-          "why": "Isolation is the odd one — it's configurable, and databases differ in both their defaults and what their level names actually mean.",
-          "goDeeper": "That last point is a genuine trap: two databases can both say 'Repeatable Read' and give you materially different guarantees. The label is not the specification."
+          "why": "Isolation is the odd one — it's configurable, and databases differ in both their defaults and what their level names actually mean. That last point is a genuine trap: two databases can both say 'Repeatable Read' and give you materially different guarantees, so the label is not the specification."
         },
         {
           "type": "multiple_choice",
@@ -167,8 +156,7 @@
             "ACID only applies to reads"
           ],
           "answer": 1,
-          "why": "'ACID compliant' is not a force field. The I in ACID is whatever level you're running — and the default is not serializable.",
-          "goDeeper": "This misconception causes real bugs. Teams assume the database is protecting an invariant it was never asked to protect, then find corrupted data months later with no error in any log. Concurrency bugs don't crash — they quietly lie."
+          "why": "'ACID compliant' is not a force field: the I in ACID is whatever level you're running, and the default is not serializable. This misconception causes real bugs — teams assume the database is protecting an invariant it was never asked to protect, then find corrupted data months later with no error in any log. Concurrency bugs don't crash, they quietly lie."
         }
       ]
     },
@@ -186,8 +174,7 @@
             "It's a licensing restriction"
           ],
           "answer": 1,
-          "why": "Isolation is bought with throughput. The stricter you go, the more the database must coordinate or abort, so it lets you pick your point on the curve.",
-          "goDeeper": "And the defaults are NOT the strictest. Postgres defaults to Read Committed; MySQL's InnoDB defaults to Repeatable Read. Neither is serializable. So unless you changed it deliberately, you are running with known anomalies permitted — right now, in production."
+          "why": "Isolation is bought with throughput: the stricter you go, the more the database must coordinate or abort, so it lets you pick your point on the curve. And the defaults are NOT the strictest — Postgres defaults to Read Committed, MySQL's InnoDB to Repeatable Read, neither of which is serializable. So unless you changed it deliberately, you are running with known anomalies permitted, right now, in production."
         },
         {
           "type": "match_pairs",
@@ -198,8 +185,7 @@
             { "left": "Phantom read", "right": "You re-run a range query and new rows appear" },
             { "left": "Lost update", "right": "Two read-modify-writes; one is silently overwritten" }
           ],
-          "why": "Each isolation level is defined by which of these it forbids. Knowing the anomalies is how you read the levels.",
-          "goDeeper": "You already met lost update in unit 6 — the counter that went from 10 to 11 instead of 12. It wasn't a database bug; it was an isolation level doing exactly what it promised, which was less than you assumed."
+          "why": "Each isolation level is defined by which of these it forbids, so knowing the anomalies is how you read the levels. You already met lost update in unit 6 — the counter that went from 10 to 11 instead of 12 — and it wasn't a database bug: it was an isolation level doing exactly what it promised, which was less than you assumed."
         },
         {
           "type": "order_steps",
@@ -210,8 +196,7 @@
             "Repeatable Read",
             "Serializable"
           ],
-          "why": "Each rung forbids more anomalies and costs more coordination. Read Uncommitted allows dirty reads; Read Committed stops them; Repeatable Read stops non-repeatable reads; Serializable stops everything.",
-          "goDeeper": "Read Uncommitted is almost never worth using — you get dirty reads for a performance win that modern engines barely deliver. The real decision in practice is between Read Committed, Repeatable Read, and Serializable."
+          "why": "Each rung forbids more anomalies and costs more coordination: Read Uncommitted allows dirty reads, Read Committed stops them, Repeatable Read stops non-repeatable reads, and Serializable stops everything. Read Uncommitted is almost never worth using — you get dirty reads for a performance win modern engines barely deliver — so the real decision in practice is between the other three."
         },
         {
           "type": "multiple_choice",
@@ -223,8 +208,7 @@
             "That reads are always fast"
           ],
           "answer": 1,
-          "why": "It's a promise about the outcome, not the schedule. The database may run everything concurrently, as long as the final state matches SOME serial order.",
-          "goDeeper": "That 'as if' does enormous work. The engine may let transactions run in parallel and then ABORT one when it spots a conflict that couldn't have arisen serially. Which means under Serializable your transaction can fail through no fault of its own — and your code must be ready to retry. Correctness didn't become free; it moved into your error handling."
+          "why": "It's a promise about the outcome rather than the schedule: the database may run everything concurrently, as long as the final state matches SOME serial order. That 'as if' does enormous work — the engine may let transactions run in parallel and then ABORT one when it spots a conflict that couldn't have arisen serially, which means under Serializable your transaction can fail through no fault of its own and your code must be ready to retry. Correctness didn't become free; it moved into your error handling."
         },
         {
           "type": "multiple_choice",
@@ -236,8 +220,7 @@
             "A deadlock"
           ],
           "answer": 1,
-          "why": "No two transactions touched the same row, so most isolation levels see no conflict at all. Yet together they broke an invariant that neither broke alone.",
-          "goDeeper": "This is the anomaly that snapshot isolation — which is what Postgres's 'Repeatable Read' actually is — still permits, and that Serializable prevents. It's subtle precisely BECAUSE nothing overlapped: the bug lives in a rule spanning rows, not in any single row. If your correctness depends on an invariant across multiple rows, Read Committed and Repeatable Read will not save you."
+          "why": "No two transactions touched the same row, so most isolation levels see no conflict at all — yet together they broke an invariant that neither broke alone. This is the anomaly that snapshot isolation (which is what Postgres's 'Repeatable Read' actually is) still permits, and that Serializable prevents. It's subtle precisely BECAUSE nothing overlapped: the bug lives in a rule spanning rows rather than in any single row, so if your correctness depends on an invariant across multiple rows, Read Committed and Repeatable Read will not save you."
         },
         {
           "type": "multiple_choice",
@@ -249,8 +232,7 @@
             "Switch to NoSQL"
           ],
           "answer": 1,
-          "why": "Three real options: pay for Serializable (and be ready to retry), lock explicitly so conflicts are visible, or reshape the data so the rule is enforceable in one place.",
-          "goDeeper": "That third option is underrated. If the invariant can be expressed as a single row — a counter, a constraint, a unique key — the database can enforce it cheaply and unconditionally. Often the best fix for a hard concurrency problem is a better data model, not a stronger isolation level."
+          "why": "Three real options: pay for Serializable and be ready to retry, lock explicitly so conflicts are visible, or reshape the data so the rule is enforceable in one place. That third one is underrated — if the invariant can be expressed as a single row (a counter, a constraint, a unique key), the database can enforce it cheaply and unconditionally. Often the best fix for a hard concurrency problem is a better data model rather than a stronger isolation level."
         }
       ]
     },
@@ -268,8 +250,7 @@
             "The database crashes"
           ],
           "answer": 1,
-          "why": "Each holds what the other needs. Real databases detect the cycle and abort a victim rather than hanging forever — so one transaction gets an error out of nowhere.",
-          "goDeeper": "The classic prevention is to always acquire locks in a consistent order — e.g. always lock the lower account id first, so a cycle can't form. Deadlocks aren't a database defect; they're an emergent property of concurrent code, and your app must be prepared to retry."
+          "why": "Each holds what the other needs, and real databases detect the cycle and abort a victim rather than hanging forever — so one transaction gets an error out of nowhere. The classic prevention is to always acquire locks in a consistent order (e.g. always lock the lower account id first) so a cycle can't form. Deadlocks aren't a database defect; they're an emergent property of concurrent code, and your app must be prepared to retry."
         },
         {
           "type": "multiple_choice",
@@ -281,8 +262,7 @@
             "The database ignores idle transactions"
           ],
           "answer": 1,
-          "why": "A held transaction holds locks and pins old versions of rows. Everyone who needs those rows queues behind you — for as long as a third party takes to answer.",
-          "goDeeper": "The rule: never do network I/O inside a transaction. This is one of the most common real production outages there is — the slow API call holds locks, waiting transactions pile up (unit 4's queueing), the connection pool exhausts, and a payments hiccup becomes a total site outage. Do the I/O first, then open a short transaction to record the result."
+          "why": "A held transaction holds locks and pins old versions of rows, so everyone who needs those rows queues behind you — for as long as a third party takes to answer. The rule: never do network I/O inside a transaction. This is one of the most common real production outages there is — the slow API call holds locks, waiting transactions pile up (unit 4's queueing), the connection pool exhausts, and a payments hiccup becomes a total site outage. Do the I/O first, then open a short transaction to record the result."
         },
         {
           "type": "match_pairs",
@@ -293,8 +273,7 @@
             { "left": "Version number check", "right": "How optimistic concurrency spots a conflict" },
             { "left": "Deadlock", "right": "Two transactions each holding what the other wants" }
           ],
-          "why": "Two philosophies: prevent conflicts by excluding others, or allow them and detect collisions at the end.",
-          "goDeeper": "Optimistic concurrency is usually a version column: read version 7, write only if it's still 7. If someone else got there first it's now 8, your update matches nothing, and you retry. It's just compare-and-set, applied to a row."
+          "why": "Two philosophies: prevent conflicts by excluding others, or allow them and detect collisions at the end. Optimistic concurrency is usually a version column — read version 7, write only if it's still 7; if someone else got there first it's now 8, your update matches nothing, and you retry. It's just compare-and-set, applied to a row."
         },
         {
           "type": "multiple_choice",
@@ -306,21 +285,19 @@
             "It makes no difference"
           ],
           "answer": 1,
-          "why": "If collisions are rare, locking everyone up front taxes the 99% of transactions that would never have conflicted. Let them run and pay only when you actually collide.",
-          "goDeeper": "And the inverse matters just as much: under HIGH contention, optimistic degenerates — everyone retries, collides again, and you burn capacity making no progress. Pessimistic is calmer there. Choose from how often you actually collide, not from which sounds more sophisticated."
+          "why": "If collisions are rare, locking everyone up front taxes the 99% of transactions that would never have conflicted — let them run and pay only when you actually collide. The inverse matters just as much: under HIGH contention, optimistic degenerates as everyone retries, collides again, and you burn capacity making no progress, so pessimistic is calmer there. Choose from how often you actually collide, not from which sounds more sophisticated."
         },
         {
           "type": "multiple_choice",
           "prompt": "You must charge a credit card (an external service) AND create an order (your database) atomically. Can a database transaction do this?",
           "choices": [
-            "Yes — wrap both in BEGIN/COMMIT",
-            "No — a database transaction only covers its own database; the card charge is a separate system that knows nothing about your COMMIT or ROLLBACK",
+            "Yes — wrap both in `BEGIN`/`COMMIT`",
+            "No — a database transaction only covers its own database; the card charge is a separate system that knows nothing about your `COMMIT` or `ROLLBACK`",
             "Yes, if you use Serializable",
             "Yes, with the right driver"
           ],
           "answer": 1,
-          "why": "Atomicity stops at the database boundary. Your ROLLBACK can rewind your rows — it cannot un-charge someone's card.",
-          "goDeeper": "This is where people get badly burned, because the code LOOKS atomic. The real patterns are: two-phase commit (a coordinator asks every participant to prepare, then commit — correct, but slow, and it blocks if the coordinator dies mid-flight), or a saga (do the steps, and if a later one fails, run compensating actions — issue a refund). Most modern systems choose sagas plus idempotency (unit 2) over 2PC."
+          "why": "Atomicity stops at the database boundary: your `ROLLBACK` can rewind your rows, but it cannot un-charge someone's card. This is where people get badly burned, because the code LOOKS atomic. The real patterns are two-phase commit (a coordinator asks every participant to prepare, then commit — correct, but slow, and it blocks if the coordinator dies mid-flight) or a saga (do the steps, and if a later one fails, run compensating actions like a refund). Most modern systems choose sagas plus idempotency over 2PC."
         },
         {
           "type": "tradeoff_slider",
@@ -328,8 +305,7 @@
           "leftLabel": "Two-phase commit (strict atomicity)",
           "rightLabel": "Saga (compensating actions, eventual)",
           "answerRange": [55, 100],
-          "why": "Across services, 2PC's blocking behaviour and coordinator failure modes are usually worse than the complexity of writing compensating actions. Most real distributed systems choose sagas.",
-          "goDeeper": "But be honest about what you just gave up: there's now a window where the payment succeeded and the order doesn't exist yet. You accepted a temporarily inconsistent state plus a compensation path — because the alternative, a distributed lock spanning services, is worse. That acceptance is the road to eventual consistency, and it's where Tier 3 begins."
+          "why": "Across services, 2PC's blocking behaviour and coordinator failure modes are usually worse than the complexity of writing compensating actions, so most real distributed systems choose sagas. But be honest about what you gave up: there's now a window where the payment succeeded and the order doesn't exist yet — you accepted a temporarily inconsistent state plus a compensation path, because the alternative (a distributed lock spanning services) is worse. That acceptance is the road to eventual consistency, and it's where Tier 3 begins."
         },
         {
           "type": "multiple_choice",
@@ -341,8 +317,7 @@
             "Transactions make concurrency bugs impossible"
           ],
           "answer": 1,
-          "why": "Powerful, bounded, and configurable. The power is real; the boundary and the dial are what people forget.",
-          "goDeeper": "Three things most engineers get wrong, in order of damage: (1) they don't know their isolation level, (2) they hold transactions open across network calls, (3) they assume atomicity extends across services. Fix those three and you're ahead of most working engineers — and you're ready for what happens when the copies can't talk to each other."
+          "why": "Powerful, bounded, and configurable — the power is real; the boundary and the dial are what people forget. Three things most engineers get wrong, in order of damage: they don't know their isolation level, they hold transactions open across network calls, and they assume atomicity extends across services. Fix those three and you're ahead of most working engineers — and ready for what happens when the copies can't talk to each other."
         }
       ]
     }
