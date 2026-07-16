@@ -165,7 +165,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 21 | Idempotency | ✅ done | `content/21-idempotency.json` |
 | 22 | Observability | ✅ done | `content/22-observability.json` |
 | 23 | Design a URL shortener | ✅ done | `content/23-design-url-shortener.json` |
-| 24 | Design a news feed | ⬜ | — |
+| 24 | Design a news feed | ✅ done | `content/24-design-news-feed.json` |
 | 25 | Design a chat app | ⬜ | — |
 | 26 | Design a rate limiter | ⬜ | — |
 | 27 | Design a ride-sharing backend | ⬜ | — |
