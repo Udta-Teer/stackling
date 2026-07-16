@@ -94,28 +94,28 @@
       "exercises": [
         {
           "type": "multiple_choice",
-          "prompt": "A machine with twice the cores typically costs how much?",
+          "prompt": "Folklore says a machine with twice the cores costs more than twice as much. Is that true today?",
           "choices": [
-            "Exactly twice as much",
-            "More than twice — high-end hardware gets disproportionately expensive near the top of the range",
-            "Less than twice, due to bulk discounts",
-            "The same"
+            "Yes — large machines are always disproportionately expensive",
+            "Mostly no: within a mainstream cloud instance family, price is close to linear — 2× the size costs about 2× the money",
+            "No — larger machines are always cheaper per core",
+            "It depends on the operating system"
           ],
           "answer": 1,
-          "why": "The price curve bends upward. Commodity machines are cheap because everyone buys them; the very largest machines are specialty items with specialty prices.",
-          "goDeeper": "This is the economic half of the case for horizontal: ten commodity boxes often cost less than one machine ten times their size — and as a bonus, they don't all fail at the same moment. You get capacity and redundancy from the same spend."
+          "why": "Mainstream cloud instance families are priced roughly linearly per vCPU: step up one size and you roughly double both the machine and the bill. The 'big iron costs a fortune' rule came from an era of proprietary large machines, and it doesn't describe how most people buy compute now.",
+          "goDeeper": "This is worth un-learning, because it deletes one of the folklore arguments for scaling out. Cost is usually NOT why you distribute — with linear-ish pricing, ten small boxes and one ten-times-bigger box land in roughly the same place. The genuine reasons are the ceiling, redundancy, and elasticity. One real exception: at the extreme top of the range, specialty machines (the huge-memory tiers) do get disproportionately expensive per unit — so the folklore is right exactly where almost nobody is shopping."
         },
         {
           "type": "match_pairs",
           "prompt": "Match each limit of vertical scaling to what it means.",
           "pairs": [
             { "left": "Hard ceiling", "right": "There is a biggest machine, and you can reach it" },
-            { "left": "Superlinear cost", "right": "2× the machine costs more than 2× the money" },
+            { "left": "Idle capacity", "right": "One box is sized for your peak, and idle the rest of the time" },
             { "left": "Single point of failure", "right": "One machine dying means a total outage" },
             { "left": "Upgrade downtime", "right": "Resizing usually means a restart" }
           ],
           "why": "Four separate limits, and only the first is about running out of capacity. The other three bite well before you reach the ceiling.",
-          "goDeeper": "Worth separating them, because they have different deadlines. Cost hurts you continuously. Downtime hurts you at every upgrade. The single point of failure hurts you once, badly, on a day you didn't choose."
+          "goDeeper": "Worth separating them, because they have different deadlines. Idle capacity bills you continuously. Downtime hurts at every upgrade. The single point of failure hurts you once, badly, on a day you didn't choose. Note that none of these is 'big machines are overpriced' — per-unit pricing is roughly flat across a mainstream instance family, so the cost complaint is about paying for peak you aren't using, not about a price premium."
         },
         {
           "type": "multiple_choice",
@@ -161,12 +161,12 @@
           "prompt": "Why does vertical scaling eventually stop being the answer? Select all.",
           "choices": [
             "There is a largest machine, and you can reach it",
-            "Cost grows faster than capacity",
+            "One box can't shrink at 3am, so you pay for your peak around the clock",
             "One machine is a single point of failure",
             "It forces you to rewrite your application"
           ],
           "answer": [0, 1, 2],
-          "why": "Ceiling, cost, and fragility. It emphatically does NOT force a rewrite — needing no rewrite is precisely what makes it attractive right up until it fails you.",
+          "why": "Ceiling, inflexible capacity, and fragility. It emphatically does NOT force a rewrite — needing no rewrite is precisely what makes it attractive right up until it fails you.",
           "goDeeper": "That combination is what makes the ceiling sneak up on people. Vertical scaling asks nothing of you, so nobody plans for the day it stops working — and then the day it stops working is the day you need to have already planned."
         }
       ]
