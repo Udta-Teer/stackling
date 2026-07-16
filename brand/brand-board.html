@@ -126,14 +126,24 @@
 </head>
 <body>
 
-<!-- reusable stack mark: three ascending layers, top block amber (the "-ling") -->
+<!-- reusable stack mark: two base layers + a big-faced amber head (the "-ling") -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="stack" viewBox="0 0 100 100">
-    <rect x="16" y="60" width="68" height="18" rx="5" fill="#1e5aa8"/>
-    <rect x="26" y="38" width="48" height="18" rx="5" fill="#4cb0ff"/>
-    <rect x="38" y="16" width="24" height="18" rx="6" fill="#ffb020"/>
-    <circle cx="46" cy="25" r="2.4" fill="#071522"/>
-    <circle cx="54" cy="25" r="2.4" fill="#071522"/>
+    <rect x="16" y="66" width="68" height="15" rx="5" fill="#1e5aa8"/>
+    <rect x="25" y="47" width="50" height="15" rx="5" fill="#4cb0ff"/>
+    <rect x="30" y="12" width="40" height="30" rx="9" fill="#ffb020"/>
+    <circle cx="43" cy="27" r="4.4" fill="#071522"/>
+    <circle cx="57" cy="27" r="4.4" fill="#071522"/>
+    <circle cx="44.4" cy="25.6" r="1.4" fill="#fff"/>
+    <circle cx="58.4" cy="25.6" r="1.4" fill="#fff"/>
+  </symbol>
+  <!-- ink variant for light / amber backgrounds (so the head doesn't vanish) -->
+  <symbol id="stack-ink" viewBox="0 0 100 100">
+    <rect x="16" y="66" width="68" height="15" rx="5" fill="#071522"/>
+    <rect x="25" y="47" width="50" height="15" rx="5" fill="#071522"/>
+    <rect x="30" y="12" width="40" height="30" rx="9" fill="#071522"/>
+    <circle cx="43" cy="27" r="4.4" fill="#ffb020"/>
+    <circle cx="57" cy="27" r="4.4" fill="#ffb020"/>
   </symbol>
 </svg>
 
@@ -217,7 +227,7 @@
             <svg class="mark" style="--s:56px"><use href="#stack"/></svg>
           </div>
           <div style="background:var(--signal);border-radius:22px;padding:16px;display:grid;place-items:center">
-            <svg class="mark" style="--s:56px"><use href="#stack"/></svg>
+            <svg class="mark" style="--s:56px"><use href="#stack-ink"/></svg>
           </div>
         </div>
       </div>
