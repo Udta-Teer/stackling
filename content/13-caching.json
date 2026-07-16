@@ -182,16 +182,16 @@
           "type": "match_pairs",
           "prompt": "Match each eviction policy to what it throws out.",
           "pairs": [
-            { "left": "LRU (least recently used)", "right": "Whatever hasn't been touched for the longest" },
+            { "left": "`LRU` (least recently used)", "right": "Whatever hasn't been touched for the longest" },
             { "left": "LFU (least frequently used)", "right": "Whatever gets asked for least often" },
-            { "left": "TTL (time to live)", "right": "Anything past its expiry, popular or not" },
+            { "left": "`TTL` (time to live)", "right": "Anything past its expiry, popular or not" },
             { "left": "Random", "right": "An arbitrary victim" }
           ],
-          "why": "LRU is the default nearly everywhere because recency is a cheap and decent predictor of the near future. LFU beats it when popularity is stable, but it clings to items that were huge last month and are dead now, unless you age the counts. TTL is the odd one out and it's worth seeing why: LRU throws things out because you ran out of room, TTL throws them out because you stopped trusting them — space versus correctness, two different problems wearing the same clothes. Random sounds like a joke and isn't: it needs no bookkeeping and performs respectably."
+          "why": "`LRU` is the default nearly everywhere because recency is a cheap and decent predictor of the near future. LFU beats it when popularity is stable, but it clings to items that were huge last month and are dead now, unless you age the counts. `TTL` is the odd one out and it's worth seeing why: `LRU` throws things out because you ran out of room, `TTL` throws them out because you stopped trusting them — space versus correctness, two different problems wearing the same clothes. Random sounds like a joke and isn't: it needs no bookkeeping and performs respectably."
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your LRU cache holds the 50,000 hottest products at a 96% hit rate. A nightly job starts reading all 50 million products once, in order. What happens?",
+          "prompt": "Your `LRU` cache holds the 50,000 hottest products at a 96% hit rate. A nightly job starts reading all 50 million products once, in order. What happens?",
           "choices": [
             "Nothing — the job's reads get cached too",
             "The hit rate collapses: every scanned item counts as 'recently used', so the scan evicts the entire hot set for data nobody will ask for again",
@@ -199,7 +199,7 @@
             "The cache rejects the job's reads"
           ],
           "answer": 1,
-          "why": "LRU assumes recently-used predicts soon-to-be-used, and a sequential scan violates that assumption perfectly: every item it touches is maximally recent and minimally likely to be needed again. So the scan flushes your hot set, users start hitting the database, and the cache sits there full of garbage. That's cache pollution, and it's why a batch job can take down a site it never queries — the damage is entirely collateral. The fixes are to keep scans off the cache path, or to use a policy that makes an item earn its place with a second access."
+          "why": "`LRU` assumes recently-used predicts soon-to-be-used, and a sequential scan violates that assumption perfectly: every item it touches is maximally recent and minimally likely to be needed again. So the scan flushes your hot set, users start hitting the database, and the cache sits there full of garbage. That's cache pollution, and it's why a batch job can take down a site it never queries — the damage is entirely collateral. The fixes are to keep scans off the cache path, or to use a policy that makes an item earn its place with a second access."
         },
         {
           "type": "estimate",
@@ -226,16 +226,16 @@
           "prompt": "Which of these actually raise your hit RATE? Select all.",
           "choices": [
             "More cache memory, so the hot set fits",
-            "A longer TTL, so entries live long enough to be reused",
+            "A longer `TTL`, so entries live long enough to be reused",
             "Keeping batch scans off the cache so they can't evict the hot set",
             "A faster network to the cache"
           ],
           "answer": [0, 1, 2],
-          "why": "Three things decide hit rate: whether the hot set fits, whether entries survive long enough to be reused, and whether anything is polluting the cache. A faster network makes each hit cheaper — that's hit LATENCY, a different axis entirely, and it does nothing to the rate. Keep them separate, because 'the cache is slow' and 'the cache is missing' have opposite fixes and the second is nearly always the bigger number. Note the second option isn't free either: every extra second of TTL is another second you've agreed to be wrong."
+          "why": "Three things decide hit rate: whether the hot set fits, whether entries survive long enough to be reused, and whether anything is polluting the cache. A faster network makes each hit cheaper — that's hit LATENCY, a different axis entirely, and it does nothing to the rate. Keep them separate, because 'the cache is slow' and 'the cache is missing' have opposite fixes and the second is nearly always the bigger number. Note the second option isn't free either: every extra second of `TTL` is another second you've agreed to be wrong."
         },
         {
           "type": "multiple_choice",
-          "prompt": "You set a 60-second TTL on a cached value. What have you actually decided?",
+          "prompt": "You set a 60-second `TTL` on a cached value. What have you actually decided?",
           "choices": [
             "That the value takes 60 seconds to compute",
             "That you're willing to serve data up to 60 seconds out of date",
@@ -243,7 +243,7 @@
             "That the cache holds 60 seconds of data"
           ],
           "answer": 1,
-          "why": "A TTL is a correctness decision wearing a performance costume: you're stating the maximum lag you'll tolerate between the source of truth and what users see. That's what makes it the pragmatic escape from invalidation (lesson 4) — rather than tracking every change perfectly, you promise to be wrong for at most 60 seconds. And it's a ceiling, not a schedule: with lazy loading nothing refreshes on a timer, the entry simply expires, and the next reader — whenever they show up, in a second or an hour — pays to rebuild it."
+          "why": "A `TTL` is a correctness decision wearing a performance costume: you're stating the maximum lag you'll tolerate between the source of truth and what users see. That's what makes it the pragmatic escape from invalidation (lesson 4) — rather than tracking every change perfectly, you promise to be wrong for at most 60 seconds. And it's a ceiling, not a schedule: with lazy loading nothing refreshes on a timer, the entry simply expires, and the next reader — whenever they show up, in a second or an hour — pays to rebuild it."
         }
       ]
     },
@@ -269,7 +269,7 @@
           "choices": [
             "Update it — that keeps the cache warm",
             "Usually delete it: updating computes a value nobody asked for, and races with other writers over whose version lands last",
-            "Neither — let the TTL handle it",
+            "Neither — let the `TTL` handle it",
             "Both, for safety"
           ],
           "answer": 1,
@@ -277,7 +277,7 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "One extremely popular key — your homepage feed, 10,000 requests/sec — hits its TTL and expires. What happens in the next instant?",
+          "prompt": "One extremely popular key — your homepage feed, 10,000 requests/sec — hits its `TTL` and expires. What happens in the next instant?",
           "choices": [
             "The cache rebuilds it automatically before anyone notices",
             "All 10,000 requests miss at once, and every one of them runs the expensive rebuild against the database simultaneously",
@@ -294,30 +294,30 @@
             "A lock, so only the first request rebuilds and the others wait for it",
             "Serve the stale value while one request refreshes it in the background",
             "Add jitter to TTLs so a batch of keys doesn't all expire in the same instant",
-            "Shorten the TTL so it happens more often but costs less each time"
+            "Shorten the `TTL` so it happens more often but costs less each time"
           ],
           "answer": [0, 1, 2],
-          "why": "The first two attack the herd directly: let exactly one request through, and either make the rest wait or hand them slightly-stale data — usually the nicer option, since nobody experiences a stall at all. Jitter attacks a related killer, where keys cached together (everything warmed at deploy, say) expire together, turning one expiry into a synchronized fleet-wide miss. Shortening the TTL makes both problems worse: more stampedes, and no reduction in the size of any one herd. Facebook's memcache team hit this hard enough at scale to invent leases for it, described in their 2013 paper."
+          "why": "The first two attack the herd directly: let exactly one request through, and either make the rest wait or hand them slightly-stale data — usually the nicer option, since nobody experiences a stall at all. Jitter attacks a related killer, where keys cached together (everything warmed at deploy, say) expire together, turning one expiry into a synchronized fleet-wide miss. Shortening the `TTL` makes both problems worse: more stampedes, and no reduction in the size of any one herd. Facebook's memcache team hit this hard enough at scale to invent leases for it, described in their 2013 paper."
         },
         {
           "type": "multiple_choice",
           "prompt": "Two things happen at once. Request A misses and reads value V1 from the database. Before A writes it back, request B writes V2 to the database and deletes the cache key — which is already empty, so that's a no-op. Then A writes V1 into the cache. What's the state?",
           "choices": [
             "The cache holds V2 — correct",
-            "The cache holds V1 while the database holds V2, and the invalidation already happened, so nothing will fix it until the TTL expires",
+            "The cache holds V1 while the database holds V2, and the invalidation already happened, so nothing will fix it until the `TTL` expires",
             "The cache is empty",
             "A's write fails"
           ],
           "answer": 1,
-          "why": "Neither request did anything wrong. A read a value that was true when it read it and wrote it back a moment later; B wrote and dutifully invalidated. But B's invalidation landed in the gap between A's read and A's write, so it deleted nothing, and then A resurrected a dead value on top of it. The cache is now confidently wrong and no future event will correct it — only the TTL will, which is why even a perfectly-invalidated cache still needs one as a backstop. This is the race Facebook's leases exist to close: A takes a lease on the miss, B's write voids it, and A's stale set gets rejected. Take the general lesson too — a cache plus a database is two copies with no coordination between them, so you're doing distributed systems now whether you signed up for it or not."
+          "why": "Neither request did anything wrong. A read a value that was true when it read it and wrote it back a moment later; B wrote and dutifully invalidated. But B's invalidation landed in the gap between A's read and A's write, so it deleted nothing, and then A resurrected a dead value on top of it. The cache is now confidently wrong and no future event will correct it — only the `TTL` will, which is why even a perfectly-invalidated cache still needs one as a backstop. This is the race Facebook's leases exist to close: A takes a lease on the miss, B's write voids it, and A's stale set gets rejected. Take the general lesson too — a cache plus a database is two copies with no coordination between them, so you're doing distributed systems now whether you signed up for it or not."
         },
         {
           "type": "tradeoff_slider",
-          "prompt": "You're picking a TTL for a product's price, shown on a page viewed a million times a day. Slide toward your choice.",
-          "leftLabel": "Long TTL (fewer misses, more staleness)",
-          "rightLabel": "Short TTL (fresher, more load)",
+          "prompt": "You're picking a `TTL` for a product's price, shown on a page viewed a million times a day. Slide toward your choice.",
+          "leftLabel": "Long `TTL` (fewer misses, more staleness)",
+          "rightLabel": "Short `TTL` (fresher, more load)",
           "answerRange": [45, 85],
-          "why": "Prices are the classic case where staleness has a bill attached — show $8, charge $10, and you have a support problem and possibly a legal one — so this leans short. But the question is a little bit of a trap: TTL is your worst tool here. A price change is an EVENT you already know about, so invalidate on the write and the cache is correct within milliseconds no matter what the TTL says, which frees the TTL to do what it's genuinely good at — backstopping the invalidations you'll inevitably miss, including the race in the previous exercise. Reach for a very long TTL only when you're confident invalidation is airtight, and a very short one only when you can't detect the change at all and you're reduced to polling."
+          "why": "Prices are the classic case where staleness has a bill attached — show $8, charge $10, and you have a support problem and possibly a legal one — so this leans short. But the question is a little bit of a trap: `TTL` is your worst tool here. A price change is an EVENT you already know about, so invalidate on the write and the cache is correct within milliseconds no matter what the `TTL` says, which frees the `TTL` to do what it's genuinely good at — backstopping the invalidations you'll inevitably miss, including the race in the previous exercise. Reach for a very long `TTL` only when you're confident invalidation is airtight, and a very short one only when you can't detect the change at all and you're reduced to polling."
         },
         {
           "type": "multiple_choice",
@@ -329,7 +329,7 @@
             "It removes the need for a fast database"
           ],
           "answer": 1,
-          "why": "Caching is the highest-leverage move in this tier — a 95% hit rate takes 20× the read load off your database for the price of some memory — and it's sold as free speed, which is the lie. Look at what you actually took on: a second copy of the truth (unit 5), a race you can't reliably test your way out of, a component whose loss multiplies your database load 20× at the worst possible moment, and a class of bug that never raises an error. Cache when the read is expensive, reused, and tolerant of being stale — and when you do, decide out loud how wrong you'll let it be, because a TTL you didn't think about is still an answer to that question."
+          "why": "Caching is the highest-leverage move in this tier — a 95% hit rate takes 20× the read load off your database for the price of some memory — and it's sold as free speed, which is the lie. Look at what you actually took on: a second copy of the truth (unit 5), a race you can't reliably test your way out of, a component whose loss multiplies your database load 20× at the worst possible moment, and a class of bug that never raises an error. Cache when the read is expensive, reused, and tolerant of being stale — and when you do, decide out loud how wrong you'll let it be, because a `TTL` you didn't think about is still an answer to that question."
         }
       ]
     }
