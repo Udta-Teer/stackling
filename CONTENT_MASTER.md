@@ -133,7 +133,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | # | Concept | Status | File |
 |---|---------|--------|------|
 | 1 | How the internet works | ✅ done | `content/01-how-the-internet-works.json` |
-| 2 | Client–server & HTTP | ⬜ | — |
+| 2 | Client–server & HTTP | ✅ done | `content/02-client-server-http.json` |
 | 3 | APIs | ⬜ | — |
 | 4 | Latency vs throughput | ⬜ | — |
 | 5 | Statelessness | ⬜ | — |
