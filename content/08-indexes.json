@@ -288,15 +288,15 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "Query: SELECT email FROM users WHERE email = 'x@y.com', with an index on email. How many times must the database touch the actual table?",
+          "prompt": "Query: SELECT email FROM users WHERE email = 'x@y.com', with an index on email. Why might the database answer this without reading the table at all?",
           "choices": [
-            "Once, to fetch the row",
-            "Zero — the index already contains email, so the query is answered entirely from the index",
-            "Twice",
-            "Once per matching row"
+            "Because the query is short",
+            "Because the index already contains every column the query asks for",
+            "Because email values are unique",
+            "It can't — it always has to read the row"
           ],
           "answer": 1,
-          "why": "The index holds email values. The query only wants an email. So the answer is already in the index, and the database can skip fetching the row.",
+          "why": "The index holds email values, and an email is all the query wants. When every column a query needs is already in the index, the database can answer from the index alone and skip fetching the row — an index-only scan.",
           "goDeeper": "This is a covering index (an index-only scan), and it's a bigger deal than it sounds: you skip the random read to fetch the row, which is often the expensive half. It's why engineers sometimes add a column to an index purely so it can answer a whole query alone, without ever filtering on that column. One caveat worth carrying: Postgres still consults its visibility map and will fetch the row anyway if the page isn't marked all-visible — so 'index-only' is a best case, not a promise."
         },
         {
