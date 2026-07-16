@@ -164,7 +164,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 20 | Consensus & leader election | ✅ done | `content/20-consensus.json` |
 | 21 | Idempotency | ✅ done | `content/21-idempotency.json` |
 | 22 | Observability | ✅ done | `content/22-observability.json` |
-| 23 | Design a URL shortener | ⬜ | — |
+| 23 | Design a URL shortener | ✅ done | `content/23-design-url-shortener.json` |
 | 24 | Design a news feed | ⬜ | — |
 | 25 | Design a chat app | ⬜ | — |
 | 26 | Design a rate limiter | ⬜ | — |
