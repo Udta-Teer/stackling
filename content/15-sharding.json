@@ -53,8 +53,8 @@
             "Surviving a machine dying",
             "Read throughput"
           ],
-          "answer": [0, 1],
-          "why": "Splitting the data means each machine takes only its share of the writes and stores only its share of the bytes, so both scale past one box. It does nothing for survival — lose a shard and that slice of your data is simply gone unless you also replicated it — and replication was already the cheaper answer for reads."
+          "answer": [0, 1, 3],
+          "why": "Splitting the data means each machine takes only its share of the writes, stores only its share of the bytes, AND answers only its share of the reads — so all three scale past one box. Survival is the one it doesn't buy: lose a shard and that slice is simply gone unless you also replicated it. Reads deserve a footnote though — sharding genuinely scales them, but it's rarely the right *tool* for them, because caching and read replicas buy the same relief without cross-shard queries, distributed transactions, or a shard key you can never change. The exception is when the working set outgrows one machine's memory, where replicas don't help (every copy has the same undersized cache) and only splitting the data does."
         },
         {
           "type": "multiple_choice",
@@ -247,7 +247,7 @@
             "The router knows the answer"
           ],
           "answer": 1,
-          "why": "The data for that question is spread across every machine, so the query has to visit all of them and merge — and it can't finish until the slowest one replies. That's unit 4's tail-latency problem structurally guaranteed: with 16 shards you draw 16 samples from the latency distribution every time, so your p99 shard becomes your typical query."
+          "why": "The data for that question is spread across every machine, so the query has to visit all of them and merge — and it can't finish until the slowest one replies. That's unit 4's tail-latency problem arriving through your shard count: with 16 shards you draw 16 samples from the latency distribution every time, so the typical query now waits on roughly your p96 shard, and about one query in seven waits on a p99 one. Push the fan-out to 100 and the majority of queries wait on a p99 — the effect scales with how many shards you touch, which is another reason to keep queries on one."
         },
         {
           "type": "multiple_choice",

@@ -55,7 +55,7 @@
             "The CDN generates the file itself"
           ],
           "answer": 1,
-          "why": "That's a cache miss, and the first Sydney user pays full price — the edge has to cross the ocean on their behalf. They get no benefit; they're the one who warms the cache for everyone after them. Which is why a CDN's value depends entirely on how often the next person asks for the same thing."
+          "why": "That's a cache miss, and the first Sydney user waits while the edge crosses the ocean on their behalf. They still get something — their TLS handshake terminates at the nearby edge, and the edge reuses an already-warm connection to your origin, so a miss is meaningfully cheaper than going direct — but they get none of the *cache's* benefit. They're the one who warms it for everyone after them, which is why a CDN's value depends entirely on how often the next person asks for the same thing."
         },
         {
           "type": "match_pairs",

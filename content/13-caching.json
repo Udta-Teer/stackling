@@ -114,7 +114,7 @@
             { "left": "Write-through", "right": "Writes go to cache and DB together, before the write is acknowledged" },
             { "left": "Write-behind", "right": "Writes land in the cache and flush to the DB later" }
           ],
-          "why": "The two read patterns differ only in who does the fetching on a miss — the app or the cache — which is a question about where complexity lives, not about what the user experiences. The write patterns are the ones with teeth: write-through pays latency on every single write to keep the cache correct, while write-behind makes writes feel instant by acknowledging data that isn't durable yet."
+          "why": "The two read patterns differ only in who does the fetching on a miss — the app or the cache — which is a question about where complexity lives, not about what the user experiences. The write patterns are the ones with teeth: write-through pays latency on every single write to keep the cache warm and avoid a first-read miss, while write-behind makes writes feel instant by acknowledging data that isn't durable yet. Note what write-through does NOT buy — correctness under concurrency. It's still update-on-write, so two writers can land in the cache in the opposite order they landed in the database, exactly as lesson 4 shows."
         },
         {
           "type": "multiple_choice",

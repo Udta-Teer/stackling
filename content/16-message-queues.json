@@ -197,7 +197,7 @@
             "Retries must be disabled"
           ],
           "answer": 1,
-          "why": "At-least-once means the duplicate isn't a rare accident, it's a documented behaviour that will happen — so a non-idempotent worker on a durable queue is a billing incident waiting for a network blip. The fix is unit 2's idempotency key: record which message ids you've completed and make the second attempt a no-op that returns the first result."
+          "why": "At-least-once means the duplicate isn't a rare accident, it's a documented behaviour that will happen — so a non-idempotent worker on a durable queue is a billing incident waiting for a network blip. For a charge specifically, the fix has to reach the payment provider: derive a stable idempotency key from the message id and pass it in the API call, so the provider collapses the duplicate. A local 'already processed' table isn't enough here — your record and the charge are two different systems, so a crash after the charge but before the record leaves redelivery seeing nothing and charging again. That's the dual-write problem lesson 4 is about, and it's why a local dedup table only works when the record and the effect land in the same transaction, which a third-party charge never does."
         },
         {
           "type": "multiple_choice",

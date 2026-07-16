@@ -216,7 +216,7 @@
             "No — limits should be per-region by policy"
           ],
           "answer": 1,
-          "why": "A truly global counter needs cross-region coordination on every request, which is unit 20's warning and unit 4's physics — you'd add 100ms+ to every call to enforce a number to the digit. Splitting the budget per region keeps the check local and means a client could get somewhat more than 1,000 if their traffic is lopsided, which is almost always the better trade."
+          "why": "A truly global counter needs cross-region coordination on every request, which is unit 20's warning and unit 4's physics — you'd add 100ms+ to every call to enforce a number to the digit. Splitting the budget per region keeps the check local, and the imprecision runs the opposite way from what you'd guess: give each of 3 regions 333/min, and a client sending all 900 of their requests to one region gets cut off at 333 while their budget in the other two sits unused. Lopsided traffic under-serves rather than over-serves, and the total can never exceed 1,000. Real systems soften that by letting regions borrow unused budget or rebalancing shares from observed demand. You'd only exceed the global limit the other way around — if each region enforced the full 1,000 and the traffic were evenly spread, a client could get 3,000."
         },
         {
           "type": "multiple_choice",

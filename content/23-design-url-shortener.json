@@ -150,7 +150,7 @@
           "leftLabel": "Sequential counter (no collisions, enumerable)",
           "rightLabel": "Random key + uniqueness check (unguessable, must retry)",
           "answerRange": [60, 100],
-          "why": "You just promised unguessability, and a sequential code makes enumeration trivial — so the counter's elegance is disqualified by the requirement rather than by engineering. Random keys with a unique constraint cost you a retry on the rare collision, which at 3.5 trillion possibilities is rare enough that the write path stays cheap. The requirement chose, not the algorithm."
+          "why": "You just promised unguessability, and a sequential code makes enumeration trivial — so the counter's elegance is disqualified by the requirement rather than by engineering. Random keys plus a unique constraint cost you a retry when you draw an occupied one: by year five you've stored ~182 billion links in a 3.5-trillion space, so about 5% of inserts collide and redraw. Cheap, but a real loop rather than a rounding error. And note why redrawing works here but not for the truncated hash: the hash of a given URL is always the same value, so a collision recurs forever unless you add a salt or counter, whereas a random key just draws again and moves on. Same collision odds, very different escape route."
         }
       ]
     },
@@ -200,7 +200,7 @@
             "The link is rate limited"
           ],
           "answer": 1,
-          "why": "A cold key under sudden load means thousands of concurrent misses each dutifully going to the database for the identical value, which is unit 14's stampede at the row level. The fix is request coalescing: let one miss fetch while the rest wait for its result, so the database sees one query rather than fifty thousand."
+          "why": "A cold key under sudden load means thousands of concurrent misses each dutifully going to the database for the identical value, which is unit 14's stampede at the row level. The fix is request coalescing: let one miss fetch while the rest wait for its result, so each server makes one query instead of thousands. Be precise about what that buys, though — coalescing is per-process, so the database sees one query per SERVER rather than one overall, and a fleet serving 116,000 rps is many servers. Getting to a single fetch needs a shared lease, or a shielding tier in front of the store — exactly the move unit 14 makes with origin shielding when 300 edges each coalesce and the origin still sees 300."
         },
         {
           "type": "multiple_choice",
