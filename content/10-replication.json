@@ -187,7 +187,7 @@
           ],
           "answer": 1,
           "why": "The follower is behind, so it answers with the state from before their write. The user's own change seems not to have saved.",
-          "goDeeper": "This is the most common replication bug there is, and it's maddening because it only reproduces under load — when lag is large enough to notice. The fix is read-your-writes routing: for a short window after a user writes, send THAT user's reads to the leader."
+          "goDeeper": "This is the most common replication bug there is, and it's maddening because it only reproduces under load — when lag is large enough to notice. The usual mitigation is read-your-writes routing: for a short window after a user writes, send THAT user's reads to the leader. Hold it as a mitigation, not a guarantee — it works while the leader stays the leader. If a failover lands inside that window, an async setup may have lost the write outright, and no routing rule can show someone a write that no longer exists (lesson 4)."
         },
         {
           "type": "fill_blank",
@@ -208,7 +208,7 @@
           ],
           "answer": 1,
           "why": "Two reads, two replicas, two different amounts of lag — so the second read returned an older state than the first. Nothing was deleted; the user just travelled backwards.",
-          "goDeeper": "The fix is to pin each user to one replica — say by hashing their user id — so every read comes from the same copy. That copy may be stale, but it will never go backwards. Consistently stale is far less alarming to a human than flickering."
+          "goDeeper": "The usual mitigation is to pin each user to one replica — say by hashing their user id — so their reads keep coming from the same copy. That copy may be stale, but it won't move backwards under them. Note the limit, though: the moment they get re-pinned — the replica dies, or you pull it from rotation for lagging — they can land on a copy that's further behind and jump backwards anyway. Pinning narrows the window; it doesn't close it."
         },
         {
           "type": "multiple_choice",
