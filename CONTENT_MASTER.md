@@ -137,7 +137,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 3 | APIs | ✅ done | `content/03-apis.json` |
 | 4 | Latency vs throughput | ✅ done | `content/04-latency-vs-throughput.json` |
 | 5 | Where state lives *(re-scoped)* | ✅ done | `content/05-where-state-lives.json` |
-| 6 | What a database is | ⬜ | — |
+| 6 | What a database is | ✅ done | `content/06-what-a-database-is.json` |
 | 7 | SQL vs NoSQL | ⬜ | — |
 | 8 | Indexes | ⬜ | — |
 | 9 | Transactions & ACID | ⬜ | — |
