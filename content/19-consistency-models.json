@@ -1,0 +1,316 @@
+{
+  "unitId": "consistency-models",
+  "tier": 3,
+  "title": "Consistency Models",
+  "subtitle": "Not one dial from weak to strong — a menu of promises about what a read can return",
+  "objectives": [
+    "Define a consistency model as a contract about what reads may return",
+    "Distinguish strong, eventual, and the useful guarantees in between",
+    "Recognize which anomaly a user is actually complaining about",
+    "Choose the weakest model that keeps your product honest, and know what it costs"
+  ],
+  "lessons": [
+    {
+      "id": "cm-1",
+      "title": "A promise about reads",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "What is a consistency model, at bottom?",
+          "choices": [
+            "A measure of how reliable a database is",
+            "A contract stating which values a read is allowed to return — and therefore which surprises are legal",
+            "A setting that makes data more accurate",
+            "The number of replicas you keep"
+          ],
+          "answer": 1,
+          "why": "A consistency model isn't a quality level, it's a specification: it enumerates what a read may legally return, which means it defines exactly which weird outcomes you've agreed to. Reading it as 'stronger is better' misses the point — the model tells you which bugs are impossible and which are your job to handle."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Strong consistency: a write completes, and a read immediately after returns the new value. What does that require?",
+          "choices": [
+            "Fast disks",
+            "Coordination — someone must confirm the write is visible before the read can be answered, and that confirmation costs a round trip",
+            "More replicas",
+            "A single-threaded database"
+          ],
+          "answer": 1,
+          "why": "To promise a read reflects the latest write, the system must know what the latest write IS — and with more than one machine that means asking, which costs a round trip you cannot optimize away. Strong consistency is therefore not a feature you enable; it's coordination you purchase, on every operation, at the price of the network's physics."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Eventual consistency guarantees what, exactly?",
+          "choices": [
+            "Reads are usually correct",
+            "If writes stop, all replicas will converge to the same value — with no promise about how long that takes or what you see meanwhile",
+            "Reads are correct within one second",
+            "Writes are never lost"
+          ],
+          "answer": 1,
+          "why": "Read the guarantee carefully: it says only that replicas agree in the end, given a pause in writes — it makes no claim at all about the interval you actually live in. That's why it's such a weak promise dressed in a reassuring word: 'eventually' is unbounded, and in a system that never stops writing, the precondition never arrives."
+        },
+        {
+          "type": "fill_blank",
+          "prompt": "______ consistency promises replicas converge if writes stop, but says nothing about what you read in the meantime.",
+          "choices": ["Eventual", "Strong", "Causal", "Linearizable"],
+          "answer": 0,
+          "why": "It's a promise about the destination and not the journey — which is fine when the journey is milliseconds and alarming when it's a partition lasting an hour."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why isn't 'just use strong consistency everywhere' the obvious answer?",
+          "choices": [
+            "It's not supported by most databases",
+            "It costs a coordination round trip on every operation, and during a partition it means refusing to answer — you'd pay latency always and availability sometimes, for data that often doesn't need it",
+            "It uses too much storage",
+            "It's harder to program"
+          ],
+          "answer": 1,
+          "why": "Strong consistency has a price on the happy path (unit 18's latency-vs-consistency) and a price on the bad path (refusing service during a partition), and both are charged whether the data needed the guarantee or not. Buying it for a like counter means every like waits on a quorum — you've paid for a promise nobody would have missed."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "So what's the design question?",
+          "choices": [
+            "How strong can we afford to be?",
+            "What's the weakest model that still keeps the product honest — because the weakest adequate model is the cheapest and most available one",
+            "Which model does our database support?",
+            "Which is most popular?"
+          ],
+          "answer": 1,
+          "why": "Every step toward stronger consistency buys you fewer legal surprises and costs latency and availability, so the goal is the least you can get away with rather than the most you can afford. 'Honest' is the bar: the model is adequate when no anomaly it permits would mislead a user into a decision they'd regret."
+        }
+      ]
+    },
+    {
+      "id": "cm-2",
+      "title": "The useful middle",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "A user posts a comment, then refreshes — and their own comment is gone. Which guarantee were they expecting?",
+          "choices": [
+            "Strong consistency",
+            "Read-your-writes: you always see your own writes, even if others see them later",
+            "Eventual consistency",
+            "Monotonic reads"
+          ],
+          "answer": 1,
+          "why": "They don't need to see everyone's comments instantly — they need to see THEIR OWN, because they know they wrote it and its absence looks like data loss. Read-your-writes is exactly that narrow promise, and it's much cheaper than strong consistency: route that user's reads to a replica that has their write, and everyone else can lag freely."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each guarantee to the anomaly it forbids.",
+          "pairs": [
+            { "left": "Read-your-writes", "right": "Your own write vanishing after you make it" },
+            { "left": "Monotonic reads", "right": "Time appearing to run backwards on refresh" },
+            { "left": "Consistent prefix", "right": "Seeing an answer before the question" },
+            { "left": "Strong consistency", "right": "Every anomaly above, at coordination cost" }
+          ],
+          "why": "Each middle guarantee names one specific way reality can look broken and forbids just that one — which is why they're useful. You buy the narrow promise your product actually needs instead of the total order you can't afford, and you get most of the felt correctness for a fraction of the cost."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Two refreshes: the first shows a new message, the second doesn't. Which guarantee is missing?",
+          "choices": [
+            "Read-your-writes",
+            "Monotonic reads — successive reads should never move backwards in time for one user",
+            "Consistent prefix",
+            "Strong consistency"
+          ],
+          "answer": 1,
+          "why": "Two reads landed on replicas with different lag, so the second answered from an older state — the data was never corrupt, the user just time-travelled. Monotonic reads forbids that specific insult, and the usual mechanism is routing each user's reads to a consistent replica so their view only ever advances (with the caveat from unit 10 that re-pinning can break it)."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A chat shows a reply before the message it replies to. Which guarantee is missing?",
+          "choices": [
+            "Monotonic reads",
+            "Consistent prefix / causal consistency — writes that caused each other must appear in that order",
+            "Read-your-writes",
+            "Eventual consistency"
+          ],
+          "answer": 1,
+          "why": "Nobody needs a global order of every message in the world — they need effects to follow their causes, because a reply arriving before its question isn't stale, it's nonsense. Causal consistency preserves exactly the ordering that carries meaning and leaves genuinely unrelated writes free to arrive in any order, which is why it's often the sweet spot for anything conversational."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why is causal consistency so much cheaper than strong consistency?",
+          "choices": [
+            "It uses fewer replicas",
+            "It only orders writes that are actually related, leaving unrelated writes to be applied in any order — so most operations need no global agreement",
+            "It's approximate",
+            "It skips durability"
+          ],
+          "answer": 1,
+          "why": "Strong consistency insists every write take a place in one global sequence, which means everyone agreeing about everything, all the time. Causal only insists that a write which depended on another comes after it — and in a system with millions of unrelated users, almost nothing is causally related, so almost nothing needs coordinating."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your product needs users to see their own edits instantly, but is fine if other users see them a second later. What should you buy?",
+          "choices": [
+            "Strong consistency everywhere",
+            "Read-your-writes for the author, eventual for everyone else — that's the actual requirement, precisely stated",
+            "Causal consistency",
+            "No guarantees"
+          ],
+          "answer": 1,
+          "why": "Stating the requirement exactly reveals how narrow it is: one person needs to see one thing immediately, and the entire rest of the world can lag. Strong consistency would satisfy that requirement and charge everyone a quorum for it. Most 'we need strong consistency' claims dissolve like this once someone writes down who actually needs to see what, and when."
+        }
+      ]
+    },
+    {
+      "id": "cm-3",
+      "title": "Reading the complaint",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "A user says 'I changed my profile photo and it still shows the old one, but my friend can see the new one.' Diagnosis?",
+          "choices": [
+            "The upload failed",
+            "Read-your-writes is missing for this user — their read is hitting a replica that lags behind their own write",
+            "The cache is broken",
+            "Strong consistency is needed"
+          ],
+          "answer": 1,
+          "why": "The detail that identifies it is that the friend CAN see it — the write clearly succeeded and propagated, so nothing is broken except which replica the author's own read landed on. Notice the bug is defined by whose read it is rather than by the data, which is exactly why the fix is routing rather than a stronger database."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A user deletes a photo, gets confirmation, and it reappears in their feed ten minutes later. What likely happened?",
+          "choices": [
+            "The delete failed",
+            "The delete and a stale cached copy raced — or a replica that never learned about the delete served it back",
+            "The photo was restored from backup",
+            "The user misremembers"
+          ],
+          "answer": 1,
+          "why": "The resurrection of deleted data is a classic and it's usually a copy that never heard the news — a cache entry, a lagging replica, or a search index that indexed before the delete and was never told. Deletes are the nastiest case for derived copies because absence propagates badly: a copy holding stale data looks identical to a copy holding data that's supposed to exist."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "A user reports 'the site shows me old data sometimes.' Which could cause it? Select all.",
+          "choices": [
+            "Replication lag on a read replica",
+            "A CDN or browser cache serving a stale copy",
+            "A search index that hasn't been updated yet",
+            "A slow database query"
+          ],
+          "answer": [0, 1, 2],
+          "why": "Every copy is a chance to be behind — replicas, caches, and derived indexes are all the same shape of problem wearing different names, which is why 'stale data' incidents so often involve hunting the layer responsible. A slow query is different: it returns the RIGHT answer, late. Stale means wrong-but-fast; slow means right-but-late, and they need opposite fixes."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why is 'eventually consistent' a bad answer to give a user or a product manager?",
+          "choices": [
+            "It's too technical",
+            "Because it names the mechanism, not the promise — the honest version states a bound: 'usually under a second, and here's what you'll see meanwhile'",
+            "It's inaccurate",
+            "It sounds negative"
+          ],
+          "answer": 1,
+          "why": "'Eventually' describes what the database guarantees and answers nothing anyone actually asked — how long, and what does it look like in the gap? Users and product owners can reason about 'up to two seconds, and you always see your own changes immediately'. Turning the mechanism into a stated bound with an observable behaviour is what makes the tradeoff decidable rather than mystical."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your team says 'we need strong consistency.' What's the first question to ask?",
+          "choices": [
+            "Which database supports it?",
+            "Which read, by whom, must reflect which write — and what would actually go wrong if it were two seconds late?",
+            "How many replicas do we need?",
+            "What's our budget?"
+          ],
+          "answer": 1,
+          "why": "'We need strong consistency' is almost always a feeling standing in for a specific fear, and naming the fear usually shrinks it — often to read-your-writes for one user on one screen. And if the honest answer to 'what goes wrong?' is a real, irreversible loss, then you've justified the coordination cost with evidence instead of anxiety."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Which of these complaints is NOT a consistency problem?",
+          "choices": [
+            "'My comment disappeared after posting'",
+            "'The page took 8 seconds to load'",
+            "'The like count went down when I refreshed'",
+            "'I see a reply to a message I can't see'"
+          ],
+          "answer": 1,
+          "why": "A slow page is a latency problem — the answer would have been correct, it just took too long, which is unit 4's territory and needs completely different tools. The other three are all correct-data-arriving-in-a-surprising-order: read-your-writes, monotonic reads, and causal consistency respectively. Diagnosing which family you're in is the whole first move."
+        }
+      ]
+    },
+    {
+      "id": "cm-4",
+      "title": "Choosing a model",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Quorum reads and writes: N=3 replicas, W=2, R=2. Why does that give you the latest value?",
+          "choices": [
+            "Because 2 is a majority",
+            "Because W + R > N forces the read set and the write set to overlap by at least one replica — so at least one node you read from saw the write",
+            "Because writes are ordered",
+            "Because replicas sync in the background"
+          ],
+          "answer": 1,
+          "why": "It's pigeonhole arithmetic rather than magic: if you wrote to 2 of 3 and read from 2 of 3, the two sets cannot be disjoint, so at least one replica you asked holds the newest value. That's the whole trick behind tunable consistency — W+R>N buys strong reads, and dropping below it trades that guarantee for lower latency and better availability, on purpose."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Same 3 replicas, but W=1 and R=1. What did you buy and lose?",
+          "choices": [
+            "Nothing changes",
+            "Fast writes and fast reads that stay available if replicas are down — and no overlap guarantee, so a read can easily miss the newest write",
+            "Stronger consistency",
+            "Better durability"
+          ],
+          "answer": 1,
+          "why": "W+R = 2, which isn't greater than 3, so the sets can miss each other entirely and you're squarely in eventual consistency. What you got in exchange is real: one replica is enough to serve, so writes and reads are fast and survive two nodes being down. That dial is the CAP tradeoff exposed as a config knob, and it's per-query in some systems — strict for a payment, loose for a feed."
+        },
+        {
+          "type": "tradeoff_slider",
+          "prompt": "You're designing 'items remaining in stock' shown during checkout for a limited product drop. Slide toward your model.",
+          "leftLabel": "Strong (coordinate; slower, can refuse)",
+          "rightLabel": "Eventual (fast, may oversell)",
+          "answerRange": [0, 35],
+          "why": "Overselling a limited drop is a real-world commitment you cannot take back — you take money for something that doesn't exist and then apologize to strangers. Coordination on the decrement is worth the latency here, precisely because the wrong answer creates an obligation. Contrast the same number on a browsing page, where stale stock costs nothing: the data is identical and the cost of being wrong is not."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Someone proposes 'use timestamps — the newest write wins.' What's the flaw?",
+          "choices": [
+            "Timestamps are too large",
+            "Different machines' clocks disagree, so 'newest' depends on whose clock you believe — and a skewed clock can silently discard a genuinely later write",
+            "Timestamps are slow to compare",
+            "It's actually fine"
+          ],
+          "answer": 1,
+          "why": "Last-write-wins quietly assumes a shared global clock, and there isn't one — clocks drift, get corrected, and disagree by more than the interval between two writes. A machine running slightly fast can stamp a write far in the future and win every conflict for hours. This is why serious systems use logical clocks or version vectors, which order events by causality instead of trusting a wall clock nobody agrees on."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Can one product use several consistency models at once?",
+          "choices": [
+            "No — it must pick one",
+            "Yes, and it should: payments strong, profile edits read-your-writes, feeds eventual — each dataset gets the weakest model that keeps it honest",
+            "Only with multiple databases",
+            "Only at very large scale"
+          ],
+          "answer": 1,
+          "why": "Consistency is a property of an operation on a piece of data, not a badge worn by a company — so forcing one model everywhere means either overpaying for your feed or under-protecting your money. Mixing deliberately is the mature position, and the work is knowing which data is which, which is a product question rather than a database one."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What's the honest summary of consistency models?",
+          "choices": [
+            "Stronger is better; use the strongest you can afford",
+            "They're contracts about what a read may return: stronger forbids more surprises and costs coordination, so pick the weakest model that keeps the product honest — per dataset, not per company",
+            "Eventual consistency is always sufficient",
+            "It's the database's decision"
+          ],
+          "answer": 1,
+          "why": "Every model is a deal — fewer legal surprises in exchange for latency and availability — and 'strongest affordable' is the wrong instinct because it pays for guarantees nobody would have missed. This is the same question the course has asked since unit 5, now with formal names: you have copies, copies can disagree, and the model is you deciding exactly how much disagreement is allowed to reach a user."
+        }
+      ]
+    }
+  ]
+}

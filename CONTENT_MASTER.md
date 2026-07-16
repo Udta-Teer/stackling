@@ -159,8 +159,8 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 15 | Sharding / partitioning | ✅ done | `content/15-sharding.json` |
 | 16 | Message queues & async | ✅ done | `content/16-message-queues.json` |
 | 17 | Rate limiting | ✅ done | `content/17-rate-limiting.json` |
-| 18 | CAP theorem | ⬜ | — |
-| 19 | Consistency models | ⬜ | — |
+| 18 | CAP theorem | ✅ done | `content/18-cap-theorem.json` |
+| 19 | Consistency models | ✅ done | `content/19-consistency-models.json` |
 | 20 | Consensus & leader election | ⬜ | — |
 | 21 | Idempotency | ⬜ | — |
 | 22 | Observability | ⬜ | — |
