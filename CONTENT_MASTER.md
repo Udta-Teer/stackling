@@ -154,7 +154,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 10 | Replication | ✅ done | `content/10-replication.json` |
 | 11 | Scaling: vertical vs horizontal | ✅ done | `content/11-scaling-vertical-vs-horizontal.json` |
 | 12 | Load balancing | ✅ done | `content/12-load-balancing.json` |
-| 13 | Caching | ⬜ | — |
+| 13 | Caching | ✅ done | `content/13-caching.json` |
 | 14 | CDNs | ⬜ | — |
 | 15 | Sharding / partitioning | ⬜ | — |
 | 16 | Message queues & async | ⬜ | — |
