@@ -1,0 +1,312 @@
+{
+  "unitId": "design-chat-app",
+  "tier": 4,
+  "title": "Design a Chat App",
+  "subtitle": "The server has to talk first — and that changes everything",
+  "objectives": [
+    "Explain why request/response can't deliver messages, and what replaces it",
+    "Design connection handling and routing when users are pinned to specific servers",
+    "Guarantee delivery and ordering without a global clock",
+    "Handle presence, group fan-out, and offline delivery at scale"
+  ],
+  "lessons": [
+    {
+      "id": "chat-1",
+      "title": "The server speaks first",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Everything so far has been request/response: the client asks, the server answers. Why doesn't that work for chat?",
+          "choices": [
+            "It's too slow",
+            "Because the interesting event happens on the SERVER — someone messaged you — and in request/response the server has no way to speak until you ask",
+            "Messages are too large",
+            "It needs a database"
+          ],
+          "answer": 1,
+          "why": "HTTP's shape is that the client initiates, and chat inverts that: the thing you need to know about originates elsewhere and arrives unprompted. This is the first system in the course where the fundamental model from unit 2 doesn't fit — everything difficult about chat descends from the server needing to initiate."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Simplest workaround: the client polls GET /messages every 2 seconds. What's wrong with it?",
+          "choices": [
+            "It's too complicated",
+            "It's both too slow and too expensive: messages are up to 2 seconds late, and you pay a request per client per interval whether anything happened or not",
+            "It doesn't work at all",
+            "Messages arrive out of order"
+          ],
+          "answer": 1,
+          "why": "Polling makes you choose between latency and cost with no good answer — poll faster and the request volume explodes, poll slower and chat feels broken. At a million idle users, 2-second polling is 500,000 requests/sec almost all of which return 'nothing', so you're spending your entire capacity asking a question whose answer is usually no."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each approach to how it works.",
+          "pairs": [
+            { "left": "Short polling", "right": "Ask repeatedly; mostly get nothing" },
+            { "left": "Long polling", "right": "Ask, and the server holds the request open until there's news" },
+            { "left": "Server-Sent Events", "right": "One long-lived stream, server to client only" },
+            { "left": "WebSocket", "right": "One connection, both directions, stays open" }
+          ],
+          "why": "They're four points on one line: how long does a connection live, and who may speak. Long polling was the clever hack that made real-time work over plain HTTP, SSE formalized the one-way stream, and WebSocket gives you a genuine two-way pipe — which is what chat actually wants, since both sides have things to say."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why is WebSocket the natural fit for chat specifically?",
+          "choices": [
+            "It's the newest",
+            "The connection stays open and either side can send at any moment — so a message pushes instantly with no request, and no per-message handshake cost",
+            "It's more secure",
+            "It compresses better"
+          ],
+          "answer": 1,
+          "why": "Chat is bidirectional and bursty, which is exactly what a persistent duplex connection is for: you pay the handshake once and then messages cost almost nothing in either direction. Compare unit 2's connection reuse reasoning — the same logic, taken to its limit, since the connection now outlives every individual message."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You hold a WebSocket open for every online user. What have you just given up?",
+          "choices": [
+            "Nothing",
+            "Statelessness: that user is now bound to one specific server for as long as they're connected, so your app tier stops being interchangeable",
+            "Message ordering",
+            "Encryption"
+          ],
+          "answer": 1,
+          "why": "A persistent connection IS state living on one machine, which is precisely the property unit 11 said horizontal scaling depends on not having. Every hard problem in the rest of this unit — routing, deploys, failover — traces back to this moment: you traded statelessness for the ability to push, and it was worth it, and now you pay."
+        },
+        {
+          "type": "estimate",
+          "prompt": "You have 10 million users online, each holding one WebSocket. If a server can hold about 100,000 connections, roughly how many servers do you need just to hold them?",
+          "answer": 100,
+          "tolerance": 20,
+          "unit": "servers",
+          "why": "10,000,000 ÷ 100,000 = 100 servers, holding connections before doing any work at all. That reframes the problem usefully: your fleet is sized by concurrent CONNECTIONS rather than by request rate, which is a completely different capacity model from every system so far."
+        }
+      ]
+    },
+    {
+      "id": "chat-2",
+      "title": "Finding the recipient",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Alice is connected to server 7. Bob is connected to server 31. Alice sends Bob a message. What's the problem?",
+          "choices": [
+            "Nothing — the database handles it",
+            "Server 7 holds Alice's connection but has no way to reach Bob's — it must discover that Bob is on server 31 and get the message there",
+            "They must be on the same server",
+            "The load balancer routes it"
+          ],
+          "answer": 1,
+          "why": "The message has a specific destination that lives in another process on another machine, which no previous system in this course had to deal with — a redirect or a feed read could be served by any server. Now delivery means routing to one exact connection, so you need to know where it is."
+        },
+        {
+          "type": "build_diagram",
+          "prompt": "Server 7 needs to know which server holds Bob's connection. Add the piece that tracks it.",
+          "slots": ["Chat Servers", "?", "Message Store"],
+          "palette": ["Connection registry (Redis)", "A CDN", "A second load balancer"],
+          "answer": "Connection registry (Redis)",
+          "why": "You need a shared map from user id to the server holding their connection, and every server must be able to read it — which is unit 5's answer exactly: state that all servers need goes in a shared store, not in any one server's memory. Redis fits because the lookup is by one key and the data is rebuildable when a connection drops."
+        },
+        {
+          "type": "order_steps",
+          "prompt": "Order the delivery of Alice's message to Bob.",
+          "steps": [
+            "Alice's client sends the message over her WebSocket to server 7",
+            "Server 7 persists the message to the message store",
+            "Server 7 looks up Bob in the connection registry — he's on server 31",
+            "Server 7 forwards the message to server 31",
+            "Server 31 pushes it down Bob's open WebSocket"
+          ],
+          "why": "Persist first, then route, then push — and the order matters enormously. Storing before delivering means a crash anywhere after that point loses a delivery attempt but never the message, so Bob can still fetch it later. Push first and you've built a system where a dropped connection destroys data."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why persist the message BEFORE trying to deliver it?",
+          "choices": [
+            "It's faster",
+            "Because delivery can fail — Bob may be offline or his server may die — and the message must survive that, so the store is the source of truth and delivery is best-effort on top",
+            "The database assigns the id",
+            "To keep the order correct"
+          ],
+          "answer": 1,
+          "why": "Delivery over a connection is inherently unreliable and the message is not, so you split them: durable write first, then an attempt to push. This is unit 5's discipline again — the store holds the truth, the push is derived — which is what makes offline delivery a natural consequence rather than a separate feature."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Bob is offline. What happens to the message?",
+          "choices": [
+            "It's dropped",
+            "Nothing special — it's already stored, so it simply sits there and Bob fetches it when he reconnects",
+            "It's queued in memory on server 7",
+            "Alice gets an error"
+          ],
+          "answer": 1,
+          "why": "Because you persisted first, offline isn't a failure case needing new machinery — it's just a delivery that hasn't happened yet, and reconnection is a read. That's the payoff for getting the order right: 'Bob is offline' and 'Bob's server crashed mid-push' resolve identically, via the same fetch-on-reconnect path."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Server 31 crashes. Bob's connection dies and he reconnects — landing on server 12. What must happen?",
+          "choices": [
+            "Bob loses his messages",
+            "The registry updates to say Bob is on server 12, and Bob fetches anything he missed since his last acknowledged message",
+            "The load balancer sends him back to server 31",
+            "His session is restored"
+          ],
+          "answer": 1,
+          "why": "Connections are disposable even though they're stateful, so recovery is re-register plus catch-up rather than restoring anything. The catch-up needs Bob to tell the server where he got to — 'send me everything after message X' — which makes reconnection a cursor read, the same pattern from unit 3 and the feed."
+        }
+      ]
+    },
+    {
+      "id": "chat-3",
+      "title": "Delivery and ordering",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Server 31 pushes the message down Bob's socket. Is it delivered?",
+          "choices": [
+            "Yes — the socket accepted it",
+            "You don't know: the write succeeded locally, but the message may still be in flight, or his phone may have lost signal before rendering it",
+            "Yes, if there's no error",
+            "Only if he replies"
+          ],
+          "answer": 1,
+          "why": "Writing to a socket means the bytes left your process, not that they arrived and were shown — this is unit 21's ambiguity in its purest form. Which is why every chat app has client acknowledgements: only Bob's client can say 'I have it', so the ticks you see in chat UIs are the protocol made visible."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each chat state to what it actually means.",
+          "pairs": [
+            { "left": "Sent", "right": "The server accepted and stored it" },
+            { "left": "Delivered", "right": "The recipient's client acknowledged receiving it" },
+            { "left": "Read", "right": "The recipient's client says it was displayed" },
+            { "left": "Pending", "right": "The sender's client hasn't heard back yet" }
+          ],
+          "why": "Each tick is an acknowledgement from a different party, which is why they arrive at different times and why 'delivered' can sit there for hours. The UI is honestly reporting the only thing anyone can know: what the last party confirmed."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Bob's client acknowledges, but the ack is lost. What happens?",
+          "choices": [
+            "The message is lost",
+            "The server thinks it wasn't delivered and pushes again — so Bob sees the message twice unless his client deduplicates by message id",
+            "Nothing",
+            "Alice is notified"
+          ],
+          "answer": 1,
+          "why": "This is at-least-once delivery from unit 16, and the duplicate is the price of never losing anything — the alternative, acking before rendering, loses messages instead. So the client must be idempotent: track message ids it has already shown and discard repeats, which is unit 21's key applied on the phone."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Alice sends 'A' then 'B'. Bob sees 'B' then 'A'. Why can that happen?",
+          "choices": [
+            "Bob's client is broken",
+            "The two messages took different paths or were processed concurrently, and nothing forced them into order — network delivery has no ordering guarantee across separate operations",
+            "The database sorted them wrong",
+            "Alice's clock is wrong"
+          ],
+          "answer": 1,
+          "why": "Concurrency without a defined order is unit 16's lesson: two messages in flight finish whenever they finish. In chat this is far worse than a technicality because reordering changes meaning — a reply landing before its question is nonsense, which is precisely the causal violation unit 19 named."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "How do you order a conversation's messages without trusting anyone's clock?",
+          "choices": [
+            "Use the sender's timestamp",
+            "Assign a per-conversation sequence number on the server — one conversation is handled in one place, so it can hand out increasing numbers that clients sort by",
+            "Use the server's timestamp",
+            "Order by message id"
+          ],
+          "answer": 1,
+          "why": "Unit 19 showed why timestamps fail: clocks disagree, so 'later' depends on whose watch you believe, and a phone with a skewed clock wins or loses every race. A per-conversation counter sidesteps clocks entirely — and note the scope is per-conversation rather than global, because you only need order where meaning lives, which is exactly unit 16's per-key partitioning."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why is per-conversation ordering enough — why not order all messages globally?",
+          "choices": [
+            "Global ordering is impossible",
+            "Because nobody can perceive the relative order of two messages in different conversations — global ordering would cost coordination across everything to guarantee something no user could ever notice",
+            "Conversations are independent tables",
+            "It would be too slow to sort"
+          ],
+          "answer": 1,
+          "why": "Order only matters where causality does, and two unrelated chats have none — so a global sequence would serialize the entire system to protect a property with no observer. This is the same reasoning that made causal consistency cheaper than strong in unit 19: buy ordering exactly where meaning depends on it, and nowhere else."
+        }
+      ]
+    },
+    {
+      "id": "chat-4",
+      "title": "Presence and groups",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "You show a green dot when a user is online. What's the naive implementation, and why does it hurt?",
+          "choices": [
+            "Check the registry on each render — that's fine",
+            "Broadcasting every connect and disconnect to everyone who might care: a user with 1,000 contacts generates 1,000 notifications every time their train enters a tunnel",
+            "Poll every user every second",
+            "Store presence in the database"
+          ],
+          "answer": 1,
+          "why": "Presence is deceptively expensive because it's high-churn, low-value data: mobile connections flap constantly, and each flap fans out to everyone watching. It's the celebrity problem again — cost scales with how many people care — for a green dot nobody will remember seeing."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which make presence affordable? Select all.",
+          "choices": [
+            "Only compute presence for contacts the user is actually looking at right now",
+            "Debounce — wait a few seconds before declaring someone offline, so brief drops don't fan out",
+            "Accept staleness: a green dot that's a few seconds wrong harms nobody",
+            "Store every presence change durably for audit"
+          ],
+          "answer": [0, 1, 2],
+          "why": "Compute it lazily for the handful of contacts on screen, debounce the flapping, and let it be a little wrong — presence is the definitive case where staleness costs nothing, so unit 19 says buy the weakest guarantee available. Durably auditing it is the opposite instinct: paying storage and writes for data whose value expires in seconds."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A group chat has 100,000 members. Someone posts. What's the problem?",
+          "choices": [
+            "The message is too large",
+            "It's fan-out again: one message must reach 100,000 connections spread across your whole server fleet, so one send becomes a storm",
+            "The group is too large to store",
+            "Ordering breaks"
+          ],
+          "answer": 1,
+          "why": "This is unit 24's celebrity problem wearing a different hat — the cost of one write scales with the audience — and the resolution rhymes: for huge groups, stop pushing to everyone and let clients pull on open, since most members aren't watching. Small groups fan out eagerly because it's cheap and instant matters."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You're deploying. Restarting a server drops 100,000 WebSockets at once. What happens?",
+          "choices": [
+            "Clients reconnect smoothly",
+            "All 100,000 reconnect simultaneously — a thundering herd hitting your registry and catch-up reads at the same instant",
+            "The load balancer holds them",
+            "Nothing — deploys are seamless"
+          ],
+          "answer": 1,
+          "why": "Persistent connections make deploys genuinely harder than the stateless case from unit 12: draining doesn't help much because the connections are meant to be long-lived, so a restart is a synchronized mass reconnection. The fixes are jittered reconnect backoff on the client (unit 17's lesson: never let clients agree on a moment) and rolling restarts small enough that the herd stays survivable."
+        },
+        {
+          "type": "tradeoff_slider",
+          "prompt": "You're deciding how a mobile client gets messages while the app is backgrounded. Slide toward your approach.",
+          "leftLabel": "Keep the WebSocket alive in the background",
+          "rightLabel": "Drop it; use push notifications to wake the app",
+          "answerRange": [60, 100],
+          "why": "A backgrounded app can't reliably hold a socket anyway — mobile operating systems suspend processes and reclaim connections, and fighting that burns the user's battery for a connection the OS will kill regardless. Push notification services exist precisely because they hold one connection on behalf of every app, which is the same consolidation argument as a shared cache: one expensive resource, amortized."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Summarize the chat design.",
+          "choices": [
+            "A REST API with fast polling",
+            "Persistent connections make servers stateful, so you need a registry to route to the right one, a durable store so delivery can fail safely, per-conversation sequence numbers for ordering, and client acks with dedup",
+            "A message queue between all users",
+            "A database with real-time triggers"
+          ],
+          "answer": 1,
+          "why": "Every piece follows from one inversion: the server has to speak first, so connections persist, so servers hold state, so routing and reconnection become the design. And the reason it holds together is the discipline from unit 5 — persist first, treat the push as derived — which turns offline users, crashed servers, and lost acks into the same recoverable case."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,314 @@
+{
+  "unitId": "design-rate-limiter",
+  "tier": 4,
+  "title": "Design a Rate Limiter",
+  "subtitle": "Build the thing that protects everything else — as a service, at scale",
+  "objectives": [
+    "Turn 'rate limit our API' into a specification with numbers and a failure policy",
+    "Design the counter store when the limiter itself must handle your full request volume",
+    "Make the check atomic, and decide what happens when the limiter is down",
+    "Distribute limits across regions and reason about what exactness really costs"
+  ],
+  "lessons": [
+    {
+      "id": "drl-1",
+      "title": "Specifying it",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "'Build a rate limiter for our API.' What must you pin down before designing anything?",
+          "choices": [
+            "Which algorithm to use",
+            "What's being limited (the key), the limit and window, what happens on breach, and how exact it has to be",
+            "Which database to use",
+            "How many servers you have"
+          ],
+          "answer": 1,
+          "why": "Those four answers determine the whole design, and the fourth is the one people skip: 'exactly 100, never 101' and 'roughly 100' are different systems with different costs. Unit 17 gave you the algorithms; this unit is about the fact that the limiter is now a service that must survive your entire traffic volume."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What makes a rate limiter unusual compared to every system so far?",
+          "choices": [
+            "It's write-heavy",
+            "It sits in front of everything, so it sees 100% of traffic and must be faster and more available than the service it protects — if it's slow, everything is slow",
+            "It needs strong consistency",
+            "It's stateless"
+          ],
+          "answer": 1,
+          "why": "Every other component in this course served a slice of traffic; the limiter serves all of it, and it runs before you've decided whether the request is even worth serving. That inverts the usual reasoning — a protective component that fails takes down the thing it protects, so its own availability budget must exceed its dependents'."
+        },
+        {
+          "type": "estimate",
+          "prompt": "Your API handles 500,000 requests/second. How many rate limit checks per second must the limiter perform?",
+          "answer": 500000,
+          "tolerance": 1000,
+          "unit": "checks/sec",
+          "why": "Every request is checked, so the limiter's load is exactly your total traffic — 500,000/sec, with no cache to soften it and no way to sample. That number is why the naive 'just use Redis' answer needs examining: it means half a million round trips per second to one store."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Each check is a read and a write to a counter. Why can't you just add read replicas?",
+          "choices": [
+            "Replicas are too slow",
+            "Because the check-and-increment must see the current value: reading a lagging replica means two servers both see 99 and both allow — replication scales reads, and this is a write",
+            "Replicas don't support counters",
+            "You can"
+          ],
+          "answer": 1,
+          "why": "A limiter check is fundamentally a read-modify-write, so unit 10's rule bites: replicas can't help because a stale read defeats the entire purpose. This is the same asymmetry as the write bottleneck in unit 15 — the only real options are to shard the counters or to stop being exact."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What should happen when a request is rejected?",
+          "choices": [
+            "Drop the connection",
+            "Return 429 with Retry-After, plus headers showing the limit, what's remaining, and when it resets — so clients can self-regulate instead of discovering the limit by hitting it",
+            "Return 503",
+            "Queue it until capacity frees up"
+          ],
+          "answer": 1,
+          "why": "The limiter's job isn't only to refuse, it's to teach clients to stop asking — a client that can read its remaining quota never trips the limit at all, which costs you nothing. Queueing is the wrong instinct entirely: holding a rejected request consumes exactly the resources you were trying to protect."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Spec so far: token bucket, 1,000 requests/minute per API key, 429 on breach. What's still missing?",
+          "choices": [
+            "The programming language",
+            "The failure policy: when the counter store is unreachable, do you allow everything or block everything? That decision exists whether or not you make it",
+            "The number of servers",
+            "The cache size"
+          ],
+          "answer": 1,
+          "why": "The store will be unreachable sometimes, and your code will do something — so 'we never decided' just means you'll discover your default during an incident. Fail-open lets a flood through exactly when you're already fragile; fail-closed turns a limiter outage into a total API outage. Choosing deliberately is the difference between a tradeoff and a surprise."
+        }
+      ]
+    },
+    {
+      "id": "drl-2",
+      "title": "The counter store",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Your limiter runs on 50 API servers, each keeping counters in local memory. What's the actual limit a client experiences?",
+          "choices": [
+            "The configured limit",
+            "Up to 50× it, because each server counts only what it saw — you configured 1,000 and shipped 50,000",
+            "1/50th of it",
+            "It depends on the algorithm"
+          ],
+          "answer": 1,
+          "why": "This is unit 17's multiplication and unit 5's diagnosis: the counter is state, and state kept locally on interchangeable machines means each holds a fragment of the truth. Notice it fails silently — nothing errors, your dashboard shows limits being enforced, and clients quietly get 50× what you promised."
+        },
+        {
+          "type": "build_diagram",
+          "prompt": "You need one shared count across all 50 API servers. Add the piece.",
+          "slots": ["API Servers ×50", "?", "Backend Services"],
+          "palette": ["Redis (shared counters)", "A read replica", "A message queue"],
+          "answer": "Redis (shared counters)",
+          "why": "One shared, fast, atomic store is the only way 50 servers can agree on a count — and Redis fits because the operation is a single-key increment, which unit 7 identified as the cleanest key-value case there is. A replica can't help (stale reads defeat the check) and a queue is asynchronous, which is useless when you must decide right now."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your code does: GET count, check it's under the limit, INCR, allow. What's the bug?",
+          "choices": [
+            "GET is too slow",
+            "It's check-then-act: two concurrent requests both read 99, both decide they're fine, and both increment — you allowed 101",
+            "INCR isn't durable",
+            "Nothing"
+          ],
+          "answer": 1,
+          "why": "This is unit 6's race living inside the mechanism meant to enforce limits, and it looks perfectly correct until traffic is concurrent — which is the only condition a rate limiter ever operates under. The check and the increment must be one atomic operation, or the limit is decorative at exactly the moment it matters."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "So how do you make the check atomic?",
+          "choices": [
+            "Use a database transaction per request",
+            "Do it in one operation at the store: increment and read the new value in a single atomic call, or run a small script server-side so the whole check happens in one round trip",
+            "Lock the key first",
+            "Retry on conflict"
+          ],
+          "answer": 1,
+          "why": "Push the decision to where the data lives so there's no window between reading and acting — an atomic increment returns the new count, and you compare against the limit afterwards. A transaction per request at 500,000/sec would be absurd overhead, and taking a lock adds another round trip plus a lock to clean up when a client dies holding it."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "500,000 checks/sec is too much for one Redis instance. What do you do?",
+          "choices": [
+            "Add Redis replicas",
+            "Shard the counters by key — hash the API key to pick an instance, so each client's counter lives on exactly one node and the load spreads",
+            "Batch the checks",
+            "Cache the counts"
+          ],
+          "answer": 1,
+          "why": "Unit 15 applies cleanly here because the workload is perfectly partitionable: a client's counter is only ever touched by that client's requests, so different keys never need to meet. And the shard key picks itself — it's the same key you're limiting on, which is exactly unit 15's rule about sharding by what your hot query filters on."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A single enormous customer sends 200,000 requests/second by themselves. What breaks?",
+          "choices": [
+            "Nothing — they're limited",
+            "Their counter is one key on one shard, so that shard takes 200,000 ops/sec — the celebrity problem, and sharding can't split a single key",
+            "The limit is bypassed",
+            "Redis rejects them"
+          ],
+          "answer": 1,
+          "why": "Hashing distributes keys, not load, and one key is indivisible — so your hottest customer concentrates on one node no matter how many you add. The escape is to give that key sub-counters (limit/N on each of N shards, chosen at random per request), which trades a little exactness for a load you can actually spread."
+        }
+      ]
+    },
+    {
+      "id": "drl-3",
+      "title": "When exactness costs too much",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Every check is a Redis round trip — say 0.5ms. What have you added to every single API request?",
+          "choices": [
+            "Nothing measurable",
+            "0.5ms of latency and a hard dependency, on 100% of requests — including the ones you were going to serve anyway",
+            "Only on rejected requests",
+            "0.5ms on writes only"
+          ],
+          "answer": 1,
+          "why": "Exactness is bought with a round trip you pay universally, and unit 4's ladder says that hop costs roughly 5,000 RAM reads — so you've made every request meaningfully slower to catch the rare one that's over. Whether that's worth it depends entirely on what being wrong costs, which is the question this whole lesson turns on."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "So how do you get most of the protection without paying that hop on every request?",
+          "choices": [
+            "Sample requests randomly",
+            "Check a local counter first: an obvious flood is rejected instantly with no network call, and only borderline traffic goes to the shared store for exact accounting",
+            "Increase the limit",
+            "Cache the decision"
+          ],
+          "answer": 1,
+          "why": "A client sending 50,000/sec doesn't need precise accounting to be refused, so the local check kills the flood for free and the expensive path only sees traffic where precision changes the answer. That's a broadly reusable shape — a cheap approximate filter in front of an expensive exact one — and it's what unit 5's rate-limit slider was pointing at."
+        },
+        {
+          "type": "tradeoff_slider",
+          "prompt": "You're limiting a paid API where every request over the plan is billable revenue. Slide toward your design.",
+          "leftLabel": "Local approximate (fast, can overshoot)",
+          "rightLabel": "Shared exact (precise, hop per request)",
+          "answerRange": [60, 100],
+          "why": "When the limit IS the billing boundary, overshooting means giving away product or overcharging a customer — both are real money and one is a support incident. That justifies the round trip, exactly as unit 5 argued. Run the same question on a generous free tier and you'd slide the other way, because there the only cost of overshoot is a bit of capacity nobody missed."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Redis goes down. Your limiter can't check anything. What should happen?",
+          "choices": [
+            "Block all requests — safety first",
+            "It depends on what the limit protects: fail open if it guards against noisy neighbours, fail closed if it guards something that costs money or can be abused",
+            "Always fail open",
+            "Retry until Redis returns"
+          ],
+          "answer": 1,
+          "why": "There's no universal answer because the two failures are asymmetric in ways that depend on the limit's purpose — failing closed on a courtesy limit turns a Redis blip into a full outage, while failing open on an abuse control invites exactly the flood you built it for. Retrying is the worst option: you add latency to every request during an incident and still have to decide."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You run in three regions. A client's limit is 1,000/minute globally. Should the counter be global?",
+          "choices": [
+            "Yes — the limit is global, so the counter must be",
+            "Usually not: a global counter means every request pays a cross-region round trip, so most systems give each region a share and accept some imprecision",
+            "Yes, using consensus",
+            "No — limits should be per-region by policy"
+          ],
+          "answer": 1,
+          "why": "A truly global counter needs cross-region coordination on every request, which is unit 20's warning and unit 4's physics — you'd add 100ms+ to every call to enforce a number to the digit. Splitting the budget per region keeps the check local and means a client could get somewhat more than 1,000 if their traffic is lopsided, which is almost always the better trade."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What's the honest way to describe a per-region split to a customer?",
+          "choices": [
+            "Say it's exactly 1,000",
+            "Publish it as approximately 1,000 per minute — because a limit you enforce approximately should be documented approximately, or the first support ticket will be about your own spec",
+            "Don't mention it",
+            "Tell them limits are per-region"
+          ],
+          "answer": 1,
+          "why": "If your enforcement is approximate, an exact promise is a bug you wrote into the docs — and someone will measure it. Saying 'approximately 1,000' is both honest and useful: it tells clients not to build logic that depends on the exact boundary, which is the behaviour you wanted anyway."
+        }
+      ]
+    },
+    {
+      "id": "drl-4",
+      "title": "The edges",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Your limiter counts requests. One endpoint runs a 30-second report; another returns a cached string. What's wrong?",
+          "choices": [
+            "Nothing — a request is a request",
+            "A request count is a proxy for load, and it stops describing anything once requests differ by 15,000× in cost — a client burning your fleet looks identical to one fetching cached strings",
+            "The report endpoint needs its own service",
+            "The cached endpoint shouldn't be limited"
+          ],
+          "answer": 1,
+          "why": "Counting requests is only meaningful while requests are roughly interchangeable, which is exactly unit 17's warning and unit 12's round-robin problem in a different costume. The fix is to charge by cost — expensive endpoints deduct more tokens — so the budget tracks the resource you're actually protecting rather than a number that happens to be easy to count."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Your limiter is the front door for everything. Which properties does it need? Select all.",
+          "choices": [
+            "Higher availability than the services behind it",
+            "Latency low enough to be invisible in the request path",
+            "A defined behaviour when its own dependencies fail",
+            "Strong durability of the counters"
+          ],
+          "answer": [0, 1, 2],
+          "why": "It must be more available than what it protects, fast enough to disappear into the request, and explicit about its own failure — those follow from sitting in front of 100% of traffic. Durability is the one it doesn't need: losing counters means a brief window of unlimited traffic, and counters rebuild within a window, so it's derived state in unit 5's sense."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Where should the limiter run?",
+          "choices": [
+            "Inside each service, after authentication",
+            "At the edge or gateway, before you've spent anything — the value of a rejection is proportional to how little it cost you",
+            "In the database layer",
+            "In the client SDK"
+          ],
+          "answer": 1,
+          "why": "A rejection that happens after you've parsed a body, authenticated, and queried the database has already spent everything you were trying to save. The awkward part is that limiting by API key needs identity, so you want authentication early too — which is why gateways typically do both, cheaply, before any real work begins."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "10,000 clients get limited at once and all obey Retry-After: 60. What have you built?",
+          "choices": [
+            "A well-behaved system",
+            "A synchronized stampede: every client returns at the same instant because you told them all the same number — obedience produced the spike",
+            "Nothing harmful",
+            "A backlog"
+          ],
+          "answer": 1,
+          "why": "Giving many clients an identical instruction about time schedules a thundering herd, and the clients did exactly what you asked — this is unit 17's trap and it's the same shape as unit 20's split votes. Jitter the value you hand out so retries spread across an interval, because any time you make clients agree on a moment, you've built a stampede."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A single client's limit is enforced correctly — but 10,000 clients each at their limit still overwhelm you. What's missing?",
+          "choices": [
+            "Lower per-client limits",
+            "Per-client limits sum to no bound at all: you also need a global load-shedding layer that protects total capacity regardless of who's asking",
+            "More servers",
+            "A better algorithm"
+          ],
+          "answer": 1,
+          "why": "Per-client limits answer 'is this client being unfair?' and say nothing about 'can we serve this much in total' — every client can be perfectly compliant while the sum exceeds your fleet. That's unit 17's composition problem at the top level, and it's why real front doors have both: fairness limits per client, and a global shed valve that doesn't care whose request it is."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Summarize the rate limiter design.",
+          "choices": [
+            "A counter in Redis with a TTL",
+            "An atomic check on sharded counters, run at the edge before you spend anything — with a local approximate filter in front, a deliberate failure policy, cost-weighted charging, and a global shed valve behind it",
+            "A token bucket per user",
+            "A middleware that counts requests"
+          ],
+          "answer": 1,
+          "why": "The algorithm was the easy part; what makes it a system is that it sees every request, so its own latency, availability, and failure mode become everyone's. Every hard decision came back to one question this course has asked since unit 5 — where does the counter live — and each answer traded exactness against latency, availability, and the cost of being wrong."
+        }
+      ]
+    }
+  ]
+}

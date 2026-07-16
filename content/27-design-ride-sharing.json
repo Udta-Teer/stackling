@@ -1,0 +1,313 @@
+{
+  "unitId": "design-ride-sharing",
+  "tier": 4,
+  "title": "Design a Ride-Sharing Backend",
+  "subtitle": "The boss level — geography, matching, real-time, and money in one system",
+  "objectives": [
+    "Handle a firehose of location updates without writing every one to a database",
+    "Search 'drivers near me' efficiently, and explain why a normal index can't do it",
+    "Design matching so one driver is never assigned to two riders",
+    "Reason about the whole trip lifecycle, and which parts tolerate being wrong"
+  ],
+  "lessons": [
+    {
+      "id": "ride-1",
+      "title": "The location firehose",
+      "exercises": [
+        {
+          "type": "estimate",
+          "prompt": "1 million drivers are online, each sending their location every 4 seconds. Roughly how many location writes per second?",
+          "answer": 250000,
+          "tolerance": 50000,
+          "unit": "writes/sec",
+          "why": "1,000,000 ÷ 4 = 250,000 updates/sec, continuously, just from drivers existing — before a single ride is requested. That number reframes the whole problem: this is a write-heavy real-time system, which almost nothing else in this course has been."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Should each of those 250,000 updates/sec be a row written to your main database?",
+          "choices": [
+            "Yes — you need the location history",
+            "No: it would dwarf every other write in the system, and each update makes the previous one worthless — you only need where a driver is NOW",
+            "Yes, but batched",
+            "Only for drivers on a trip"
+          ],
+          "answer": 1,
+          "why": "Current location is the definition of ephemeral state: the value has a lifespan of four seconds, and durably persisting something you're about to overwrite is paying for a guarantee with no beneficiary. Unit 5's question answers itself here — if you lost every driver's location, they'd all tell you again within four seconds."
+        },
+        {
+          "type": "build_diagram",
+          "prompt": "Driver locations change constantly, are read constantly, and are worthless once stale. Add where they should live.",
+          "slots": ["Location Service", "?", "Trip Database (source of truth)"],
+          "palette": ["In-memory geo store (Redis)", "Object storage", "A message queue"],
+          "answer": "In-memory geo store (Redis)",
+          "why": "Hot, tiny, constantly overwritten, and rebuildable in seconds — that's the exact profile for an in-memory store, and it keeps 250,000 writes/sec away from the database that holds the things you actually can't lose. Note the split: current location is derived state, while the trip record is the source of truth, and they get completely different treatment."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You also want trip history for receipts, disputes, and analytics. How does that fit?",
+          "choices": [
+            "Write it all to the same in-memory store",
+            "Stream the location points to a queue and persist them asynchronously — history is durable but not urgent, so it never touches the live path",
+            "Don't keep history",
+            "Query the in-memory store later"
+          ],
+          "answer": 1,
+          "why": "Two requirements hide inside 'location': a live position that must be fast and disposable, and a trip trace that must be durable but can arrive seconds late. Splitting them lets each be right — unit 16's queue carries the history off the critical path, exactly as analytics did in the URL shortener."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Do all 250,000 updates/sec need to be processed at full fidelity?",
+          "choices": [
+            "Yes — precision matters",
+            "No: a driver parked at a red light is sending the same point repeatedly, so clients can throttle when stationary and send more often when moving fast",
+            "Yes, for safety",
+            "No — sample randomly"
+          ],
+          "answer": 1,
+          "why": "The information content of an update is how much the driver moved, not that four seconds elapsed — so an adaptive rate cuts a large share of the firehose while improving the data you keep. This is the cheapest kind of scaling: not handling the load better, but noticing that much of it carried no information."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why is this system harder than the news feed, despite the feed having more users?",
+          "choices": [
+            "It has more data",
+            "The feed was read-heavy and could precompute; this is write-heavy, real-time, and geographic — you can't precompute 'who's near me' because the answer changes every second",
+            "It needs more servers",
+            "The database is bigger"
+          ],
+          "answer": 1,
+          "why": "Every technique that saved the feed depended on the answer being stable long enough to cache, and here the underlying data moves continuously — the thing you'd cache is stale before you've written it. That's why this is the boss level: the read-heavy playbook, which has rescued nearly every system so far, simply doesn't apply."
+        }
+      ]
+    },
+    {
+      "id": "ride-2",
+      "title": "Finding who's nearby",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "A rider opens the app. You need drivers within 2km. Why can't a normal B-tree index on (latitude, longitude) do this well?",
+          "choices": [
+            "It's too slow to sort",
+            "A B-tree orders on one dimension at a time — it can find a latitude range, but every driver at that latitude anywhere on Earth qualifies, so you'd filter a huge set by longitude afterwards",
+            "Coordinates can't be indexed",
+            "The index would be too large"
+          ],
+          "answer": 1,
+          "why": "This is unit 8's leftmost-prefix rule biting in a new way: the index is sorted by latitude, then by longitude WITHIN each latitude, so a two-dimensional range query can only use the first dimension efficiently. Proximity is inherently 2D, and a structure that orders one axis at a time can't express it."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "So what's the core trick behind geospatial indexing?",
+          "choices": [
+            "Store coordinates as strings",
+            "Reduce two dimensions to one: divide the world into cells and give each a single id, so 'nearby' becomes 'same or adjacent cell' — a one-dimensional lookup a normal index can serve",
+            "Use a graph database",
+            "Precompute every distance"
+          ],
+          "answer": 1,
+          "why": "Geohashing and its relatives all do the same thing — map a 2D position to a 1D key such that nearby points usually share a prefix — which turns proximity into the prefix lookup that B-trees are already excellent at. That's the whole insight: you didn't invent a new index, you reshaped the question into one the old index can answer."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each geospatial idea to what it does.",
+          "pairs": [
+            { "left": "Geohash", "right": "Encodes a location as a string; shared prefix means nearby" },
+            { "left": "Cell size", "right": "Shorter prefix = bigger area = more candidates" },
+            { "left": "Neighbour cells", "right": "Must be checked, or you miss drivers just over the border" },
+            { "left": "Exact distance", "right": "Computed at the end, on the small candidate set" }
+          ],
+          "why": "The pattern is coarse filter then exact check: the cell lookup cheaply narrows millions of drivers to dozens, and only then do you compute real distances. That two-stage shape is everywhere in this course — the same 'cheap approximate filter in front of an expensive exact one' as the rate limiter."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Two drivers are 50 metres apart but on opposite sides of a cell boundary. What happens?",
+          "choices": [
+            "Nothing — they're both found",
+            "A naive same-cell query misses one of them, because cell adjacency doesn't match real distance at the edges — so you must search the neighbouring cells too",
+            "The geohash is wrong",
+            "They're merged into one cell"
+          ],
+          "answer": 1,
+          "why": "Cells are an arbitrary grid laid over continuous space, so being close and sharing a cell aren't the same thing — a rider standing at a boundary would see nobody despite drivers metres away. Every real implementation queries the surrounding cells as well, which is a good reminder that the discretization is a convenience rather than the truth."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Cell size is fixed. Downtown has 5,000 drivers in one cell; a rural cell has 2. What's the problem?",
+          "choices": [
+            "Rural riders wait longer",
+            "Both ends break: the dense cell returns thousands of candidates to filter, and the sparse cell returns almost nobody — so a fixed grid can't serve both",
+            "The geohash is too long",
+            "Nothing"
+          ],
+          "answer": 1,
+          "why": "Driver density varies by orders of magnitude across a city, so any single cell size is wrong somewhere — which is why real systems use variable precision, going finer downtown and coarser in the countryside. It's unit 15's hot shard in geographic form: uniform partitioning of non-uniform data concentrates load exactly where you're busiest."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Should the geo index be sharded by driver id?",
+          "choices": [
+            "Yes — it spreads load evenly",
+            "No: every query asks 'who is near this point', so sharding by location keeps a query on one shard, while sharding by driver id would make every search hit every shard",
+            "Yes, for even distribution",
+            "It doesn't matter"
+          ],
+          "answer": 1,
+          "why": "Unit 15's rule decides it: shard by what your hot query filters on, and the hot query filters on location. Driver id would distribute beautifully and force a scatter-gather on every single search — perfect balance, useless locality. The cost of choosing location is accepting the downtown hotspot, which is the trade you'd take."
+        }
+      ]
+    },
+    {
+      "id": "ride-3",
+      "title": "Matching",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Two riders request a ride simultaneously. Your matcher offers the same nearby driver to both. What have you built?",
+          "choices": [
+            "An efficient system",
+            "A double-booking: the classic race — both matchers read 'driver available', both decide, and one rider gets a driver who's already gone",
+            "Nothing harmful — the driver picks",
+            "A load balancing problem"
+          ],
+          "answer": 1,
+          "why": "This is unit 6's check-then-act with a person on the other end: read-decide-write across two concurrent matchers, and the second write silently overwrites the first. Unlike a lost counter increment, this one is visible in the real world — someone's car arrives and there are two people expecting it."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "How do you make assignment safe?",
+          "choices": [
+            "Match more slowly",
+            "Make the claim atomic: a conditional update that only succeeds if the driver is still available, so exactly one matcher wins and the loser picks someone else",
+            "Use a queue per driver",
+            "Let the driver reject one"
+          ],
+          "answer": 1,
+          "why": "You need compare-and-set semantics — 'set this driver to assigned IF they are currently available' — so the store adjudicates rather than your application logic guessing. That's unit 9's optimistic concurrency, and it's the right shape here because collisions are rare: most requests aren't fighting over the same driver, so locking everyone up front would tax the 99% for the 1%."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Does this need a distributed consensus service like ZooKeeper?",
+          "choices": [
+            "Yes — it's a distributed lock",
+            "Usually not: a conditional update in a store you already run gives you the mutual exclusion, and unit 20's advice was to use consensus only where two answers is a catastrophe you can't reconcile",
+            "Yes, for correctness",
+            "No — races are acceptable here"
+          ],
+          "answer": 1,
+          "why": "The claim is a single-key atomic operation, which any decent store does natively — pulling in a consensus system means operating another distributed system to solve a problem your database already solves. And a rare double-booking, while genuinely bad, is recoverable by reassigning; it's not the un-mergeable divergence that justifies consensus."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your matcher assigns the nearest available driver, instantly, every time. What's wrong with that as a strategy?",
+          "choices": [
+            "Nothing — nearest is optimal",
+            "Nearest-now is greedy: waiting a moment to batch requests and drivers together often produces better overall matches than each decision made in isolation",
+            "It's too slow",
+            "Distance is hard to compute"
+          ],
+          "answer": 1,
+          "why": "A locally optimal choice per request can be globally poor — grabbing the closest driver for rider A may strand rider B whom that driver was much better placed for. Batching over a short window turns a series of greedy picks into an assignment problem you can actually optimize, at the cost of a small delay nobody notices."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A driver is offered a ride and doesn't respond. How long do you wait?",
+          "choices": [
+            "Until they respond",
+            "A few seconds, then offer it to someone else — but you've just met the same undecidable question again: are they ignoring it, or is their phone on a bad connection?",
+            "Thirty seconds",
+            "Cancel the ride"
+          ],
+          "answer": 1,
+          "why": "'Dead or just slow?' has followed this course from replication to failover to health checks, and here it's a person on a phone in a tunnel. You pick a timeout and accept both errors: too short and you snatch rides from drivers who were about to accept, too long and the rider stares at a spinner. There's no correct value, only a chosen failure mode."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "The driver accepts, but the acceptance is lost in flight. What must be true of your system?",
+          "choices": [
+            "It should retry the whole match",
+            "Accepting must be idempotent — the driver's client retries with the same ride id, and the second accept returns the same result rather than double-booking or erroring",
+            "The driver should tap again",
+            "The rider is notified of failure"
+          ],
+          "answer": 1,
+          "why": "Unit 21 exactly: a timeout doesn't tell you whether the accept landed, so the client retries and the server must recognize the repeat as the same intent. Without that, a lost ack means either the driver appears not to have accepted a ride they did, or the retry creates a second assignment — both visible to real people in a car."
+        }
+      ]
+    },
+    {
+      "id": "ride-4",
+      "title": "The whole trip",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "The trip is underway. Which parts of this system now need strong consistency?",
+          "choices": [
+            "All of it — it's a real-time system",
+            "The trip's state and the payment: those are money and commitments. The car's position on the map can be a second stale and nobody is harmed",
+            "None of it",
+            "Only the driver's location"
+          ],
+          "answer": 1,
+          "why": "The same product contains data with completely different costs of being wrong: a trip charged twice is a refund and a complaint, while a marker lagging one second is invisible. Unit 19's rule applies per dataset rather than per company — buy strong guarantees for the ledger and let the map be eventually consistent."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "At trip end, you must charge the rider and credit the driver — across your database and an external payments provider. What's the problem?",
+          "choices": [
+            "It's a simple transaction",
+            "Atomicity stops at your database: your ROLLBACK can't un-charge a card, so you need a saga with compensating actions plus idempotency keys",
+            "The payment provider handles it",
+            "It needs two-phase commit"
+          ],
+          "answer": 1,
+          "why": "Unit 9's boundary and unit 21's keys arrive together at the moment money moves: two systems can't commit as one, so you record intent, call the provider with an idempotency key, and reconcile — with a compensating refund if a later step fails. 2PC across a third party you don't control isn't available, which is why sagas exist."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A concert ends and 20,000 people request rides in one neighbourhood within two minutes. What breaks first?",
+          "choices": [
+            "The payment system",
+            "The geo shard covering that neighbourhood — location sharding means the surge concentrates on exactly one shard, which is the hot shard you accepted when you chose the key",
+            "The location firehose",
+            "Nothing"
+          ],
+          "answer": 1,
+          "why": "You chose to shard by location for query locality, and that decision hands you geographic hotspots as its structural cost — demand is never uniform across a city. Unit 15 warned that a shard key is a permanent bet: this is the bet being called, and the answers are finer cells downtown, replicas for hot cells, and shedding load rather than melting."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which parts of this system can degrade gracefully during that surge? Select all.",
+          "choices": [
+            "Showing fewer nearby drivers on the map",
+            "Updating the car's position every 8 seconds instead of every 2",
+            "Delaying receipt emails",
+            "Assigning the same driver to two riders"
+          ],
+          "answer": [0, 1, 2],
+          "why": "The first three shed cost with effects users barely register — a slightly laggier map and a late email are nothing next to the app failing. Double-booking is not degradation, it's incorrectness: it puts two people in a parking lot expecting one car. Knowing which is which, before the surge, is what makes graceful degradation possible."
+        },
+        {
+          "type": "tradeoff_slider",
+          "prompt": "During the surge, your matcher is overloaded. Slide toward your response.",
+          "leftLabel": "Queue every request; everyone eventually matches",
+          "rightLabel": "Shed load: tell some riders 'no cars available, try again'",
+          "answerRange": [55, 100],
+          "why": "Queueing at a surge means riders wait five minutes to be matched with a driver who's now somewhere else, so you've spent capacity producing stale matches and a worse experience than an honest refusal. Unit 17's lesson holds here: a system that says no cleanly beats one that says yes slowly, and 'no cars right now' lets someone walk to the train instead of staring at a spinner."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Summarize the ride-sharing design.",
+          "choices": [
+            "A geo database with real-time queries",
+            "Ephemeral location in memory with history streamed off the critical path; a geo-cell index turning 2D proximity into a 1D lookup; atomic conditional claims for matching; and strong consistency reserved for the trip and the money",
+            "A microservices architecture with a message bus",
+            "A graph of drivers and riders"
+          ],
+          "answer": 1,
+          "why": "Every part came from asking what the data actually is: locations are disposable, so they live in memory; proximity is 2D, so you reshape it into a key an index can serve; an assignment is a commitment, so it's a compare-and-set; and money is irreversible, so it gets the strict path. The system is hard because it contains four different systems, and the skill is refusing to treat them the same."
+        }
+      ]
+    }
+  ]
+}

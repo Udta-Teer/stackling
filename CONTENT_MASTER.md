@@ -166,9 +166,9 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 22 | Observability | ✅ done | `content/22-observability.json` |
 | 23 | Design a URL shortener | ✅ done | `content/23-design-url-shortener.json` |
 | 24 | Design a news feed | ✅ done | `content/24-design-news-feed.json` |
-| 25 | Design a chat app | ⬜ | — |
-| 26 | Design a rate limiter | ⬜ | — |
-| 27 | Design a ride-sharing backend | ⬜ | — |
+| 25 | Design a chat app | ✅ done | `content/25-design-chat-app.json` |
+| 26 | Design a rate limiter | ✅ done | `content/26-design-rate-limiter.json` |
+| 27 | Design a ride-sharing backend | ✅ done | `content/27-design-ride-sharing.json` |
 
 **Authoring order = the table order.** Do not jump ahead. Finish a concept (all lessons + `why` lines + a review pass) and mark it ✅ before starting the next.
 
