@@ -103,7 +103,7 @@
           ],
           "answer": 1,
           "why": "Mainstream cloud instance families are priced roughly linearly per vCPU: step up one size and you roughly double both the machine and the bill. The 'big iron costs a fortune' rule came from an era of proprietary large machines, and it doesn't describe how most people buy compute now.",
-          "goDeeper": "This is worth un-learning, because it deletes one of the folklore arguments for scaling out. Cost is usually NOT why you distribute — with linear-ish pricing, ten small boxes and one ten-times-bigger box land in roughly the same place. The genuine reasons are the ceiling, redundancy, and elasticity. One real exception: at the extreme top of the range, specialty machines (the huge-memory tiers) do get disproportionately expensive per unit — so the folklore is right exactly where almost nobody is shopping."
+          "goDeeper": "This is worth un-learning, because it removes a folklore argument for distributing EARLY. Across the mainstream range the pricing is close to linear, so ten small boxes and one ten-times-bigger box land in roughly the same place — meaning cost is no reason to scale out at ordinary sizes. The premium is real at the top of the range, where the largest specialty tiers do get disproportionately expensive per unit. Notice when that bites: it's the same moment the ceiling does. Cost and the ceiling arrive together, at the top — which makes cost a late argument for scaling out rather than an early one."
         },
         {
           "type": "match_pairs",
@@ -115,7 +115,7 @@
             { "left": "Upgrade downtime", "right": "Resizing usually means a restart" }
           ],
           "why": "Four separate limits, and only the first is about running out of capacity. The other three bite well before you reach the ceiling.",
-          "goDeeper": "Worth separating them, because they have different deadlines. Idle capacity bills you continuously. Downtime hurts at every upgrade. The single point of failure hurts you once, badly, on a day you didn't choose. Note that none of these is 'big machines are overpriced' — per-unit pricing is roughly flat across a mainstream instance family, so the cost complaint is about paying for peak you aren't using, not about a price premium."
+          "goDeeper": "Worth separating them, because they have different deadlines. Idle capacity bills you continuously. Downtime hurts at every upgrade. The single point of failure hurts you once, badly, on a day you didn't choose. And note which cost complaint this is: at ordinary sizes, where per-unit pricing is roughly flat, you're paying for peak you aren't using — not a price premium. The premium is a separate, later problem that shows up in the top tiers, arriving alongside the ceiling."
         },
         {
           "type": "multiple_choice",
