@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Truss — Brand System v0.1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#071522;          /* deepest bg — blueprint at night */
+    --navy:#0d2438;         /* raised surface */
+    --navy-2:#12314b;       /* card */
+    --blueprint:#1e5aa8;    /* primary brand blue */
+    --wire:#4cb0ff;         /* bright signal blue — lines, links */
+    --signal:#ffb020;       /* amber accent — the one bold move */
+    --mint:#35d0a5;         /* success / correct */
+    --fault:#ff5c7a;        /* error / wrong */
+    --paper:#eef3f9;        /* light panel */
+    --fog:#9db4cc;          /* muted text on dark */
+    --line:rgba(76,176,255,.14);
+    --disp:'Bricolage Grotesque',-apple-system,system-ui,sans-serif;
+    --body:'Inter',-apple-system,system-ui,sans-serif;
+    --mono:'Space Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--ink);color:#eaf1f8;font-family:var(--body);line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      linear-gradient(var(--line) 1px,transparent 1px),
+      linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:32px 32px;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  .mono{font-family:var(--mono)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--wire)}
+  .cmt{font-family:var(--mono);font-size:12px;color:var(--fog);opacity:.75}
+  h2.sec{font-family:var(--disp);font-weight:800;font-size:clamp(26px,4vw,38px);margin:0;letter-spacing:-.02em}
+  .sec-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:28px}
+  .sec-no{font-family:var(--mono);color:var(--signal);font-size:13px}
+  section{padding:72px 0;border-top:1px solid var(--line)}
+
+  /* ---------- HERO ---------- */
+  .hero{padding:64px 0 80px;border-top:none}
+  .hero-top{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;color:var(--fog);margin-bottom:56px;flex-wrap:wrap;gap:8px}
+  .hero-top .dot{color:var(--mint)}
+  .wordmark{display:flex;align-items:center;gap:18px;margin-bottom:18px}
+  .wordmark h1{font-family:var(--disp);font-weight:800;font-size:clamp(56px,12vw,120px);line-height:.9;margin:0;letter-spacing:-.04em}
+  .tag{font-size:clamp(17px,2.4vw,22px);color:#cfe0f0;max-width:560px;font-weight:400}
+  .tag b{color:var(--signal);font-weight:600}
+
+  /* system-diagram hero device */
+  .diagram{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:48px 0 8px}
+  .dnode{background:var(--navy-2);border:1.5px solid var(--line);border-radius:12px;padding:16px 20px;min-width:150px}
+  .dnode .lbl{font-family:var(--mono);font-size:11px;color:var(--wire);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+  .dnode .val{font-family:var(--disp);font-weight:700;font-size:18px}
+  .dnode.brand{background:linear-gradient(135deg,var(--blueprint),#0f3e78);border-color:var(--wire);box-shadow:0 0 0 4px rgba(76,176,255,.08)}
+  .dnode.brand .val{color:#fff}
+  .wire-link{flex:1;min-width:48px;height:2px;position:relative;background:repeating-linear-gradient(90deg,var(--wire) 0 8px,transparent 8px 14px);opacity:.7}
+  .wire-link::after{content:"›";position:absolute;right:-4px;top:-13px;color:var(--wire);font-size:22px}
+  .wire-note{font-family:var(--mono);font-size:11px;color:var(--fog);text-align:center;margin-top:8px}
+
+  /* ---------- LOGO MARK ---------- */
+  .mark{width:var(--s,64px);height:var(--s,64px);flex:none}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .panel{background:var(--navy);border:1px solid var(--line);border-radius:16px;padding:26px}
+  .panel.light{background:var(--paper);color:var(--ink)}
+  .panel .caption{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px;color:var(--fog)}
+  .panel.light .caption{color:#5a6b7d}
+  .logo-lockup{display:flex;align-items:center;gap:16px}
+  .logo-lockup .lw{font-family:var(--disp);font-weight:800;font-size:34px;letter-spacing:-.03em}
+  .clearspace{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+  .cs-chip{font-family:var(--mono);font-size:11px;color:var(--fog);border:1px dashed var(--line);border-radius:8px;padding:8px 10px}
+
+  /* ---------- COLOR ---------- */
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+  .sw{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--navy)}
+  .sw .cap{height:96px;display:flex;align-items:flex-end;padding:12px}
+  .sw .cap .role{font-family:var(--mono);font-size:11px;background:rgba(0,0,0,.28);color:#fff;padding:3px 8px;border-radius:6px;letter-spacing:.06em}
+  .sw .meta{padding:14px 16px}
+  .sw .nm{font-family:var(--disp);font-weight:700;font-size:17px}
+  .sw .hex{font-family:var(--mono);font-size:13px;color:var(--wire);margin-top:2px}
+  .sw .use{font-size:12.5px;color:var(--fog);margin-top:8px;line-height:1.4}
+
+  /* ---------- TYPE ---------- */
+  .type-row{border:1px solid var(--line);border-radius:16px;padding:24px 26px;margin-bottom:16px;background:var(--navy)}
+  .type-row .role{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--fog);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px;flex-wrap:wrap;gap:6px}
+  .spec-disp{font-family:var(--disp);font-weight:800;font-size:clamp(34px,6vw,58px);letter-spacing:-.03em;line-height:1}
+  .spec-body{font-family:var(--body);font-size:19px;color:#dbe7f3;max-width:600px}
+  .spec-mono{font-family:var(--mono);font-size:16px;color:var(--wire)}
+  .scale{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;margin-top:8px;font-family:var(--disp);font-weight:700;color:#cfe0f0}
+
+  /* ---------- MASCOT ---------- */
+  .mascot-wrap{display:grid;grid-template-columns:0.85fr 1.15fr;gap:20px}
+  @media(max-width:720px){.mascot-wrap{grid-template-columns:1fr}}
+  .mascot-hero{background:radial-gradient(120% 120% at 50% 0%,var(--blueprint),var(--navy) 70%);border:1px solid var(--wire);border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;text-align:center;position:relative;overflow:hidden}
+  .mascot-hero .face{font-size:104px;line-height:1;filter:drop-shadow(0 8px 18px rgba(0,0,0,.4))}
+  .mascot-hero .nm{font-family:var(--disp);font-weight:800;font-size:26px;margin-top:12px}
+  .mascot-hero .roleline{font-family:var(--mono);font-size:12px;color:var(--wire);margin-top:4px;letter-spacing:.06em}
+  .mascot-hero .ph{position:absolute;top:12px;right:14px;font-family:var(--mono);font-size:10px;color:var(--fog);border:1px dashed var(--line);padding:4px 7px;border-radius:6px}
+  .traits{display:flex;flex-direction:column;gap:12px}
+  .trait{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--navy)}
+  .trait h4{margin:0 0 4px;font-family:var(--disp);font-size:16px;font-weight:700}
+  .trait p{margin:0;font-size:13.5px;color:var(--fog)}
+  .trait .k{font-family:var(--mono);font-size:11px;color:var(--signal)}
+
+  /* ---------- NAMES ---------- */
+  .names{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .name{border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--navy);position:relative}
+  .name.pick{border-color:var(--signal);background:linear-gradient(180deg,rgba(255,176,32,.08),var(--navy))}
+  .name .tagpick{position:absolute;top:-10px;left:18px;background:var(--signal);color:var(--ink);font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:.06em}
+  .name .n{font-family:var(--disp);font-weight:800;font-size:24px;letter-spacing:-.02em}
+  .name .why{font-size:13.5px;color:var(--fog);margin-top:8px;line-height:1.45}
+  .name .risk{font-family:var(--mono);font-size:11px;margin-top:10px;color:var(--wire)}
+
+  ul.next{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  ul.next li{font-family:var(--mono);font-size:13.5px;color:#cfe0f0;border-left:2px solid var(--wire);padding:6px 0 6px 14px}
+  ul.next li b{color:var(--signal)}
+  footer{padding:48px 0 80px;border-top:1px solid var(--line);color:var(--fog);font-family:var(--mono);font-size:12px}
+  a{color:var(--wire)}
+</style>
+</head>
+<body>
+
+<!-- reusable truss mark -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="truss" viewBox="0 0 100 100">
+    <g fill="none" stroke="#4cb0ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M50 14 L15 84 L85 84 Z"/>
+      <path d="M50 14 L50 84"/>
+      <path d="M50 14 L32.5 49 M50 14 L67.5 49 M32.5 49 L50 84 M67.5 49 L50 84 M32.5 49 L67.5 49"/>
+    </g>
+    <g>
+      <circle cx="50" cy="14" r="8" fill="#ffb020"/>
+      <circle cx="15" cy="84" r="7" fill="#4cb0ff"/>
+      <circle cx="85" cy="84" r="7" fill="#4cb0ff"/>
+      <circle cx="50" cy="84" r="6" fill="#eef3f9"/>
+      <circle cx="32.5" cy="49" r="5" fill="#eef3f9"/>
+      <circle cx="67.5" cy="49" r="5" fill="#eef3f9"/>
+    </g>
+  </symbol>
+</svg>
+
+<div class="wrap">
+
+  <!-- ================= HERO ================= -->
+  <header class="hero">
+    <div class="hero-top">
+      <span>truss/brand-system <span class="dot">●</span> v0.1</span>
+      <span>2026-07-16 · internal · react @ owner</span>
+    </div>
+
+    <div class="wordmark">
+      <svg class="mark" style="--s:88px"><use href="#truss"/></svg>
+      <h1>Truss</h1>
+    </div>
+    <p class="tag">Interview-grade <b>system design</b>, 10 minutes a day. The structure that lets your thinking hold load — at scale.</p>
+
+    <div class="diagram" role="img" aria-label="Brand as a system diagram: curious coder plus Truss produces a systems thinker">
+      <div class="dnode">
+        <div class="lbl">input</div>
+        <div class="val">Curious coder</div>
+      </div>
+      <div>
+        <div class="wire-link"></div>
+        <div class="wire-note">// no jargon, no fear</div>
+      </div>
+      <div class="dnode brand">
+        <div class="lbl" style="color:#bfe0ff">the app</div>
+        <div class="val">Truss</div>
+      </div>
+      <div>
+        <div class="wire-link"></div>
+        <div class="wire-note">// depth, ramped hard</div>
+      </div>
+      <div class="dnode">
+        <div class="lbl">output</div>
+        <div class="val">Systems thinker</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= NAME ================= -->
+  <section id="name">
+    <div class="sec-head"><span class="sec-no">01</span><h2 class="sec">The name</h2><span class="cmt">// recommendation + alternates — your call</span></div>
+    <div class="names">
+      <div class="name pick">
+        <span class="tagpick">RECOMMENDED</span>
+        <div class="n">Truss</div>
+        <div class="why">The triangulated frame that lets a bridge or roof carry huge load without buckling. One syllable, structural-engineering native, and it literally means "the thing that holds at scale." The mark doubles as a distributed-node graph.</div>
+        <div class="risk">collision: low · verb-adjacent · app-store clean</div>
+      </div>
+      <div class="name">
+        <div class="n">Keystone</div>
+        <div class="why">The wedge stone that locks an arch together — the core skill everything rests on. Premium and confident.</div>
+        <div class="risk">collision: medium (KeystoneJS, habit books)</div>
+      </div>
+      <div class="name">
+        <div class="n">Quorum</div>
+        <div class="why">The majority that must agree for a distributed system to commit. Insider term, sounds smart, great for interview positioning.</div>
+        <div class="risk">collision: medium (blockchain, gov-tech)</div>
+      </div>
+      <div class="name">
+        <div class="n">Shard</div>
+        <div class="why">A native system-design term (splitting data to scale). Short, sharp, techy, memorable.</div>
+        <div class="risk">collision: medium-high (gaming, crypto)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LOGO ================= -->
+  <section id="logo">
+    <div class="sec-head"><span class="sec-no">02</span><h2 class="sec">Logo</h2><span class="cmt">// one mark, two meanings: a truss + a node graph</span></div>
+    <div class="grid2">
+      <div class="panel">
+        <div class="caption">Primary — on ink</div>
+        <div class="logo-lockup">
+          <svg class="mark" style="--s:64px"><use href="#truss"/></svg>
+          <span class="lw">Truss</span>
+        </div>
+      </div>
+      <div class="panel light">
+        <div class="caption">Reversed — on paper</div>
+        <div class="logo-lockup">
+          <svg class="mark" style="--s:64px"><use href="#truss"/></svg>
+          <span class="lw" style="color:#071522">Truss</span>
+        </div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:20px">
+      <div class="panel">
+        <div class="caption">Mark alone — app icon</div>
+        <div style="display:flex;gap:18px;align-items:center">
+          <div style="background:linear-gradient(135deg,var(--blueprint),#0b2f5e);border-radius:22px;padding:16px;display:grid;place-items:center">
+            <svg class="mark" style="--s:56px"><use href="#truss"/></svg>
+          </div>
+          <div style="background:var(--signal);border-radius:22px;padding:16px;display:grid;place-items:center">
+            <svg class="mark" style="--s:56px;filter:saturate(0) brightness(.2)"><use href="#truss"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="caption">Construction — apex node is always amber</div>
+        <div class="clearspace">
+          <span class="cs-chip">apex = amber (signal / XP)</span>
+          <span class="cs-chip">joints = wire-blue</span>
+          <span class="cs-chip">clear space = 1× node</span>
+          <span class="cs-chip">min size = 24px</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= COLOR ================= -->
+  <section id="color">
+    <div class="sec-head"><span class="sec-no">03</span><h2 class="sec">Color</h2><span class="cmt">// "blueprint at night" — not Duolingo green</span></div>
+    <div class="swatches">
+      <div class="sw"><div class="cap" style="background:#071522"><span class="role">bg</span></div><div class="meta"><div class="nm">Ink</div><div class="hex">#071522</div><div class="use">The dark canvas — a blueprint after hours. App background.</div></div></div>
+      <div class="sw"><div class="cap" style="background:#1e5aa8"><span class="role">brand</span></div><div class="meta"><div class="nm">Blueprint</div><div class="hex">#1E5AA8</div><div class="use">Primary brand blue. Buttons, key surfaces, the logo field.</div></div></div>
+      <div class="sw"><div class="cap" style="background:#4cb0ff"><span class="role">interactive</span></div><div class="meta"><div class="nm">Wire</div><div class="hex">#4CB0FF</div><div class="use">The connecting line. Links, selection, diagram arrows.</div></div></div>
+      <div class="sw"><div class="cap" style="background:#ffb020"><span class="role" style="color:#071522;background:rgba(255,255,255,.5)">accent</span></div><div class="meta"><div class="nm">Signal</div><div class="hex">#FFB020</div><div class="use">The one bold move. XP, streaks, the highlight on a diagram. Use sparingly.</div></div></div>
+      <div class="sw"><div class="cap" style="background:#35d0a5"><span class="role">success</span></div><div class="meta"><div class="nm">Mint</div><div class="hex">#35D0A5</div><div class="use">Correct answers, completion. Deliberately teal, not lime.</div></div></div>
+      <div class="sw"><div class="cap" style="background:#ff5c7a"><span class="role">error</span></div><div class="meta"><div class="nm">Fault</div><div class="hex">#FF5C7A</div><div class="use">Wrong answers, lost hearts. A warm rose — firm, not harsh.</div></div></div>
+    </div>
+  </section>
+
+  <!-- ================= TYPE ================= -->
+  <section id="type">
+    <div class="sec-head"><span class="sec-no">04</span><h2 class="sec">Type</h2><span class="cmt">// display / body / schematic-label</span></div>
+    <div class="type-row">
+      <div class="role"><span>Display — Bricolage Grotesque</span><span>700 / 800 · headlines, lesson titles</span></div>
+      <div class="spec-disp">Design that holds<br>at scale.</div>
+      <div class="scale"><span style="font-size:40px">Aa</span><span style="font-size:28px">Bb</span><span style="font-size:20px">Cc</span><span style="font-size:15px">Dd</span></div>
+    </div>
+    <div class="type-row">
+      <div class="role"><span>Body — Inter</span><span>400 / 500 / 600 · questions, explanations</span></div>
+      <div class="spec-body">Your read traffic is 100× your writes. Add a read replica so the leader isn't crushed — but now you've bought eventual consistency. Every choice spends something.</div>
+    </div>
+    <div class="type-row">
+      <div class="role"><span>Schematic — Space Mono</span><span>400 / 700 · labels, code, node names, data</span></div>
+      <div class="spec-mono">Client → LB → [ App×3 ] → Cache → DB(leader) &nbsp;// p99 = 42ms</div>
+    </div>
+  </section>
+
+  <!-- ================= MASCOT ================= -->
+  <section id="mascot">
+    <div class="sec-head"><span class="sec-no">05</span><h2 class="sec">Mascot</h2><span class="cmt">// concept — final character art to be produced</span></div>
+    <div class="mascot-wrap">
+      <div class="mascot-hero">
+        <span class="ph">concept · placeholder art</span>
+        <div class="face">🦫</div>
+        <div class="nm">Rivet</div>
+        <div class="roleline">// nature's engineer</div>
+      </div>
+      <div class="traits">
+        <div class="trait"><h4>Why a beaver <span class="k">// not an owl</span></h4><p>The only animal that reshapes its environment by building. Beavers engineer dams — literal systems that manage flow and load. Industrious, calm, a little clever. It owns a lane Duolingo's owl can't.</p></div>
+        <div class="trait"><h4>Personality</h4><p>Encouraging but honest. Rivet doesn't just clap — it points at the bottleneck. "Nice — but what happens when this shard gets hot?" It embodies the push-harder depth rule.</p></div>
+        <div class="trait"><h4>How it shows up</h4><p>Holds the amber <span class="k">Signal</span> as a streak flame. Hard hat for boss/capstone lessons. Reacts on wrong answers (thoughtful, never mocking). Celebrates a completed unit by adding a beam to its dam.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= NEXT ================= -->
+  <section id="next">
+    <div class="sec-head"><span class="sec-no">06</span><h2 class="sec">What this unlocks</h2><span class="cmt">// once you react</span></div>
+    <ul class="next">
+      <li><b>Apply</b> this palette + type to <span class="mono">prototype/lesson.html</span> so the lesson loop looks like the real product</li>
+      <li><b>Lock</b> the name → check domain + app-store availability</li>
+      <li><b>Commission</b> Rivet's real character art (this 🦫 is a stand-in)</li>
+      <li><b>Resume</b> content: concept #2, Client–server &amp; HTTP, at the new depth bar</li>
+    </ul>
+  </section>
+
+  <footer>
+    truss/brand-system v0.1 — all values are proposals, everything is changeable. // react and we build.
+  </footer>
+</div>
+</body>
+</html>
