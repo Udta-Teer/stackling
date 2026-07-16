@@ -38,12 +38,15 @@ Nine types drive all content (defined in `SPEC.md` §3.2, usage guidance in `CON
 No build system yet (Expo app not scaffolded). Current workflow:
 
 ```bash
+# Validate all content — RUN THIS AFTER EVERY CONTENT CHANGE. Exits 1 on failure.
+python3 scripts/validate-content.py            # hard checks + advisory warnings
+python3 scripts/validate-content.py --quiet    # hard checks only
+
 # Preview the lesson loop
 open prototype/lesson.html      # macOS; just open the file in any browser
-
-# Validate content JSON is well-formed (no dedicated validator yet)
-python3 -m json.tool content/01-how-the-internet-works.json >/dev/null && echo OK
 ```
+
+`scripts/validate-content.py` is the real gate — don't hand-roll one-off checks instead of running it. Hard failures: invalid JSON, missing/empty `why`, out-of-range answer indices, missing type-specific fields, stray fields, **any `goDeeper` in units ≥12**, and source↔prototype-embed drift (it compares JSON-escaped, since the embed stores string literals). Advisory warnings (never fail; need human judgement): absolute technique claims with no in-sentence condition, and sentences naming one ACID property while asserting another's.
 
 When the Expo app is scaffolded, add its `install / start / test / lint` commands here.
 

@@ -201,12 +201,15 @@ def main():
                 if not quiet:
                     advisory(name, lid, e)
 
-                # source <-> embed drift
+                # source <-> embed drift.
+                # The embed stores each string as a JSON string literal, so compare against
+                # the escaped form — a raw compare false-positives on any content containing
+                # a double quote (e.g. unit 3's '{"error": "user not found"}').
                 fragments = [e.get("prompt", ""), e.get("why", "")]
                 fragments += list(e.get("choices", []) or [])
                 fragments += list(e.get("steps", []) or [])
                 for frag in fragments:
-                    if frag and frag not in html:
+                    if frag and json.dumps(frag, ensure_ascii=False)[1:-1] not in html:
                         err(name, lid, f"NOT IN PROTOTYPE EMBED: {frag[:70]!r}")
 
     print(f"content: {len(files)} units, {total_lessons} lessons, {total_ex} exercises")
