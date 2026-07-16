@@ -36,6 +36,7 @@ PROTOTYPE = os.path.join(ROOT, "prototype", "lesson.html")
 GODEEPER_RETIRED_FROM = 1
 
 ALLOWED_FIELDS = {
+    "id",  # stable per-exercise id: progress tracking + spaced repetition
     "type", "prompt", "choices", "answer", "why", "hint",
     "pairs", "steps", "slots", "palette", "nodes",
     "tolerance", "unit", "leftLabel", "rightLabel", "answerRange",
@@ -49,6 +50,7 @@ KNOWN_TYPES = {
 
 errors = []
 warnings = []
+seen_ids = set()
 
 
 def err(unit, lesson, msg):
@@ -77,6 +79,16 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
 
     if not e.get("why"):
         err(unit_name, lesson_id, "missing or empty `why`")
+
+    # Every exercise needs a stable id — the app tracks progress by it, and
+    # spaced repetition can't resurface what it can't name.
+    eid = e.get("id")
+    if not eid:
+        err(unit_name, lesson_id, "missing `id`")
+    elif eid in seen_ids:
+        err(unit_name, lesson_id, f"duplicate exercise id: {eid!r}")
+    else:
+        seen_ids.add(eid)
 
     if unit_no is not None and unit_no >= GODEEPER_RETIRED_FROM and "goDeeper" in e:
         err(unit_name, lesson_id,

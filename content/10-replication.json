@@ -15,6 +15,7 @@
       "title": "Why copy the database?",
       "exercises": [
         {
+          "id": "rep-1-1",
           "type": "multiple_choice",
           "prompt": "Your app does 100 reads for every write, and your single database is drowning in reads. What's the structural fix?",
           "choices": [
@@ -27,6 +28,7 @@
           "why": "Reads can be served from any copy, so adding read replicas multiplies your read capacity without changing how writes work at all. This only pays off because reads outnumber writes so heavily — happily true of most applications — which makes the read:write ratio the first number to establish before proposing replication: at 100:1 it's transformative, at 1:1 it buys you almost nothing."
         },
         {
+          "id": "rep-1-2",
           "type": "multiple_choice",
           "prompt": "The second reason to keep copies: your database machine dies at 3am. What does having a replica let you do?",
           "choices": [
@@ -39,6 +41,7 @@
           "why": "A replica is already running and already has (nearly) all the data, so promoting it takes seconds while restoring a backup takes hours. Backups and replicas solve different problems and don't substitute for each other: a replica protects you from a machine dying, while a backup protects you from someone running `DELETE` without a `WHERE` clause — because a replica would have faithfully replicated that too, instantly."
         },
         {
+          "id": "rep-1-3",
           "type": "multi_select",
           "prompt": "What does replication actually buy you? Select all.",
           "choices": [
@@ -47,17 +50,28 @@
             "More write capacity",
             "Serving users from a geographically closer copy"
           ],
-          "answer": [0, 1, 3],
+          "answer": [
+            0,
+            1,
+            3
+          ],
           "why": "Reads, survival, and locality — yes. Write capacity — no: every write still has to be applied on every copy, so copies never reduce the write load. That asymmetry is the most important fact about replication and the reason sharding exists as a separate idea: if your bottleneck is writes, adding replicas makes things slightly worse, because you've added machines that all have to do every write and none that do fewer."
         },
         {
+          "id": "rep-1-4",
           "type": "fill_blank",
           "prompt": "Replication scales ______; it does nothing for write capacity.",
-          "choices": ["reads", "writes", "storage", "backups"],
+          "choices": [
+            "reads",
+            "writes",
+            "storage",
+            "backups"
+          ],
           "answer": 0,
           "why": "Any copy can answer a read. Every copy must perform every write."
         },
         {
+          "id": "rep-1-5",
           "type": "multiple_choice",
           "prompt": "The moment you have two copies of the database, what have you inherited?",
           "choices": [
@@ -70,6 +84,7 @@
           "why": "One copy can't disagree with itself; two can drift apart, and now you must decide what happens when a reader lands on the copy that's behind. This is unit 5's rule — every copy costs you a consistency question — arriving at industrial scale, and everything difficult in the rest of this unit is that one bill being itemized."
         },
         {
+          "id": "rep-1-6",
           "type": "multiple_choice",
           "prompt": "When is replication the WRONG tool for your scaling problem?",
           "choices": [
@@ -88,6 +103,7 @@
       "title": "Leader and followers",
       "exercises": [
         {
+          "id": "rep-2-1",
           "type": "multiple_choice",
           "prompt": "Suppose any copy could accept writes. What breaks?",
           "choices": [
@@ -100,17 +116,31 @@
           "why": "Two writers, one row, two different values — and nothing to arbitrate between them, so someone has to be the authority. Which is why the standard design nominates exactly one copy to accept writes: the leader. Single-leader replication is the default in Postgres, MySQL, and most systems precisely because it dodges write conflicts by construction — with one writer, there is nothing to conflict."
         },
         {
+          "id": "rep-2-2",
           "type": "match_pairs",
           "prompt": "Match each piece of single-leader replication to its role.",
           "pairs": [
-            { "left": "Leader", "right": "The only copy that accepts writes" },
-            { "left": "Follower", "right": "A read-only copy kept in sync" },
-            { "left": "Replication log", "right": "The stream of changes the leader ships" },
-            { "left": "Failover", "right": "Promoting a follower when the leader dies" }
+            {
+              "left": "Leader",
+              "right": "The only copy that accepts writes"
+            },
+            {
+              "left": "Follower",
+              "right": "A read-only copy kept in sync"
+            },
+            {
+              "left": "Replication log",
+              "right": "The stream of changes the leader ships"
+            },
+            {
+              "left": "Failover",
+              "right": "Promoting a follower when the leader dies"
+            }
           ],
           "why": "One writer, many readers, a stream of changes between them, and a plan for when the writer dies. Notice the shape: the leader is a single point of failure for WRITES but not for reads, and that asymmetry drives everything in lesson 4 — losing the leader is an emergency, losing a follower is a Tuesday."
         },
         {
+          "id": "rep-2-3",
           "type": "multiple_choice",
           "prompt": "How does a follower stay in sync with the leader?",
           "choices": [
@@ -123,6 +153,7 @@
           "why": "The leader sends an ordered stream of changes and the follower replays them in that exact order, arriving at the same state. That's the write-ahead log from unit 6 doing a second job: it exists for crash recovery, but an ordered record of every change turns out to be exactly what you'd want to ship to another machine — so replication rides on a log the database already had to write anyway."
         },
         {
+          "id": "rep-2-4",
           "type": "order_steps",
           "prompt": "Order a write under asynchronous single-leader replication.",
           "steps": [
@@ -135,6 +166,7 @@
           "why": "Under asynchronous replication the leader answers the client before the followers have caught up — the client's write is done while the copies are still catching up. Look closely at step 3 landing before step 4: that ordering is the entire source of the next two lessons, because it's why followers can be stale, and why a leader dying at exactly that moment can lose a write it already called successful."
         },
         {
+          "id": "rep-2-5",
           "type": "multiple_choice",
           "prompt": "The leader can wait for a follower to confirm before telling the client 'done' (synchronous), or reply immediately and let followers catch up (asynchronous). What does synchronous buy and cost?",
           "choices": [
@@ -147,6 +179,7 @@
           "why": "You're buying the guarantee that an acknowledged write exists in two places, and paying with latency on every write plus a dependency on the follower being alive. This is why fully synchronous replication to ALL followers is rare — one slow or dead follower would halt every write. The usual compromise is semi-synchronous: one follower synchronous, so that *while it's healthy* an acknowledged write has already reached a second machine, with the rest asynchronous. Read that 'while it's healthy' literally — implementations typically fall back to async if the synchronous follower goes away, which is exactly when you'd have wanted it."
         },
         {
+          "id": "rep-2-6",
           "type": "multiple_choice",
           "prompt": "Why is single-leader replication so common, despite the leader being a bottleneck for writes?",
           "choices": [
@@ -165,6 +198,7 @@
       "title": "Replication lag",
       "exercises": [
         {
+          "id": "rep-3-1",
           "type": "multiple_choice",
           "prompt": "A user updates their profile (write goes to the leader), the page reloads, and the read is served by a follower that hasn't caught up yet. What do they see?",
           "choices": [
@@ -177,13 +211,20 @@
           "why": "The follower is behind, so it answers with the state from before their write and the user's own change seems not to have saved. This is the most common replication bug there is, and it's maddening because it only reproduces under load — when lag is large enough to notice. The usual mitigation is read-your-writes routing: for a short window after a user writes, send THAT user's reads to the leader. Hold it as a mitigation rather than a guarantee — it works while the leader stays the leader, and if a failover lands inside that window an async setup may have lost the write outright, and no routing rule can show someone a write that no longer exists (lesson 4)."
         },
         {
+          "id": "rep-3-2",
           "type": "fill_blank",
           "prompt": "The delay between a write landing on the leader and appearing on a follower is called replication ______.",
-          "choices": ["lag", "latency", "drift", "skew"],
+          "choices": [
+            "lag",
+            "latency",
+            "drift",
+            "skew"
+          ],
           "answer": 0,
           "why": "Replication lag is the size of the window in which followers are answering with the past."
         },
         {
+          "id": "rep-3-3",
           "type": "multiple_choice",
           "prompt": "A user refreshes twice. The first read hits a caught-up follower and shows a new comment. The second hits a lagging follower and the comment is gone. What broke?",
           "choices": [
@@ -196,6 +237,7 @@
           "why": "Two reads, two replicas, two different amounts of lag — so the second read returned an older state than the first. Nothing was deleted; the user just travelled backwards. The usual mitigation is to pin each user to one replica (say by hashing their user id) so that *for as long as the pin holds*, their reads come from one copy that only ever moves forward. That clause is the whole caveat: the pin breaks when the replica dies, or when you pull it from rotation for lagging, and the user gets re-pinned to a copy that may be further behind — jumping them backwards anyway. Pinning narrows the window; it doesn't close it."
         },
         {
+          "id": "rep-3-4",
           "type": "multiple_choice",
           "prompt": "When is replication lag at its worst?",
           "choices": [
@@ -208,6 +250,7 @@
           "why": "Lag grows when the leader produces changes faster than followers can apply them, and peak write traffic is precisely when that happens. That's the cruel part: your staleness window is widest exactly when the most users are looking, so a system that looks perfectly in sync in testing can be seconds behind during a spike — which is also when a support ticket becomes ten thousand support tickets."
         },
         {
+          "id": "rep-3-5",
           "type": "multi_select",
           "prompt": "Which of these genuinely help with replication lag problems? Select all.",
           "choices": [
@@ -216,10 +259,15 @@
             "Monitor lag and pull badly-lagging replicas out of rotation",
             "Add more followers"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Routing, pinning, and monitoring all attack the problem; adding followers doesn't, because each new follower must apply the very same stream of writes, so it lags too — and it adds load to the leader that's shipping to it. That last point catches people out: 'we're stale, add replicas' is the wrong reflex, since you've added more copies of the staleness rather than less of it. Lag is a function of write throughput versus apply speed, and more followers changes neither."
         },
         {
+          "id": "rep-3-6",
           "type": "multiple_choice",
           "prompt": "You read from an asynchronous follower. What are you actually getting?",
           "choices": [
@@ -238,6 +286,7 @@
       "title": "Failover and the hard parts",
       "exercises": [
         {
+          "id": "rep-4-1",
           "type": "multiple_choice",
           "prompt": "Your leader dies and you promote a follower. With ASYNCHRONOUS replication, what might be lost?",
           "choices": [
@@ -250,6 +299,7 @@
           "why": "Asynchronous means the leader said 'done' before followers had the change, so if it dies in that window those acknowledged writes die with it. This is the under-appreciated asterisk in most setups: surviving a crash OF that machine is not the same as surviving the LOSS of that machine. Async replication is fast because it doesn't wait — and 'doesn't wait' is exactly what you're relying on not to matter at the worst possible moment."
         },
         {
+          "id": "rep-4-2",
           "type": "multiple_choice",
           "prompt": "The leader isn't actually dead — it's just unreachable for 30 seconds. You promote a follower. Then the old leader comes back, still believing it's the leader. What now?",
           "choices": [
@@ -262,6 +312,7 @@
           "why": "Two nodes both convinced they're in charge, both taking writes — now you have two divergent versions of the truth and no principled way to merge them. This is why failover systems use fencing: forcibly locking the old leader out (sometimes by literally cutting its power) before promoting anyone. The reason it's necessary is uncomfortable — from the outside you genuinely cannot distinguish 'dead' from 'slow', so you can only pick a timeout and accept being wrong sometimes."
         },
         {
+          "id": "rep-4-3",
           "type": "multiple_choice",
           "prompt": "So how should you set the failover timeout?",
           "choices": [
@@ -274,14 +325,19 @@
           "why": "There's no setting that's right in both directions, because the question 'is it dead or just slow?' has no answer from outside — you're picking which way you'd rather be wrong. Get comfortable with this shape, because it recurs constantly in distributed systems: when a decision is genuinely undecidable, engineering stops being about finding the right answer and starts being about choosing your failure mode deliberately, rather than discovering it during an incident."
         },
         {
+          "id": "rep-4-4",
           "type": "tradeoff_slider",
           "prompt": "A financial ledger, where a write you've acknowledged must never be lost. Slide toward your replication mode.",
           "leftLabel": "Synchronous (no lost writes, slower)",
           "rightLabel": "Asynchronous (fast, may lose acked writes)",
-          "answerRange": [0, 35],
+          "answerRange": [
+            0,
+            35
+          ],
           "why": "If losing an acknowledged write is unacceptable, the write has to exist on a second machine before you say 'done' — that's what synchronous means, and there's no way to have the guarantee without the wait. Notice you didn't get to have both: either the write waits for a second machine or it doesn't, and that's networks and physics rather than a setting someone forgot to optimize. Anyone promising you both is selling you an async system with a confident voice."
         },
         {
+          "id": "rep-4-5",
           "type": "multiple_choice",
           "prompt": "Why not just let two datacenters each run a leader that accepts writes?",
           "choices": [
@@ -294,6 +350,7 @@
           "why": "Multi-leader buys write availability and local latency in each region, and pays for it with conflicts — the exact problem single-leader was designed to avoid. Which is why multi-leader stays rare for a single source of truth, and shows up where conflicts are naturally rare or genuinely resolvable: data partitioned per region, or collaborative editing where merging two edits is a solved problem rather than a coin flip."
         },
         {
+          "id": "rep-4-6",
           "type": "multiple_choice",
           "prompt": "Users report that data they just saved disappears — but only during peak hours. Setup: writes go to the leader, reads are load-balanced across 3 async followers. Diagnosis?",
           "choices": [
@@ -306,6 +363,7 @@
           "why": "Peak write load widens the lag window, so a read right after a write is likely to hit a follower that hasn't applied it yet — nothing is lost, the follower is just answering from the past. The 'only during peak hours' detail is the tell, and it's worth learning to hear: a bug that appears only under load is usually a timing window that's always been there, finally grown wide enough to be visible."
         },
         {
+          "id": "rep-4-7",
           "type": "multiple_choice",
           "prompt": "What's the honest summary of replication?",
           "choices": [

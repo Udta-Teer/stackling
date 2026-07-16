@@ -15,6 +15,7 @@
       "title": "Why agreeing is hard",
       "exercises": [
         {
+          "id": "cons-1-1",
           "type": "multiple_choice",
           "prompt": "Five servers must agree on one value: who is the leader. Why can't they just vote and be done?",
           "choices": [
@@ -27,6 +28,7 @@
           "why": "Voting is trivial when everyone reliably hears everyone; the difficulty is that the network gives you no such promise, and silence is ambiguous. A node observing nothing cannot distinguish a dead peer from a slow one from a lost message — which is unit 10's 'dead or just slow?' being the fundamental obstacle rather than an annoyance."
         },
         {
+          "id": "cons-1-2",
           "type": "multiple_choice",
           "prompt": "Why does 'just add a timeout' not solve it?",
           "choices": [
@@ -39,13 +41,20 @@
           "why": "A timeout is a decision procedure for an undecidable question, so it doesn't remove the ambiguity — it converts it into a configurable error. This is the same shape as the failover timeout from unit 10 and the health check interval from unit 12, which is the point: these aren't three problems, they're one problem you keep meeting."
         },
         {
+          "id": "cons-1-3",
           "type": "fill_blank",
           "prompt": "______ is the problem of getting multiple machines to agree on a single value despite failures.",
-          "choices": ["Consensus", "Replication", "Sharding", "Partitioning"],
+          "choices": [
+            "Consensus",
+            "Replication",
+            "Sharding",
+            "Partitioning"
+          ],
           "answer": 0,
           "why": "One value, many machines, an unreliable network — and everyone must end up believing the same thing, or the disagreement becomes corruption."
         },
         {
+          "id": "cons-1-4",
           "type": "multiple_choice",
           "prompt": "What goes wrong if two nodes both believe they're the leader?",
           "choices": [
@@ -58,6 +67,7 @@
           "why": "This is unit 10's split brain, and it's the failure consensus exists to prevent: two authorities means two truths, and truths that diverged independently can't be reconciled by any rule you invent afterwards. Note it's worse than an outage — an outage stops and recovers, whereas divergence silently corrupts and you find out later."
         },
         {
+          "id": "cons-1-5",
           "type": "multi_select",
           "prompt": "What must a consensus algorithm guarantee? Select all.",
           "choices": [
@@ -66,10 +76,15 @@
             "Termination — it eventually decides, provided enough nodes are up and can communicate",
             "That it always decides quickly, no matter what"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Agreement, validity, and eventual termination are what these algorithms actually promise. Speed is not on the list, and can't be: the FLP result says that with even one possible failure and no timing assumptions, no algorithm can guarantee it always terminates — which is why real systems lean on timeouts and accept 'usually fast, occasionally stalls' as the honest deal."
         },
         {
+          "id": "cons-1-6",
           "type": "multiple_choice",
           "prompt": "So why is 'agreement' the property worth paying for?",
           "choices": [
@@ -88,6 +103,7 @@
       "title": "Majorities",
       "exercises": [
         {
+          "id": "cons-2-1",
           "type": "multiple_choice",
           "prompt": "5 nodes. A rule says a decision needs 3 votes. A partition splits them 3 and 2. Why can't both sides decide?",
           "choices": [
@@ -100,6 +116,7 @@
           "why": "It's arithmetic doing the safety work: two groups that don't overlap can't both have more than half, so the majority rule makes two simultaneous leaders impossible rather than unlikely. That's the crucial word — impossible. The 2-node side isn't trusted to behave; it's mathematically unable to gather the votes."
         },
         {
+          "id": "cons-2-2",
           "type": "multiple_choice",
           "prompt": "Why do consensus clusters use odd numbers of nodes — 3, 5, 7?",
           "choices": [
@@ -112,6 +129,7 @@
           "why": "Majority of 3 is 2, so 3 nodes survive 1 failure; majority of 4 is 3, so 4 nodes also survive only 1. You paid for another machine and bought exactly nothing in fault tolerance — and gave yourself one more thing that can break. Going 3 → 5 is what buys the second failure, which is why cluster sizes step by twos."
         },
         {
+          "id": "cons-2-3",
           "type": "estimate",
           "prompt": "A consensus cluster has 7 nodes. How many can fail while the cluster still makes progress?",
           "answer": 3,
@@ -120,6 +138,7 @@
           "why": "Majority of 7 is 4, so as long as 4 remain you have a quorum — meaning 3 can fail. The general rule is that 2f+1 nodes tolerate f failures, which is why 3 tolerates 1 and 5 tolerates 2."
         },
         {
+          "id": "cons-2-4",
           "type": "multiple_choice",
           "prompt": "A write is committed once a majority stored it, and a leader needs a majority to be elected. Is quorum overlap ALONE enough to guarantee the new leader has every committed write?",
           "choices": [
@@ -132,6 +151,7 @@
           "why": "Overlap gets you halfway. Two majorities of the same set always share a member, so the electing group definitely contains someone holding every committed write — but that's a fact about the VOTERS, not the candidate. Without more, a node with a stale log could still collect a majority and be elected while missing committed entries. Raft closes the gap with an election restriction: a voter grants its vote only if the candidate's log is at least as up to date as its own, so the only candidate who can win is one that already has those writes. Overlap plus that rule is what makes committed data survive a leader dying — and the gap between them is exactly the kind of subtlety that makes hand-rolled consensus lose data."
         },
         {
+          "id": "cons-2-5",
           "type": "multiple_choice",
           "prompt": "Your 5-node cluster is split into 2 and 2 and 1 by a network fault. What happens?",
           "choices": [
@@ -144,6 +164,7 @@
           "why": "No group of 2 or 1 can reach 3, so nobody can be elected and nothing can be committed — the cluster is fully down while every node is perfectly healthy. That is CP behaving exactly as designed: it chose consistency, and this is what choosing consistency costs on a bad day. A system that stayed up here would be a system willing to fork its own history."
         },
         {
+          "id": "cons-2-6",
           "type": "multiple_choice",
           "prompt": "Is a majority quorum protecting you from nodes that lie or send corrupted messages?",
           "choices": [
@@ -162,6 +183,7 @@
       "title": "Electing a leader",
       "exercises": [
         {
+          "id": "cons-3-1",
           "type": "multiple_choice",
           "prompt": "Why elect a single leader at all, if consensus can decide any value?",
           "choices": [
@@ -174,6 +196,7 @@
           "why": "Consensus is the expensive part, so you spend it rarely — on 'who decides?' — and then the leader orders operations by itself, turning per-write agreement into per-write replication. This is unit 10's single-leader design earning its keep: one writer removes conflicts by construction, and now you know how the leader gets chosen safely."
         },
         {
+          "id": "cons-3-2",
           "type": "order_steps",
           "prompt": "Order a Raft-style leader election.",
           "steps": [
@@ -186,6 +209,7 @@
           "why": "Silence starts it, a term number labels the attempt, and a majority ends it. The heartbeat is what keeps the peace: as long as followers hear from the leader they never start an election, so the leader's continued existence is asserted continuously rather than assumed."
         },
         {
+          "id": "cons-3-3",
           "type": "multiple_choice",
           "prompt": "What is the 'term' number actually doing?",
           "choices": [
@@ -198,6 +222,7 @@
           "why": "Terms give you an ordering of leadership epochs without needing a wall clock anyone agrees on — the exact problem unit 19 flagged with last-write-wins. A deposed leader that wakes up still believing it's in charge is carrying an old term number, so every node it contacts can tell instantly that it's behind and refuse it."
         },
         {
+          "id": "cons-3-4",
           "type": "multiple_choice",
           "prompt": "Two candidates start elections simultaneously and split the vote — nobody gets a majority. What stops this repeating forever?",
           "choices": [
@@ -210,6 +235,7 @@
           "why": "Identical timeouts make nodes act in unison, which is exactly what causes repeated split votes — the same synchronization trap as unit 17's clients all obeying one `Retry-After`. Randomizing breaks the symmetry cheaply: someone times out first, requests votes while everyone else is still waiting, and the round resolves."
         },
         {
+          "id": "cons-3-5",
           "type": "multiple_choice",
           "prompt": "A leader is deposed while paused, but doesn't know it. It wakes up and writes to shared storage. How do you stop it corrupting data?",
           "choices": [
@@ -222,6 +248,7 @@
           "why": "You can't prevent a paused leader from waking up and acting, so the protection must live at the resource rather than rely on the leader behaving. Fencing makes the storage itself the arbiter: it has seen token 6, so a write stamped 5 is provably from a deposed leader and gets refused. This is unit 10's fencing made concrete — and note the resource must participate, since a lock service alone cannot stop a client that's stopped listening."
         },
         {
+          "id": "cons-3-6",
           "type": "multiple_choice",
           "prompt": "During an election, what happens to writes?",
           "choices": [
@@ -240,6 +267,7 @@
       "title": "When you actually need it",
       "exercises": [
         {
+          "id": "cons-4-1",
           "type": "multiple_choice",
           "prompt": "Your team proposes implementing Raft in-house for a service that needs leader election. Reaction?",
           "choices": [
@@ -252,6 +280,7 @@
           "why": "Raft is understandable to read and brutal to implement correctly, because the bugs live in rare interleavings — a node pausing at exactly the wrong moment, a message arriving after you assumed it couldn't. Those don't show up in tests; they show up as divergent data in production months later. Mature implementations have absorbed years of exactly those, which is what you're actually buying."
         },
         {
+          "id": "cons-4-2",
           "type": "multi_select",
           "prompt": "Which genuinely need consensus? Select all.",
           "choices": [
@@ -260,10 +289,15 @@
             "Cluster membership and configuration",
             "Counting page views"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Leadership, locks, and membership share one property: two different answers is a catastrophe, so paying for agreement is worth it. Page views are the opposite — a count that's briefly off by three costs nothing, so coordinating every increment would buy a guarantee nobody needed. The test is simply whether disagreement corrupts something or merely annoys someone."
         },
         {
+          "id": "cons-4-3",
           "type": "multiple_choice",
           "prompt": "Why is running consensus across regions usually a bad idea?",
           "choices": [
@@ -276,14 +310,19 @@
           "why": "Consensus is round trips, and a round trip across the planet is unit 4's physics rather than a tuning problem — a cross-continent quorum makes every write cost hundreds of milliseconds, forever. That's why most systems keep the consensus group inside one region and replicate asynchronously across them, accepting the failure modes of unit 10 in exchange for writes that don't wait on an ocean."
         },
         {
+          "id": "cons-4-4",
           "type": "tradeoff_slider",
           "prompt": "You need a distributed lock so only one worker runs a nightly job. Slide toward your approach.",
           "leftLabel": "Real consensus service (etcd/ZooKeeper)",
           "rightLabel": "A row in your existing database",
-          "answerRange": [55, 100],
+          "answerRange": [
+            55,
+            100
+          ],
           "why": "For one nightly job, a conditional insert or update in the database you already run gives you mutual exclusion with a component you already operate — and if two workers ever both ran, you'd rerun a job rather than lose money. Reach for a dedicated consensus service when the lock protects something where double-execution is genuinely unacceptable, and you're willing to run and understand another distributed system to get it."
         },
         {
+          "id": "cons-4-5",
           "type": "multiple_choice",
           "prompt": "You use a lock service, and it says you hold the lock. Is it safe to write?",
           "choices": [
@@ -296,6 +335,7 @@
           "why": "A lock is a lease, and a lease expires on the service's clock rather than yours — so a long garbage-collection pause can leave you holding an expired lock while feeling certain. This is the famous gap: correctness has to be enforced where the write lands, via a fencing token, because no amount of asking the lock service can tell you whether you were frozen since you last asked."
         },
         {
+          "id": "cons-4-6",
           "type": "multiple_choice",
           "prompt": "What's the honest summary of consensus?",
           "choices": [

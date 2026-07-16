@@ -15,6 +15,7 @@
       "title": "Requirements and numbers",
       "exercises": [
         {
+          "id": "urls-1-1",
           "type": "multiple_choice",
           "prompt": "'Design a URL shortener.' What's the first move?",
           "choices": [
@@ -27,6 +28,7 @@
           "why": "Every later decision is downstream of those numbers — a shortener at 100 links a day and one at 100 million are different systems, and you can't defend a cache or a shard without knowing the shape of the load. The read:write ratio in particular decides almost everything here, which is why it's worth extracting before you name a single technology."
         },
         {
+          "id": "urls-1-2",
           "type": "multi_select",
           "prompt": "Which are the core functional requirements? Select all.",
           "choices": [
@@ -35,10 +37,15 @@
             "Links may expire",
             "Real-time collaborative editing of links"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Shorten, redirect, and optionally expire — that's the product. Collaborative editing is invented scope, and noticing what's NOT required is as valuable as listing what is: every requirement you accept has to be defended in the design, so smuggling in extras costs you real complexity for imaginary users."
         },
         {
+          "id": "urls-1-3",
           "type": "estimate",
           "prompt": "100 million new links per day. Roughly how many writes per second on average?",
           "answer": 1160,
@@ -47,6 +54,7 @@
           "why": "There are ~86,400 seconds in a day, so 100M ÷ 86,400 ≈ 1,160/sec. That's a modest number — well within one well-tuned database — which is the first genuinely useful finding: the write path is not where the difficulty lives, and peaks will run several times the average, so size for maybe 3–5× this."
         },
         {
+          "id": "urls-1-4",
           "type": "multiple_choice",
           "prompt": "Reads are 100× writes. So ~116,000 redirects/second. What does that ratio tell you about the design?",
           "choices": [
@@ -59,6 +67,7 @@
           "why": "A 100:1 ratio means the redirect is the product and everything else is bookkeeping, so your effort belongs in serving reads cheaply — cache, replicas, and a CDN-friendly redirect. It also means unit 7's rule applies directly: put the work where the traffic isn't, and the traffic is reads."
         },
         {
+          "id": "urls-1-5",
           "type": "estimate",
           "prompt": "Each link record is roughly 500 bytes. Storing 100 million links per day for 5 years — roughly how many terabytes?",
           "answer": 91,
@@ -67,6 +76,7 @@
           "why": "100M × 500 bytes = 50GB/day; × 365 × 5 ≈ 91TB. Big enough that one machine's disk is a real question, small enough that it isn't frightening — which is exactly the kind of finding that decides whether unit 15's sharding is on the table or premature."
         },
         {
+          "id": "urls-1-6",
           "type": "multiple_choice",
           "prompt": "Your estimates say ~1,200 writes/sec and ~91TB over five years. What have you learned?",
           "choices": [
@@ -85,6 +95,7 @@
       "title": "Generating the key",
       "exercises": [
         {
+          "id": "urls-2-1",
           "type": "multiple_choice",
           "prompt": "Your short code is 7 characters from [a-zA-Z0-9] — 62 possibilities per character. How many links can that address?",
           "choices": [
@@ -97,6 +108,7 @@
           "why": "62^7 ≈ 3.5 trillion, which at 100M links/day is roughly 95 years of headroom — so 7 characters is a defensible choice you can justify with arithmetic rather than taste. That's the useful move: the length of the code is a capacity decision, and 6 characters (~57 billion) would run out in under two years at this rate."
         },
         {
+          "id": "urls-2-2",
           "type": "multiple_choice",
           "prompt": "Approach A: hash the long URL (say MD5) and take the first 7 characters. What's the problem?",
           "choices": [
@@ -109,6 +121,7 @@
           "why": "Any function mapping unlimited inputs into 3.5 trillion outputs must collide eventually, and by the birthday paradox it starts happening far earlier than intuition suggests. So hashing doesn't remove the problem, it just means every insert needs a uniqueness check and a retry strategy — which is workable, and it's real complexity on the write path."
         },
         {
+          "id": "urls-2-3",
           "type": "multiple_choice",
           "prompt": "Approach B: use an auto-incrementing counter and encode the number in base62. What does that buy?",
           "choices": [
@@ -121,6 +134,7 @@
           "why": "Uniqueness comes free from the counter rather than being checked for, so the write path has no collision logic at all — and base62 is purely a rendering of the same integer, not a hash. Codes also stay short early on, since link one is 'b' rather than seven random characters."
         },
         {
+          "id": "urls-2-4",
           "type": "multi_select",
           "prompt": "What are the real downsides of the counter approach? Select all.",
           "choices": [
@@ -129,10 +143,15 @@
             "A single global counter is a coordination point that must be unique across all servers",
             "It produces collisions"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Guessability is the serious one: sequential codes mean a scraper can walk your entire corpus, and 'unlisted' links stop being unlisted. It also leaks your growth rate, and the counter itself becomes something every server must agree on. What it never does is collide — that was the whole point."
         },
         {
+          "id": "urls-2-5",
           "type": "multiple_choice",
           "prompt": "So how do you get a counter without every write hitting one coordination point?",
           "choices": [
@@ -145,11 +164,15 @@
           "why": "Range allocation amortizes the coordination: one agreement buys ten thousand IDs, so the shared counter is touched once per block instead of 1,200 times a second. This is a genuinely reusable trick — batch the coordination rather than eliminating it — and the cost is gaps in the sequence when a server dies holding an unused block, which nobody cares about."
         },
         {
+          "id": "urls-2-6",
           "type": "tradeoff_slider",
           "prompt": "Your product promises that unlisted links can't be discovered by strangers. Slide toward your key scheme.",
           "leftLabel": "Sequential counter (no collisions, enumerable)",
           "rightLabel": "Random key + uniqueness check (unguessable, must retry)",
-          "answerRange": [60, 100],
+          "answerRange": [
+            60,
+            100
+          ],
           "why": "You just promised unguessability, and a sequential code makes enumeration trivial — so the counter's elegance is disqualified by the requirement rather than by engineering. Random keys plus a unique constraint cost you a retry when you draw an occupied one: by year five you've stored ~182 billion links in a 3.5-trillion space, so about 5% of inserts collide and redraw. Cheap, but a real loop rather than a rounding error. And note why redrawing works here but not for the truncated hash: the hash of a given URL is always the same value, so a collision recurs forever unless you add a salt or counter, whereas a random key just draws again and moves on. Same collision odds, very different escape route."
         }
       ]
@@ -159,14 +182,24 @@
       "title": "Serving the redirect",
       "exercises": [
         {
+          "id": "urls-3-1",
           "type": "build_diagram",
           "prompt": "116,000 redirects/sec, and the same popular links are requested constantly. Add the piece that absorbs that read load.",
-          "slots": ["Redirect Service", "?", "Database (source of truth)"],
-          "palette": ["Cache", "Message Queue", "A second load balancer"],
+          "slots": [
+            "Redirect Service",
+            "?",
+            "Database (source of truth)"
+          ],
+          "palette": [
+            "Cache",
+            "Message Queue",
+            "A second load balancer"
+          ],
           "answer": "Cache",
           "why": "Link mappings are perfect cache material: immutable once created, tiny, and massively skewed — a small number of links take most of the traffic. A cache in front of the database turns 116,000 database reads/sec into a few thousand, and the database keeps being the source of truth for everything that misses."
         },
         {
+          "id": "urls-3-2",
           "type": "multiple_choice",
           "prompt": "Why are these mappings unusually good cache candidates?",
           "choices": [
@@ -179,6 +212,7 @@
           "why": "Cache invalidation is hard because copies drift from a truth that keeps moving — and here the truth never moves, so the whole category of problem evaporates. Immutable data is the easiest thing in system design, which is worth noticing as a design lever: making data immutable, where you can, buys you caching for free."
         },
         {
+          "id": "urls-3-3",
           "type": "multiple_choice",
           "prompt": "Should the redirect return 301 (permanent) or 302 (temporary)?",
           "choices": [
@@ -191,6 +225,7 @@
           "why": "A 301 is the best possible caching outcome and the worst possible analytics outcome, because a browser that remembers the redirect stops telling you the click happened. So the choice is decided by the product: if click counts are the business, you take 302 and eat the traffic; if they're decoration, 301 makes most of your load disappear."
         },
         {
+          "id": "urls-3-4",
           "type": "multiple_choice",
           "prompt": "Your cache holds the hot links. A brand-new viral link is created and instantly gets 50,000 requests/second. What happens?",
           "choices": [
@@ -203,6 +238,7 @@
           "why": "A cold key under sudden load means thousands of concurrent misses each dutifully going to the database for the identical value, which is unit 14's stampede at the row level. The fix is request coalescing: let one miss fetch while the rest wait for its result, so each server makes one query instead of thousands. Be precise about what that buys, though — coalescing is per-process, so the database sees one query per SERVER rather than one overall, and a fleet serving 116,000 rps is many servers. Getting to a single fetch needs a shared lease, or a shielding tier in front of the store — exactly the move unit 14 makes with origin shielding when 300 edges each coalesce and the origin still sees 300."
         },
         {
+          "id": "urls-3-5",
           "type": "multiple_choice",
           "prompt": "Which database fits this workload?",
           "choices": [
@@ -215,6 +251,7 @@
           "why": "The system does exactly one read: give me the long URL for this code. That's a hashmap, which is unit 7's cleanest case — no joins, no transactions, no ad-hoc queries. Postgres would serve this happily too; what makes the KV store defensible is that the workload genuinely has one access pattern, and that's the honest reasoning rather than 'NoSQL scales'."
         },
         {
+          "id": "urls-3-6",
           "type": "multiple_choice",
           "prompt": "How would you shard 91TB of links?",
           "choices": [
@@ -233,6 +270,7 @@
       "title": "The edges",
       "exercises": [
         {
+          "id": "urls-4-1",
           "type": "multiple_choice",
           "prompt": "A user wants the custom alias `/launch`. How does that interact with your generated keys?",
           "choices": [
@@ -245,6 +283,7 @@
           "why": "Both are just keys in the same map, so `/launch` is only free if nothing generated it first — and a unique constraint in the database is the only enforcement that can't be raced (unit 6). Real systems often generate from a reduced alphabet or reserve a prefix space, so generated codes and human-chosen words rarely compete for the same string."
         },
         {
+          "id": "urls-4-2",
           "type": "multiple_choice",
           "prompt": "Links can expire. How do you delete 100 million expired links a day?",
           "choices": [
@@ -257,6 +296,7 @@
           "why": "A single mass DELETE is a long-running transaction touching millions of rows, which is unit 9's advice violated at scale — it holds locks, bloats storage, and lags your replicas exactly when it runs. A TTL that the store enforces, or small idempotent batches, keeps the work bounded and interruptible, which is what makes it safe to run on a live system."
         },
         {
+          "id": "urls-4-3",
           "type": "multiple_choice",
           "prompt": "You want click analytics, but writing a row per click means 116,000 writes/sec — 100× your link writes. What do you do?",
           "choices": [
@@ -269,6 +309,7 @@
           "why": "Analytics would be the single largest write load in the system, and it's the least important data — so it must never sit on the redirect's critical path (unit 16). Queue the event, batch the aggregation, and accept that a few lost clicks change no decision anyone will ever make, which is exactly the durability tradeoff unit 6 described."
         },
         {
+          "id": "urls-4-4",
           "type": "multi_select",
           "prompt": "Which parts of this system genuinely need strong consistency? Select all.",
           "choices": [
@@ -277,10 +318,14 @@
             "The mapping visible immediately after creation, to the creator",
             "Analytics dashboards"
           ],
-          "answer": [0, 2],
+          "answer": [
+            0,
+            2
+          ],
           "why": "Uniqueness is non-negotiable — two long URLs behind one code is corruption you can't undo — and the creator seeing their own new link immediately is unit 19's read-your-writes, which is what they'd notice. The counter and the dashboards can be seconds or minutes stale and nobody is harmed, so paying for coordination there buys a guarantee nobody would miss."
         },
         {
+          "id": "urls-4-5",
           "type": "multiple_choice",
           "prompt": "Someone shortens a malicious URL and it spreads. What have you built without meaning to?",
           "choices": [
@@ -293,6 +338,7 @@
           "why": "The product's core feature — hiding the destination behind your domain — is exactly what makes it useful for phishing, so abuse isn't a bolt-on concern but a direct consequence of the design. That's why real shorteners check destinations against blocklists, rate limit creation, and offer a preview: the mitigation belongs in the design, because the vulnerability came from the requirements."
         },
         {
+          "id": "urls-4-6",
           "type": "multiple_choice",
           "prompt": "Summarize the design in one line.",
           "choices": [

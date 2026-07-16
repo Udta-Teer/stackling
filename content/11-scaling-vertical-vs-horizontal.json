@@ -15,6 +15,7 @@
       "title": "Two ways to grow",
       "exercises": [
         {
+          "id": "scale-1-1",
           "type": "multiple_choice",
           "prompt": "Your server is at capacity. Option A: replace it with a machine that has 4× the CPU and RAM. Option B: run 4 copies of the machine you already have. What are these called?",
           "choices": [
@@ -27,24 +28,44 @@
           "why": "Vertical = one machine, made bigger. Horizontal = more machines, each the same size. Same goal, completely different engineering — and the names are worth internalizing because they map to two different kinds of work: scaling up is a purchase, scaling out is a redesign. One of those you can do this afternoon; the other changes how you build software permanently."
         },
         {
+          "id": "scale-1-2",
           "type": "match_pairs",
           "prompt": "Match each term to what it means.",
           "pairs": [
-            { "left": "Vertical scaling", "right": "A bigger machine (scale up)" },
-            { "left": "Horizontal scaling", "right": "More machines (scale out)" },
-            { "left": "Vertical's ceiling", "right": "The biggest machine money can buy" },
-            { "left": "Horizontal's ceiling", "right": "Effectively none — you can add another" }
+            {
+              "left": "Vertical scaling",
+              "right": "A bigger machine (scale up)"
+            },
+            {
+              "left": "Horizontal scaling",
+              "right": "More machines (scale out)"
+            },
+            {
+              "left": "Vertical's ceiling",
+              "right": "The biggest machine money can buy"
+            },
+            {
+              "left": "Horizontal's ceiling",
+              "right": "Effectively none — you can add another"
+            }
           ],
           "why": "Up has a wall you can reach; out doesn't, since you can always add one more box. But 'effectively none' is carrying weight there: you can always add a machine, and whether your SYSTEM goes faster depends entirely on whether the work can actually be split apart. That's lesson 3, and it's where the free lunch ends."
         },
         {
+          "id": "scale-1-3",
           "type": "fill_blank",
           "prompt": "Buying a bigger machine is ______ scaling; running more machines is horizontal scaling.",
-          "choices": ["vertical", "lateral", "elastic", "linear"],
+          "choices": [
+            "vertical",
+            "lateral",
+            "elastic",
+            "linear"
+          ],
           "answer": 0,
           "why": "Up the machine (vertical), or out across machines (horizontal)."
         },
         {
+          "id": "scale-1-4",
           "type": "multiple_choice",
           "prompt": "Which can you usually do today, with no code changes at all?",
           "choices": [
@@ -57,6 +78,7 @@
           "why": "Resizing a machine is a config change: your application runs exactly as it did, with more room, and that's the entire appeal. Which is why scaling up is almost always the right FIRST move, and why dismissing it as unsophisticated is a mistake — a config change that buys you twelve months is worth more than an architecture change that buys you five years you may never need."
         },
         {
+          "id": "scale-1-5",
           "type": "multiple_choice",
           "prompt": "Your app runs on one server. You start a second copy. What has to be true for that to work?",
           "choices": [
@@ -69,6 +91,7 @@
           "why": "Horizontal scaling assumes machines are interchangeable, and the moment a request needs something that exists on only one machine, they aren't. That's unit 5's lesson arriving with a deadline: everything difficult about scaling out reduces to this one requirement, and lesson 3 is a tour of every place it quietly isn't true."
         },
         {
+          "id": "scale-1-6",
           "type": "multi_select",
           "prompt": "Which of these are true of VERTICAL scaling? Select all.",
           "choices": [
@@ -77,7 +100,11 @@
             "It leaves you with a single point of failure",
             "It requires your application to be stateless"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Simple, capped, and still just one machine — statelessness is horizontal's demand, since vertical scaling doesn't care how much state you keep in memory, which is exactly why it's so easy. Notice that last one is the whole trade in miniature: vertical asks nothing of your architecture, while horizontal asks you to give up local state, and that's a bill you pay in code rather than dollars."
         }
       ]
@@ -87,6 +114,7 @@
       "title": "Why vertical runs out",
       "exercises": [
         {
+          "id": "scale-2-1",
           "type": "multiple_choice",
           "prompt": "Folklore says a machine with twice the cores costs more than twice as much. Is that true today?",
           "choices": [
@@ -99,17 +127,31 @@
           "why": "Mainstream cloud instance families are priced roughly linearly per vCPU: step up one size and you roughly double both the machine and the bill. The 'big iron costs a fortune' rule came from an era of proprietary large machines and doesn't describe how most people buy compute now — which is worth un-learning, because it removes a folklore argument for distributing EARLY. Across the mainstream range, ten small boxes and one ten-times-bigger box land in roughly the same place. The premium is real at the top of the range, where the largest specialty tiers do get disproportionately expensive per unit — and notice when that bites: it's the same moment the ceiling does. Cost and the ceiling arrive together, at the top, which makes cost a late argument for scaling out rather than an early one."
         },
         {
+          "id": "scale-2-2",
           "type": "match_pairs",
           "prompt": "Match each limit of vertical scaling to what it means.",
           "pairs": [
-            { "left": "Hard ceiling", "right": "There is a biggest machine, and you can reach it" },
-            { "left": "Idle capacity", "right": "One box is sized for your peak, and idle the rest of the time" },
-            { "left": "Single point of failure", "right": "One machine dying means a total outage" },
-            { "left": "Upgrade downtime", "right": "Resizing usually means a restart" }
+            {
+              "left": "Hard ceiling",
+              "right": "There is a biggest machine, and you can reach it"
+            },
+            {
+              "left": "Idle capacity",
+              "right": "One box is sized for your peak, and idle the rest of the time"
+            },
+            {
+              "left": "Single point of failure",
+              "right": "One machine dying means a total outage"
+            },
+            {
+              "left": "Upgrade downtime",
+              "right": "Resizing usually means a restart"
+            }
           ],
           "why": "Four separate limits, and only the first is about running out of capacity — the other three bite well before you reach the ceiling. They have different deadlines too: idle capacity bills you continuously, downtime hurts at every upgrade, and the single point of failure hurts you once, badly, on a day you didn't choose. Note which cost complaint this is: at ordinary sizes, where per-unit pricing is roughly flat, you're paying for peak you aren't using rather than a price premium."
         },
         {
+          "id": "scale-2-3",
           "type": "multiple_choice",
           "prompt": "You're already on the largest instance your cloud offers, and you're still at capacity. What are your vertical options?",
           "choices": [
@@ -122,6 +164,7 @@
           "why": "That's the ceiling: there is no 'slightly bigger' option left, so vertical scaling has nothing more to offer. The dangerous part isn't that the ceiling exists — it's WHEN you meet it. You hit it under load, at your busiest moment, with no incremental option and a migration you haven't started. Horizontal degrades gracefully; vertical hits a wall at full speed."
         },
         {
+          "id": "scale-2-4",
           "type": "multiple_choice",
           "prompt": "You have one very large machine serving everything. It dies. What's your availability?",
           "choices": [
@@ -134,6 +177,7 @@
           "why": "Vertical scaling buys capacity; it never buys redundancy, because one machine is one machine however large. This is the argument people forget when defending the big box: even if one machine could serve all your traffic forever, you'd still want a second one, because one is a single point of failure. Capacity and availability are two separate reasons to add machines, and only one of them is about load."
         },
         {
+          "id": "scale-2-5",
           "type": "multiple_choice",
           "prompt": "Resizing a machine to a larger instance usually requires what?",
           "choices": [
@@ -146,6 +190,7 @@
           "why": "The machine has to stop being the old size and start being the new one — that's a restart, which means downtime unless something else can serve traffic meanwhile. There's a quiet irony here: the clean way to upgrade a machine with no downtime is to have a second machine to fail over to, so even scaling up gracefully tends to require the redundancy that scaling out gives you."
         },
         {
+          "id": "scale-2-6",
           "type": "multi_select",
           "prompt": "Why does vertical scaling eventually stop being the answer? Select all.",
           "choices": [
@@ -154,7 +199,11 @@
             "One machine is a single point of failure",
             "It forces you to rewrite your application"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Ceiling, inflexible capacity, and fragility. It emphatically does NOT force a rewrite — needing no rewrite is precisely what makes it attractive right up until it fails you. That combination is what makes the ceiling sneak up on people: vertical scaling asks nothing of you, so nobody plans for the day it stops working, and then that day is the day you need to have already planned."
         }
       ]
@@ -164,6 +213,7 @@
       "title": "What horizontal demands",
       "exercises": [
         {
+          "id": "scale-3-1",
           "type": "multiple_choice",
           "prompt": "You add a second app server behind a load balancer. Immediately, users start getting randomly logged out. Why?",
           "choices": [
@@ -176,6 +226,7 @@
           "why": "Two machines, one of which holds your session — land on the other and you're a stranger, so the servers aren't interchangeable and horizontal scaling doesn't work yet. Going from one machine to two is the hardest scaling step there is, and it's not close: it's where every hidden assumption of single-machine-ness surfaces at once, and you'd been relying on all of them without ever writing them down."
         },
         {
+          "id": "scale-3-2",
           "type": "multi_select",
           "prompt": "Going from 1 server to 2 tends to break which hidden assumptions? Select all.",
           "choices": [
@@ -184,18 +235,32 @@
             "A scheduled job that now runs on every machine instead of once",
             "The database schema"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Local sessions vanish, local files become invisible to peers, and that nightly cron now fires once per machine — so your billing job runs twice. The schema is untouched; it never assumed anything about how many servers existed. The cron one catches people hardest because it fails silently and in the wrong direction: nothing errors, you just charged everyone twice. Single-machine assumptions rarely announce themselves — they just quietly start doing everything N times."
         },
         {
+          "id": "scale-3-3",
           "type": "build_diagram",
           "prompt": "You now run 3 identical app servers. Add the piece that spreads incoming traffic across them.",
-          "slots": ["Clients", "?", "[ App Server ×3 ]"],
-          "palette": ["Load Balancer", "A bigger app server", "A cache"],
+          "slots": [
+            "Clients",
+            "?",
+            "[ App Server ×3 ]"
+          ],
+          "palette": [
+            "Load Balancer",
+            "A bigger app server",
+            "A cache"
+          ],
           "answer": "Load Balancer",
           "why": "Something has to decide which machine each request goes to — that's a load balancer's entire job, and it's the piece that makes 'more machines' visible to the outside world as one service. Notice horizontal scaling immediately required a new component you didn't need before: that's the pattern, since scaling out doesn't remove work, it relocates it."
         },
         {
+          "id": "scale-3-4",
           "type": "multiple_choice",
           "prompt": "You split work across 10 machines, but every one of them must update the same shared counter. What happens?",
           "choices": [
@@ -208,6 +273,7 @@
           "why": "Horizontal scaling only helps to the extent the work is genuinely independent — anything all ten machines must touch is a queue with ten machines waiting in it. Any point where every machine must agree is a serialization point, and it caps your speedup no matter how many machines you add. This is unit 4's bottleneck rule with a distributed accent: adding capacity to the parts that weren't the constraint changes nothing."
         },
         {
+          "id": "scale-3-5",
           "type": "multiple_choice",
           "prompt": "Which workload scales horizontally most easily?",
           "choices": [
@@ -220,6 +286,7 @@
           "why": "Independent work splits cleanly: two machines can handle two images and never speak to each other, while the others all require coordination — and coordination is what doesn't scale. Here's the tell to carry: can two requests be handled by two machines that never talk to each other? If yes, horizontal scaling is nearly free. If no, you're not really buying machines — you're buying coordination, and that's the expensive part."
         },
         {
+          "id": "scale-3-6",
           "type": "multiple_choice",
           "prompt": "So what does horizontal scaling actually demand in return?",
           "choices": [
@@ -238,6 +305,7 @@
       "title": "Choosing, honestly",
       "exercises": [
         {
+          "id": "scale-4-1",
           "type": "multiple_choice",
           "prompt": "A startup with 5,000 users builds for horizontal scale from day one: six services, a message bus, the works. Likely outcome?",
           "choices": [
@@ -250,6 +318,7 @@
           "why": "Distributed systems aren't free: you buy scale with complexity, so if you don't need the scale yet you've simply bought the complexity. The cost is mostly invisible on an architecture diagram and brutal in daily life — every bug is now a distributed bug, every local test needs six things running, and every outage is a scavenger hunt. That tax is charged daily; the scale benefit arrives someday, maybe."
         },
         {
+          "id": "scale-4-2",
           "type": "multiple_choice",
           "prompt": "How far can a single modern machine actually take you?",
           "choices": [
@@ -262,14 +331,19 @@
           "why": "Hardware got enormous while everyone was learning to distribute — a single large box today would have been a datacenter fifteen years ago. Plenty of well-known products ran on a handful of machines far longer than their engineers expected, so the useful planning question isn't 'will we outgrow one machine?' but 'when — and what will we know by then that we don't know now?' Deciding later with real data beats deciding now with a guess."
         },
         {
+          "id": "scale-4-3",
           "type": "tradeoff_slider",
           "prompt": "New product, 2,000 users, growing steadily, small team. Slide toward your scaling strategy.",
           "leftLabel": "Scale up (bigger box, stay simple)",
           "rightLabel": "Scale out (distribute now)",
-          "answerRange": [0, 35],
+          "answerRange": [
+            0,
+            35
+          ],
           "why": "At this size a bigger box is a config change and distributing is a project, so buy the simple thing — you'll learn where your real bottleneck is long before you're forced to commit to an architecture. The deciding factor is asymmetry rather than size: scaling up is reversible and cheap to try, while distributing is a one-way door that changes how you test, deploy, and debug forever. When one option is reversible and the other isn't, take the reversible one until you have evidence you must not."
         },
         {
+          "id": "scale-4-4",
           "type": "multiple_choice",
           "prompt": "One machine has plenty of capacity for your traffic — but you need 99.99% uptime. Do you still need more machines?",
           "choices": [
@@ -282,6 +356,7 @@
           "why": "Redundancy and capacity are unrelated: a machine that's only 10% busy still takes your whole service down when it dies. This is the split people miss — there are two independent reasons to go horizontal, and most only think about load. If your uptime target is serious, you're going horizontal even when one box would be fast enough, and you'll inherit every interchangeability requirement from lesson 3 along with it."
         },
         {
+          "id": "scale-4-5",
           "type": "multi_select",
           "prompt": "Which are genuine signals that it's time to scale out? Select all.",
           "choices": [
@@ -290,10 +365,15 @@
             "Traffic is spiky, and you want to add and remove capacity dynamically",
             "Someone on the team read an article about microservices"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Ceiling, redundancy, and elasticity are all real, evidence-backed reasons; fashion is not — and it's the most expensive reason on the list. Elasticity is the one people under-rate: if your traffic is 10× at noon and quiet at 3am, many small machines let you pay for what you use, while one big machine is sized for your worst hour and idle the rest of the time. That's a cost argument for scaling out even before you're near the ceiling."
         },
         {
+          "id": "scale-4-6",
           "type": "multiple_choice",
           "prompt": "Your app servers are stateless and CPU-bound. Traffic doubles. Your database sits at 30% and is perfectly happy. What do you scale?",
           "choices": [
@@ -306,6 +386,7 @@
           "why": "Scale the bottleneck rather than the comfortable part (unit 4) — and you're in luck, because a stateless CPU-bound tier is the one place where 'just add machines' genuinely works. This is the happy case, and it's precisely why the industry pushed state out of the app tier so hard: stateless compute is the one component that really does scale by adding boxes, while every other tier makes you negotiate."
         },
         {
+          "id": "scale-4-7",
           "type": "multiple_choice",
           "prompt": "What's the honest summary of scaling?",
           "choices": [

@@ -14,6 +14,7 @@
       "title": "Mixed recall",
       "exercises": [
         {
+          "id": "cp1-1-1",
           "type": "multiple_choice",
           "prompt": "Your API server responds in 3ms. A user in Sydney says the app is slow. Your servers are in Virginia. What's the dominant cost?",
           "choices": [
@@ -26,13 +27,20 @@
           "why": "A 3ms server against a round trip of roughly 200ms means the server is a rounding error — you're paying the speed of light, which unit 1 established and unit 4 quantified. The only lever left is to stop making them cross the planet, which is why the answer to this problem is geographic rather than algorithmic."
         },
         {
+          "id": "cp1-1-2",
           "type": "fill_blank",
           "prompt": "An operation is ______ if performing it many times has the same effect as performing it once.",
-          "choices": ["idempotent", "atomic", "stateless", "cached"],
+          "choices": [
+            "idempotent",
+            "atomic",
+            "stateless",
+            "cached"
+          ],
           "answer": 0,
           "why": "Idempotent. It's the property that makes retries safe — and since a timed-out request is genuinely ambiguous (did it happen?), retries are unavoidable, which makes this the backbone of reliability rather than a nicety."
         },
         {
+          "id": "cp1-1-3",
           "type": "multi_select",
           "prompt": "Which of these are STATE — things the system must remember? Select all.",
           "choices": [
@@ -41,28 +49,52 @@
             "A pure function that formats a date",
             "A message sitting in a queue, not yet processed"
           ],
-          "answer": [0, 1, 3],
+          "answer": [
+            0,
+            1,
+            3
+          ],
           "why": "Sessions, files, and in-flight work are all things that would be LOST if every server restarted right now — which is unit 5's test for what counts as state. The date formatter isn't state: same input, same output, nothing retained. The queued message catches people out, but work-in-progress is state, which is exactly why real queues persist to disk and wait for an ack."
         },
         {
+          "id": "cp1-1-4",
           "type": "multiple_choice",
           "prompt": "Which HTTP status code tells a client 'your request was fine, but you've sent too many'?",
-          "choices": ["`503 Service Unavailable`", "`429 Too Many Requests`", "`403 Forbidden`", "`500 Internal Server Error`"],
+          "choices": [
+            "`503 Service Unavailable`",
+            "`429 Too Many Requests`",
+            "`403 Forbidden`",
+            "`500 Internal Server Error`"
+          ],
           "answer": 1,
           "why": "`429` is the rate-limit signal, and it matters that it's distinct from `503`: `429` says *you* should slow down, while `503` says *the service* is unwell. Pair it with `Retry-After` and a well-behaved client knows exactly how long to wait instead of guessing."
         },
         {
+          "id": "cp1-1-5",
           "type": "match_pairs",
           "prompt": "Match each foundation to the unit idea it belongs to.",
           "pairs": [
-            { "left": "DNS", "right": "Turns a name into an IP address" },
-            { "left": "Statelessness", "right": "Any server can handle any request" },
-            { "left": "Cursor pagination", "right": "Inserts can't shift your window" },
-            { "left": "p99", "right": "The worst 1% — your unhappiest users" }
+            {
+              "left": "DNS",
+              "right": "Turns a name into an IP address"
+            },
+            {
+              "left": "Statelessness",
+              "right": "Any server can handle any request"
+            },
+            {
+              "left": "Cursor pagination",
+              "right": "Inserts can't shift your window"
+            },
+            {
+              "left": "p99",
+              "right": "The worst 1% — your unhappiest users"
+            }
           ],
           "why": "Four ideas from four units, and each is load-bearing later: DNS is the first cache you met, statelessness is what makes horizontal scaling possible, cursors are why feeds don't show duplicates, and p99 is why averages lie."
         },
         {
+          "id": "cp1-1-6",
           "type": "multiple_choice",
           "prompt": "Why is `GET` safe to retry, cache, and prefetch — but `POST` isn't?",
           "choices": [
@@ -81,6 +113,7 @@
       "title": "Connecting the units",
       "exercises": [
         {
+          "id": "cp1-2-1",
           "type": "multiple_choice",
           "prompt": "Unit 5 said 'every copy costs you a consistency question.' Which of these is NOT a copy in that sense?",
           "choices": [
@@ -93,6 +126,7 @@
           "why": "The source of truth is the original — it's what the copies are copies OF, and it can't disagree with itself. Everything else on that list is derived, which means each one buys speed and hands you the question of what happens when it drifts. Spotting which thing is authoritative is the first move in almost every design discussion."
         },
         {
+          "id": "cp1-2-2",
           "type": "multiple_choice",
           "prompt": "You cache a user's profile for 60 seconds. What have you actually bought and sold?",
           "choices": [
@@ -105,13 +139,20 @@
           "why": "That TTL is you naming a price: 60 seconds of possible staleness in exchange for fast reads and less database load. Stating it that way is the useful habit — a cache isn't a performance trick you add, it's a consistency policy you're choosing, and the only question is whether 60 seconds of wrong costs less than the speed is worth."
         },
         {
+          "id": "cp1-2-3",
           "type": "spot_bottleneck",
           "prompt": "Every request flows left to right. Each component's capacity is shown. Tap the one that limits the whole system.",
-          "nodes": ["DNS — 100k rps", "Load Balancer — 40k rps", "App servers — 6k rps", "Cache — 80k rps"],
+          "nodes": [
+            "DNS — 100k rps",
+            "Load Balancer — 40k rps",
+            "App servers — 6k rps",
+            "Cache — 80k rps"
+          ],
           "answer": 2,
           "why": "A chain is limited by its slowest stage, so the app servers at 6k rps cap the whole system at 6k — everything downstream is capacity you're paying for and can't reach. The corollary is the one people ignore: making the cache faster buys exactly nothing, because it was never the constraint. Measure first, then fix the actual limit."
         },
         {
+          "id": "cp1-2-4",
           "type": "multiple_choice",
           "prompt": "Your app has 10,000 requests/second and a 99.9% success rate. How worried should you be?",
           "choices": [
@@ -124,6 +165,7 @@
           "why": "Percentages feel small and rates feel real: 0.1% of 10,000/sec is 10 people per second having a bad time. This is unit 4's move — always multiply out before accepting a number, because 'three nines' sounds like success and looks like a support queue."
         },
         {
+          "id": "cp1-2-5",
           "type": "multiple_choice",
           "prompt": "A teammate wants to store the shopping cart in server memory 'because it's fastest.' What's the one question that settles it?",
           "choices": [
@@ -136,6 +178,7 @@
           "why": "Those two halves decide durability and sharing, and those two decide the place — which is unit 5's entire lens in one sentence. Run it here: the cart is lost on restart (bad), and the user expects it on their laptop too (so another machine must read it). Both answers point away from local memory, and you never had to argue about speed."
         },
         {
+          "id": "cp1-2-6",
           "type": "multiple_choice",
           "prompt": "What connects DNS caching, a CDN, a read replica, and a browser cache?",
           "choices": [

@@ -15,6 +15,7 @@
       "title": "State is the hard part",
       "exercises": [
         {
+          "id": "state-1-1",
           "type": "multiple_choice",
           "prompt": "You have two services: one resizes images (input in, output out, remembers nothing) and one stores user profiles. Which is trivially easy to run as 100 copies?",
           "choices": [
@@ -27,13 +28,20 @@
           "why": "The resizer is stateless: every copy is interchangeable, you can add or kill them freely, and no copy needs to agree with any other — while the profile store holds data, so its copies must somehow agree on the truth. Here's the thesis of the whole unit: almost every hard problem in system design is a state problem. Scaling stateless compute is boring — you add machines. Scaling state is where replication, sharding, consistency, and CAP all come from."
         },
         {
+          "id": "state-1-2",
           "type": "fill_blank",
           "prompt": "A component is ______ if it keeps no memory between requests — so any copy can handle any request.",
-          "choices": ["stateless", "idempotent", "cached", "sharded"],
+          "choices": [
+            "stateless",
+            "idempotent",
+            "cached",
+            "sharded"
+          ],
           "answer": 0,
           "why": "Stateless = no memory between requests = interchangeable copies, and that interchangeability is what makes horizontal scaling easy."
         },
         {
+          "id": "state-1-3",
           "type": "multi_select",
           "prompt": "Which of these are STATE (something the system must remember)? Select all.",
           "choices": [
@@ -42,21 +50,39 @@
             "An uploaded profile photo",
             "The number of likes on a post"
           ],
-          "answer": [0, 2, 3],
+          "answer": [
+            0,
+            2,
+            3
+          ],
           "why": "Carts, photos, and like counts are all data the system must remember; pure computation isn't state, since the same inputs always give the same output and nothing is retained. The practical test: if you restarted every server in your fleet right this second, what would be lost? That is your state — everything else is just compute, and compute is the easy part."
         },
         {
+          "id": "state-1-4",
           "type": "match_pairs",
           "prompt": "Match each term to its meaning.",
           "pairs": [
-            { "left": "Stateless", "right": "Any copy can serve any request" },
-            { "left": "Stateful", "right": "Copies must agree on the data" },
-            { "left": "Source of truth", "right": "The one authoritative copy" },
-            { "left": "Derived copy", "right": "Can be rebuilt from the truth" }
+            {
+              "left": "Stateless",
+              "right": "Any copy can serve any request"
+            },
+            {
+              "left": "Stateful",
+              "right": "Copies must agree on the data"
+            },
+            {
+              "left": "Source of truth",
+              "right": "The one authoritative copy"
+            },
+            {
+              "left": "Derived copy",
+              "right": "Can be rebuilt from the truth"
+            }
           ],
           "why": "These four words carry most of the unit: stateless scales freely, stateful needs coordination, the source of truth is authoritative, and derived copies are rebuildable. *Can it be rebuilt?* is the question separating a bad afternoon from a company-ending event — hold onto it, because lesson 3 is built on it."
         },
         {
+          "id": "state-1-5",
           "type": "multiple_choice",
           "prompt": "Architects often say 'push state to the edges.' What does that mean?",
           "choices": [
@@ -69,6 +95,7 @@
           "why": "You want a thin, stateless middle you can scale at will, with state concentrated in a small number of specialists (databases, caches) designed for the hard parts. This is why the classic 3-tier architecture exists at all: a stateless web/app tier you scale by adding boxes, plus a stateful data tier that's difficult, expensive, and carefully managed. The entire shape of the architecture is organized around quarantining state."
         },
         {
+          "id": "state-1-6",
           "type": "multiple_choice",
           "prompt": "Why is a stateless app tier so much easier to operate than a stateful one?",
           "choices": [
@@ -87,6 +114,7 @@
       "title": "The places state can live",
       "exercises": [
         {
+          "id": "state-2-1",
           "type": "multiple_choice",
           "prompt": "You restart every server in your fleet. Which survives?",
           "choices": [
@@ -99,17 +127,31 @@
           "why": "RAM is volatile — a restart wipes it instantly — while disk is durable, so the database still has the data. This is the very first question to ask about any state: does it need to survive a crash? Durability is a spectrum you pay for: RAM is fastest and dies on restart; local disk survives a process crash but not a dead machine; replicated disk survives a machine; cross-region replication survives a whole datacenter. Every rung costs you."
         },
         {
+          "id": "state-2-2",
           "type": "match_pairs",
           "prompt": "Match each place state can live to its defining property.",
           "pairs": [
-            { "left": "Client (cookie/token)", "right": "Travels with the user, can't be trusted" },
-            { "left": "Server RAM", "right": "Fastest, lost on restart" },
-            { "left": "Shared cache (Redis)", "right": "Fast, shared by all servers, usually volatile" },
-            { "left": "Database (disk)", "right": "Durable source of truth, slowest" }
+            {
+              "left": "Client (cookie/token)",
+              "right": "Travels with the user, can't be trusted"
+            },
+            {
+              "left": "Server RAM",
+              "right": "Fastest, lost on restart"
+            },
+            {
+              "left": "Shared cache (Redis)",
+              "right": "Fast, shared by all servers, usually volatile"
+            },
+            {
+              "left": "Database (disk)",
+              "right": "Durable source of truth, slowest"
+            }
           ],
           "why": "Four places, four personalities — and the whole design skill is matching the state to the place whose tradeoffs you can live with. Notice the ladder running through it: speed, durability, shared-ness, trust, and no option gives you all four. There is no place that is fast, durable, shared, and free, so choosing means giving something up on purpose."
         },
         {
+          "id": "state-2-3",
           "type": "multiple_choice",
           "prompt": "You store the shopping cart's total price in a cookie on the client. What's the danger?",
           "choices": [
@@ -122,6 +164,7 @@
           "why": "Anything living on the client is under the user's control — they can open dev tools and change it — so client state is never trustworthy for anything involving money, permissions, or security. The rule: client-held state is a convenience or a cache, never the source of truth for anything that matters. If you must put something sensitive there, sign it so tampering is detectable, which is precisely what a JWT's signature is for: the client carries the data but can't forge it."
         },
         {
+          "id": "state-2-4",
           "type": "multi_select",
           "prompt": "Which are good reasons to put state in a shared cache like Redis instead of the database? Select all.",
           "choices": [
@@ -130,10 +173,15 @@
             "It's the safest place for the only copy of critical data",
             "It's shared, so every app server sees the same value"
           ],
-          "answer": [0, 1, 3],
+          "answer": [
+            0,
+            1,
+            3
+          ],
           "why": "Redis is fast and shared — excellent reasons — but it's typically volatile, so it is emphatically not the place for the only copy of data you can't afford to lose. Caches should hold derived state, rebuildable from the source of truth: the moment data exists ONLY in your cache, you've turned your cache into a database without any of a database's durability guarantees, and teams discover this during the first unplanned Redis restart."
         },
         {
+          "id": "state-2-5",
           "type": "multiple_choice",
           "prompt": "A message sitting in a queue waiting to be processed — is that state?",
           "choices": [
@@ -146,6 +194,7 @@
           "why": "Work-in-progress is state: if the queue loses that message, the work simply vanishes — an order never ships, an email never sends, and nothing errors. This is exactly why real queues persist messages to disk and wait for an explicit acknowledgement before deleting them. At-least-once delivery exists because in-flight state is state, and it's why consumers must be idempotent, the property you met in unit 2."
         },
         {
+          "id": "state-2-6",
           "type": "multiple_choice",
           "prompt": "What's the first question to ask about any new piece of state?",
           "choices": [
@@ -164,6 +213,7 @@
       "title": "Copies and the truth",
       "exercises": [
         {
+          "id": "state-3-1",
           "type": "multiple_choice",
           "prompt": "The moment you cache a value so it exists in two places, what problem have you created?",
           "choices": [
@@ -176,24 +226,44 @@
           "why": "One copy can't disagree with itself; two copies can drift apart, and now you must decide what happens when they do and who wins. Generalize it: every performance optimization built on copies — caches, read replicas, CDNs, denormalization — buys speed with consistency. There is no copy without a consistency question attached, so when someone proposes a cache, they're proposing a consistency policy whether they've noticed or not."
         },
         {
+          "id": "state-3-2",
           "type": "fill_blank",
           "prompt": "The one authoritative copy of a piece of data is called the source of ______.",
-          "choices": ["truth", "record", "data", "origin"],
+          "choices": [
+            "truth",
+            "record",
+            "data",
+            "origin"
+          ],
           "answer": 0,
           "why": "The source of truth is the copy that wins any argument: if two places disagree, it's right by definition and everything else is derived from it."
         },
         {
+          "id": "state-3-3",
           "type": "match_pairs",
           "prompt": "Match each kind of copy to what it is.",
           "pairs": [
-            { "left": "Source of truth", "right": "The authoritative copy — if in doubt, ask it" },
-            { "left": "Cache", "right": "A fast copy that may be stale" },
-            { "left": "Replica", "right": "A copy kept in sync, for reads or failover" },
-            { "left": "Stale", "right": "A copy that no longer matches the truth" }
+            {
+              "left": "Source of truth",
+              "right": "The authoritative copy — if in doubt, ask it"
+            },
+            {
+              "left": "Cache",
+              "right": "A fast copy that may be stale"
+            },
+            {
+              "left": "Replica",
+              "right": "A copy kept in sync, for reads or failover"
+            },
+            {
+              "left": "Stale",
+              "right": "A copy that no longer matches the truth"
+            }
           ],
           "why": "Each copy has a job and a failure mode, and being explicit about which is which keeps a design honest. In a design discussion, the sharpest question you can ask is 'which of these is the source of truth?' — surprisingly often nobody knows, and that ambiguity is where the worst bugs live."
         },
         {
+          "id": "state-3-4",
           "type": "multiple_choice",
           "prompt": "There's a famous joke: 'There are only two hard things in Computer Science: cache invalidation and naming things.' Why is cache invalidation genuinely hard?",
           "choices": [
@@ -206,6 +276,7 @@
           "why": "The cache has no idea the truth changed — someone has to tell it, or it has to guess, and both are imperfect while the knowledge of 'what invalidates this?' is scattered across every write path in your system. The two strategies: TTL (expire after N seconds — dead simple, but you knowingly serve stale data for up to N seconds) or explicit invalidation (delete the key when the data changes — precise, but you must find every write path forever, including the one a teammate adds next year without knowing your cache exists). Most real systems use both, because both are inadequate alone."
         },
         {
+          "id": "state-3-5",
           "type": "multiple_choice",
           "prompt": "Your entire cache is accidentally wiped. Is that an outage?",
           "choices": [
@@ -218,11 +289,15 @@
           "why": "The question for any copy is: can I rebuild this? Derived state can be recomputed from the truth; if the cache was the only home, there's nothing to rebuild from. Be religious about this distinction — a wiped cache of derived state is a bad afternoon (every request stampedes the database at once until it refills, the *thundering herd*), while a wiped source of truth is a company-ending event. You should always know, without thinking, which one each store is."
         },
         {
+          "id": "state-3-6",
           "type": "tradeoff_slider",
           "prompt": "You're displaying a user's account balance in a banking app. Slide toward how aggressively you'd cache it.",
           "leftLabel": "Read the source of truth (correct, slower)",
           "rightLabel": "Cache aggressively (fast, may be stale)",
-          "answerRange": [0, 35],
+          "answerRange": [
+            0,
+            35
+          ],
           "why": "Showing someone the wrong balance is unacceptable — it's the one number they came to see, and being stale here looks like a bug or a theft, so pay the latency and read the truth. The governing question is always *what does staleness cost?* For a like count, essentially nothing — cache it hard. For a balance, or inventory during checkout, staleness is a real defect: you just oversold an item. Same technique, opposite decision, decided entirely by the cost of being wrong."
         }
       ]
@@ -232,6 +307,7 @@
       "title": "Deciding where state goes",
       "exercises": [
         {
+          "id": "state-4-1",
           "type": "multiple_choice",
           "prompt": "Where should an e-commerce shopping cart live?",
           "choices": [
@@ -244,14 +320,24 @@
           "why": "The answer flows from the product promise rather than from technology: cart on every device means a database keyed to the account, because nothing else can deliver that guarantee. Notice the decisive question wasn't technical at all — it was *what did we promise?* Where state lives is chosen by the guarantee you need first, and the performance you can afford second; reversing that order is how teams end up with fast systems that break their own promises."
         },
         {
+          "id": "state-4-2",
           "type": "build_diagram",
           "prompt": "Uploaded photos are saved on one app server's local disk — so only that server can serve them, and they die with it. Where should they live?",
-          "slots": ["App Server 1", "App Server 2", "?"],
-          "palette": ["Object storage (S3)", "A bigger local disk", "A cookie"],
+          "slots": [
+            "App Server 1",
+            "App Server 2",
+            "?"
+          ],
+          "palette": [
+            "Object storage (S3)",
+            "A bigger local disk",
+            "A cookie"
+          ],
           "answer": "Object storage (S3)",
           "why": "Files on local disk are state trapped inside one server: peers can't serve them, and the machine can't be safely replaced — move them to shared object storage and your app servers become disposable again. This is one of the most common real-world migrations there is: 'it works on one server' quietly means state is hiding in the filesystem, and the day you add a second server, uploads mysteriously 404 half the time because the load balancer sent the read to the machine that doesn't have the file."
         },
         {
+          "id": "state-4-3",
           "type": "multi_select",
           "prompt": "Your app servers must be disposable — any one can die at any moment. Which of these violate that? Select all.",
           "choices": [
@@ -260,10 +346,14 @@
             "Writing logs to stdout to be collected elsewhere",
             "Caching a computed value in local memory that can be recomputed"
           ],
-          "answer": [0, 1],
+          "answer": [
+            0,
+            1
+          ],
           "why": "Local files and local sessions die with the server and can't be served by peers — lost data and broken users. Logs to stdout are shipped away, and a rebuildable local cache costs only a recompute if lost. The test isn't 'is there anything in memory?' — plenty of state in memory is fine. It's 'if this server vanished right now, would anything be LOST or become unavailable?' A local cache fails safe; a local session fails the user."
         },
         {
+          "id": "state-4-4",
           "type": "multiple_choice",
           "prompt": "To make `POST /payments` safely retryable, the server stores each idempotency key and its result. What have you just created?",
           "choices": [
@@ -276,14 +366,19 @@
           "why": "Idempotency isn't free — it's implemented WITH state: that key store must be durable (survive a crash mid-payment), shared (any server might receive the retry), and garbage-collected, or it grows forever. It's a lovely illustration of a general truth: 'make it reliable' almost always means 'add state, in exactly the right place'. Nothing is free — you're always moving the difficulty somewhere, and the skill is choosing somewhere that can handle it."
         },
         {
+          "id": "state-4-5",
           "type": "tradeoff_slider",
           "prompt": "You're rate-limiting a paid API where exceeding the limit costs you real money. Slide toward where the counter should live.",
           "leftLabel": "Local memory per server (fast, approximate)",
           "rightLabel": "Shared store (exact, adds a network hop)",
-          "answerRange": [55, 100],
+          "answerRange": [
+            55,
+            100
+          ],
           "why": "With per-server counters and 10 servers, a user can get roughly 10× the intended limit — each server only counts what it personally saw. That's tolerable for crude abuse protection and unacceptable when the limit is a billing boundary. Real systems often do both: a fast local pre-filter that sheds obvious abuse without a network hop, plus a shared store for exact accounting. Note what just happened — 'where does this counter live?' turned into a correctness-vs-latency decision, which is this unit's lens."
         },
         {
+          "id": "state-4-6",
           "type": "multiple_choice",
           "prompt": "Which state placement survives an entire datacenter losing power?",
           "choices": [
@@ -296,6 +391,7 @@
           "why": "Durability has levels: on-disk survives a process crash but not a building losing power, and only replication to another region survives losing the region. Each rung costs you — cross-region replication can mean a write waits for an acknowledgement from far away, that ~150ms from the latency unit now sitting inside your write path. This is exactly where 'where does state live' collides with physics, and it's the road that leads to CAP."
         },
         {
+          "id": "state-4-7",
           "type": "multiple_choice",
           "prompt": "A teammate says: 'let's just keep it in memory for now — it's faster.' What single question should decide it?",
           "choices": [

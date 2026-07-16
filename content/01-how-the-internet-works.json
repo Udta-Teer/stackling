@@ -15,37 +15,66 @@
       "title": "It's just computers passing notes",
       "exercises": [
         {
+          "id": "hiw-1-1",
           "type": "multiple_choice",
           "prompt": "You open a website. Roughly how many separate computers might your request pass through before it reaches the server?",
-          "choices": ["Just 1 — mine and theirs", "About 3", "Often 10–20", "Exactly 100"],
+          "choices": [
+            "Just 1 — mine and theirs",
+            "About 3",
+            "Often 10–20",
+            "Exactly 100"
+          ],
           "answer": 2,
           "why": "Your data hops through many routers along the way — often 10 to 20 — each one passing it a step closer to the destination. You can watch this happen yourself: run `traceroute google.com` (or `tracert` on Windows) and it prints every hop your packets take across the world."
         },
         {
+          "id": "hiw-1-2",
           "type": "fill_blank",
           "prompt": "Data doesn't travel as one big blob. It's broken into small chunks called ______.",
-          "choices": ["packets", "pixels", "cookies", "threads"],
+          "choices": [
+            "packets",
+            "pixels",
+            "cookies",
+            "threads"
+          ],
           "answer": 0,
           "why": "The internet splits your data into small packets, sends them independently, and reassembles them at the other end. Because they travel independently, packets can take *different routes* and arrive out of order — so something has to put them back in sequence, which is TCP's job in lesson 4."
         },
         {
+          "id": "hiw-1-3",
           "type": "multiple_choice",
           "prompt": "Every device on the internet needs one of these to be found. What is it?",
-          "choices": ["A username", "An IP address", "A password", "A phone number"],
+          "choices": [
+            "A username",
+            "An IP address",
+            "A password",
+            "A phone number"
+          ],
           "answer": 1,
           "why": "An IP address (like `142.250.72.14`) is a device's location on the internet — data can't be delivered without one. There aren't enough of the old IPv4 addresses (~4.3 billion) for the world, which is exactly why IPv6 exists with an address space large enough that running out stops being a concern."
         },
         {
+          "id": "hiw-1-4",
           "type": "match_pairs",
           "prompt": "Match each piece to what it does.",
           "pairs": [
-            { "left": "Packet", "right": "A small chunk of your data" },
-            { "left": "IP address", "right": "A device's location on the internet" },
-            { "left": "Router", "right": "Passes packets toward their destination" }
+            {
+              "left": "Packet",
+              "right": "A small chunk of your data"
+            },
+            {
+              "left": "IP address",
+              "right": "A device's location on the internet"
+            },
+            {
+              "left": "Router",
+              "right": "Passes packets toward their destination"
+            }
           ],
           "why": "Packets carry the data, IP addresses say where it's going, and routers move it hop by hop. The surprising part is that no router knows the whole path — each one only knows the *next best hop*, so the internet has no central map of itself."
         },
         {
+          "id": "hiw-1-5",
           "type": "multiple_choice",
           "prompt": "There's no master computer running the internet. So how do packets find their way?",
           "choices": [
@@ -64,20 +93,33 @@
       "title": "DNS: the internet's phonebook",
       "exercises": [
         {
+          "id": "hiw-2-1",
           "type": "multiple_choice",
           "prompt": "You type `google.com`, but computers route by IP address. Who turns the name into the number?",
-          "choices": ["Your keyboard", "DNS", "The CPU", "Your Wi-Fi router alone"],
+          "choices": [
+            "Your keyboard",
+            "DNS",
+            "The CPU",
+            "Your Wi-Fi router alone"
+          ],
           "answer": 1,
           "why": "DNS (Domain Name System) is the internet's phonebook — it looks up `google.com` and returns its IP address. Humans remember names and machines need numbers, so DNS is the translation layer that lets us live in a world of words."
         },
         {
+          "id": "hiw-2-2",
           "type": "fill_blank",
           "prompt": "DNS translates a human-friendly ______ into a machine-friendly IP address.",
-          "choices": ["domain name", "password", "packet", "port"],
+          "choices": [
+            "domain name",
+            "password",
+            "packet",
+            "port"
+          ],
           "answer": 0,
           "why": "A domain name like `netflix.com` is for humans; DNS converts it to the IP address machines actually use to route packets."
         },
         {
+          "id": "hiw-2-3",
           "type": "order_steps",
           "prompt": "Put a DNS lookup in order (simplified).",
           "steps": [
@@ -90,13 +132,20 @@
           "why": "DNS checks the fastest source first (the local cache) before asking a resolver, then hands the browser an IP to connect to. Results get cached at many levels — browser, operating system, resolver — each honouring a TTL (time to live), which is why a DNS change can take hours to reach everyone."
         },
         {
+          "id": "hiw-2-4",
           "type": "multiple_choice",
           "prompt": "In October 2016, a company called Dyn was attacked. Suddenly Twitter, Spotify, Reddit, and Netflix all went dark at once — even though those companies were fine. What had been knocked out?",
-          "choices": ["A single giant server", "A major DNS provider", "The undersea cables", "Everyone's Wi-Fi"],
+          "choices": [
+            "A single giant server",
+            "A major DNS provider",
+            "The undersea cables",
+            "Everyone's Wi-Fi"
+          ],
           "answer": 1,
           "why": "Dyn was a big DNS provider, and taking out DNS means users can't translate names to IPs — so the sites become unreachable while running perfectly. DNS is a quiet single point of failure for huge chunks of the web, which is why serious systems use multiple DNS providers."
         },
         {
+          "id": "hiw-2-5",
           "type": "multi_select",
           "prompt": "Why does DNS cache results instead of looking up every time? Select all that apply.",
           "choices": [
@@ -105,7 +154,11 @@
             "It makes the answer more accurate",
             "The same names are requested over and over"
           ],
-          "answer": [0, 1, 3],
+          "answer": [
+            0,
+            1,
+            3
+          ],
           "why": "Caching is about speed and load: popular names are requested constantly, so remembering the answer avoids a repeat round trip. It does NOT make answers more accurate — a stale cache can happily serve an outdated IP. This is your first taste of caching, a theme you'll meet everywhere: keep the hot answer close, and accept that it might be behind."
         }
       ]
@@ -115,13 +168,20 @@
       "title": "The journey of a request",
       "exercises": [
         {
+          "id": "hiw-3-1",
           "type": "multiple_choice",
           "prompt": "Before your browser can send an HTTP request to a server, what does it need first?",
-          "choices": ["The server's IP address", "The server's password", "A faster CPU", "More RAM"],
+          "choices": [
+            "The server's IP address",
+            "The server's password",
+            "A faster CPU",
+            "More RAM"
+          ],
           "answer": 0,
           "why": "You can't send data anywhere without a destination address, so DNS supplies the server's IP first — and only then can the request travel."
         },
         {
+          "id": "hiw-3-2",
           "type": "order_steps",
           "prompt": "Order what happens when you visit `example.com`.",
           "steps": [
@@ -135,14 +195,24 @@
           "why": "Every page load is this dance: name → IP → connect → ask → process → answer → render. On a real HTTPS site there's also a TLS handshake right after connecting, which encrypts everything — that's the *s* in `https`."
         },
         {
+          "id": "hiw-3-3",
           "type": "build_diagram",
           "prompt": "Place the missing piece: your browser needs to turn `example.com` into an IP before reaching the server.",
-          "slots": ["Browser", "?", "Web Server"],
-          "palette": ["DNS", "Database", "Cache"],
+          "slots": [
+            "Browser",
+            "?",
+            "Web Server"
+          ],
+          "palette": [
+            "DNS",
+            "Database",
+            "Cache"
+          ],
           "answer": "DNS",
           "why": "DNS sits between you and the server on that first step, translating the name so your browser knows where to connect."
         },
         {
+          "id": "hiw-3-4",
           "type": "estimate",
           "prompt": "Light travels fast, but not instantly. A round trip from New York to a server in London and back is roughly how many milliseconds — at the physical minimum?",
           "answer": 70,
@@ -151,6 +221,7 @@
           "why": "Even at the speed of light through fibre, a New York–London round trip takes roughly 70ms. Physics sets a floor on latency that no amount of engineering can beat — which is why companies put servers *close to users* rather than trying to make the trip faster. You can't outrun light, so you shorten the distance."
         },
         {
+          "id": "hiw-3-5",
           "type": "multiple_choice",
           "prompt": "Your page felt slow. The server responded in 5ms, but the total was 300ms. Where did the time most likely go?",
           "choices": [
@@ -169,46 +240,82 @@
       "title": "TCP vs UDP: reliable vs fast",
       "exercises": [
         {
+          "id": "hiw-4-1",
           "type": "multiple_choice",
           "prompt": "You're loading a bank statement. Every byte must arrive, in order, no errors. Which protocol fits?",
-          "choices": ["UDP", "TCP", "Neither", "Both equally"],
+          "choices": [
+            "UDP",
+            "TCP",
+            "Neither",
+            "Both equally"
+          ],
           "answer": 1,
           "why": "TCP (Transmission Control Protocol) guarantees delivery and order — it re-sends lost packets and reassembles them correctly, which is what you want for data you can't afford to lose. It manages that with acknowledgements: the receiver confirms each chunk, and anything unconfirmed gets re-sent, so reliability costs you extra round trips."
         },
         {
+          "id": "hiw-4-2",
           "type": "multiple_choice",
           "prompt": "You're on a live video call. A dropped frame is fine, but a 2-second delay to re-send it is not. Which protocol fits?",
-          "choices": ["TCP", "UDP", "Neither", "Always TCP for video"],
+          "choices": [
+            "TCP",
+            "UDP",
+            "Neither",
+            "Always TCP for video"
+          ],
           "answer": 1,
           "why": "UDP (User Datagram Protocol) just fires packets and doesn't wait for confirmation. For live audio and video, a missing frame beats a laggy one — speed matters more than perfection. This is a classic tradeoff you'll make again and again: reliability against latency."
         },
         {
+          "id": "hiw-4-3",
           "type": "match_pairs",
           "prompt": "Match the use case to the better protocol.",
           "pairs": [
-            { "left": "Downloading a file", "right": "TCP" },
-            { "left": "Live game / video call", "right": "UDP" },
-            { "left": "Loading a web page", "right": "TCP" },
-            { "left": "DNS lookup (small, fast)", "right": "UDP" }
+            {
+              "left": "Downloading a file",
+              "right": "TCP"
+            },
+            {
+              "left": "Live game / video call",
+              "right": "UDP"
+            },
+            {
+              "left": "Loading a web page",
+              "right": "TCP"
+            },
+            {
+              "left": "DNS lookup (small, fast)",
+              "right": "UDP"
+            }
           ],
           "why": "TCP for anything that must arrive complete and correct; UDP for small or real-time traffic where speed beats perfection. DNS traditionally uses UDP because a lookup is tiny — if it's lost, just ask again — while modern DNS-over-HTTPS uses TCP for privacy."
         },
         {
+          "id": "hiw-4-4",
           "type": "tradeoff_slider",
           "prompt": "You're designing a multiplayer game's networking. Slide toward what you'd prioritize for player-movement updates.",
           "leftLabel": "Guaranteed delivery (TCP)",
           "rightLabel": "Lowest latency (UDP)",
-          "answerRange": [65, 100],
+          "answerRange": [
+            65,
+            100
+          ],
           "why": "For fast-moving player positions, low latency wins: a slightly stale position that arrives NOW beats a perfect one that arrives late. Games send fresh position updates constantly, so a lost one is instantly replaced — meaning TCP's re-sending of old positions would actually make gameplay feel *worse*."
         },
         {
+          "id": "hiw-4-5",
           "type": "fill_blank",
           "prompt": "The core tradeoff between TCP and UDP: TCP gives you reliability, UDP gives you ______.",
-          "choices": ["speed", "security", "storage", "encryption"],
+          "choices": [
+            "speed",
+            "security",
+            "storage",
+            "encryption"
+          ],
           "answer": 0,
           "why": "TCP trades speed for guaranteed, ordered delivery; UDP trades those guarantees for raw speed. Neither is 'better' — the right choice depends entirely on what your system values most, and making that judgment *is* system design."
         },
         {
+          "id": "hiw-4-6",
           "type": "multiple_choice",
           "prompt": "You've now traced a request end to end. Which statement best captures how the internet moves your data?",
           "choices": [

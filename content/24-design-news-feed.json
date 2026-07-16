@@ -15,6 +15,7 @@
       "title": "The shape of the problem",
       "exercises": [
         {
+          "id": "feed-1-1",
           "type": "multiple_choice",
           "prompt": "'Design a news feed.' What's the defining characteristic of this workload?",
           "choices": [
@@ -27,6 +28,7 @@
           "why": "Two facts drive the entire design: reads massively outnumber writes, and every read is unique to one person — so you can't just cache 'the feed' the way you'd cache a homepage. Personalization is what makes this harder than the URL shortener, where one cached answer served everybody."
         },
         {
+          "id": "feed-1-2",
           "type": "estimate",
           "prompt": "300 million daily users each open the feed about 10 times a day. Roughly how many feed reads per second on average?",
           "answer": 34700,
@@ -35,6 +37,7 @@
           "why": "300M × 10 = 3 billion reads/day ÷ 86,400 ≈ 34,700/sec on average, and peaks will run several times that. That's the number that disqualifies the naive design: whatever a feed read costs, you're paying it tens of thousands of times a second, so it must be close to a single cheap lookup."
         },
         {
+          "id": "feed-1-3",
           "type": "multiple_choice",
           "prompt": "The obvious approach: when a user opens the feed, query for all posts by everyone they follow, sorted by time. Why won't that survive?",
           "choices": [
@@ -47,13 +50,20 @@
           "why": "The query is correct and impossibly expensive: a user following 500 accounts makes the database gather and sort across 500 sources for every refresh. Multiply by 34,700/sec and no amount of indexing saves you — the work per read is the problem, not the speed of any one step."
         },
         {
+          "id": "feed-1-4",
           "type": "fill_blank",
           "prompt": "Building each feed at read time is called fan-out on ______.",
-          "choices": ["read", "write", "demand", "query"],
+          "choices": [
+            "read",
+            "write",
+            "demand",
+            "query"
+          ],
           "answer": 0,
           "why": "You fan out across everyone the user follows at the moment they ask — the work happens when the read arrives, which is exactly when you have the least time to spend."
         },
         {
+          "id": "feed-1-5",
           "type": "multiple_choice",
           "prompt": "Given the 100:1-ish read:write ratio, what does unit 7's rule tell you to do?",
           "choices": [
@@ -66,6 +76,7 @@
           "why": "When reads outnumber writes 100:1, doing work once per post beats doing it 100 times per post — that's the whole logic of precomputation. So the move is to build feeds when someone posts rather than when someone looks, converting an expensive read into an expensive-but-rare write."
         },
         {
+          "id": "feed-1-6",
           "type": "multiple_choice",
           "prompt": "So what does 'fan-out on write' actually do?",
           "choices": [
@@ -84,6 +95,7 @@
       "title": "Fan-out on write",
       "exercises": [
         {
+          "id": "feed-2-1",
           "type": "order_steps",
           "prompt": "Order what happens when a user with 200 followers posts, using fan-out on write.",
           "steps": [
@@ -96,6 +108,7 @@
           "why": "The post is stored once and referenced 200 times, and the response goes out before the fan-out finishes — the user isn't waiting on 200 list writes. That's unit 16 doing its job: the fan-out is real work that nobody is watching, so it belongs behind a queue."
         },
         {
+          "id": "feed-2-2",
           "type": "multiple_choice",
           "prompt": "Why store the post ONCE and push only its id into follower feeds, rather than copying the post itself?",
           "choices": [
@@ -108,6 +121,7 @@
           "why": "This is unit 5's source-of-truth discipline applied under pressure: the feed lists are derived, rebuildable pointers, while the post itself has exactly one home. Denormalizing the post body into every feed would buy one fewer lookup and cost you the edit-and-delete problem across millions of copies."
         },
         {
+          "id": "feed-2-3",
           "type": "multiple_choice",
           "prompt": "A user with 200 million followers posts. What does fan-out on write do?",
           "choices": [
@@ -120,6 +134,7 @@
           "why": "The cost of a post is proportional to the author's follower count, so the model that made ordinary posting cheap makes celebrity posting catastrophic — one tap generating 200 million writes. This is unit 15's celebrity problem in its most famous form, and it's exactly where fan-out on write breaks."
         },
         {
+          "id": "feed-2-4",
           "type": "multiple_choice",
           "prompt": "Beyond the write storm, what's the second-order damage from a celebrity fan-out?",
           "choices": [
@@ -132,6 +147,7 @@
           "why": "Fan-out takes as long as it takes, so 'who sees it first' is decided by queue position rather than anything meaningful — and for a live event, minutes of skew is a product failure people notice and complain about. The write storm is the technical problem; the skew is the one users feel."
         },
         {
+          "id": "feed-2-5",
           "type": "multi_select",
           "prompt": "What does fan-out on write cost you? Select all.",
           "choices": [
@@ -140,10 +156,15 @@
             "Wasted work for inactive users who never read their feed",
             "Slow feed reads"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "You pay in amplified writes, in storage for millions of lists, and in work done for accounts that haven't logged in for a year. Reads are the one thing that got FASTER — that was the entire trade, and it's unit 7's exchange rate: cheap reads bought with expensive writes."
         },
         {
+          "id": "feed-2-6",
           "type": "multiple_choice",
           "prompt": "How do you stop fanning out to users who never read their feed?",
           "choices": [
@@ -162,6 +183,7 @@
       "title": "The hybrid",
       "exercises": [
         {
+          "id": "feed-3-1",
           "type": "multiple_choice",
           "prompt": "Fan-out on write breaks for celebrities. Fan-out on read breaks for everyone. What's the actual answer?",
           "choices": [
@@ -174,6 +196,7 @@
           "why": "The two approaches fail at opposite ends — write fan-out dies on huge follower counts, read fan-out dies on ordinary read volume — so you route each account to the model that suits it. A user's feed becomes their precomputed list merged with a live query for the few celebrities they follow, which is cheap because that number is small."
         },
         {
+          "id": "feed-3-2",
           "type": "order_steps",
           "prompt": "Order how a hybrid feed read assembles.",
           "steps": [
@@ -186,6 +209,7 @@
           "why": "One cheap lookup plus a small live query, merged and ranked — the live part stays affordable because almost nobody follows more than a handful of accounts big enough to be excluded from fan-out. The threshold is a tuning knob: too low and you do too many live queries, too high and you're back to write storms."
         },
         {
+          "id": "feed-3-3",
           "type": "multiple_choice",
           "prompt": "Where do you set the celebrity threshold — the follower count above which you stop fanning out?",
           "choices": [
@@ -198,6 +222,7 @@
           "why": "The right value depends on your follower distribution, write capacity, and how much read-time merging you'll tolerate — so it's a dial you set from measurements rather than a number anyone can hand you. What matters in a design discussion is knowing that the threshold exists and what it trades: write amplification against read-time work."
         },
         {
+          "id": "feed-3-4",
           "type": "multiple_choice",
           "prompt": "Where should each user's precomputed feed list actually live?",
           "choices": [
@@ -210,6 +235,7 @@
           "why": "The list is exactly unit 5's derived state: lose it and you can rebuild it, so it belongs somewhere fast rather than somewhere durable. Capping it matters too — nobody scrolls to post 5,000, so storing an unbounded list per user is paying to materialize something nobody reads."
         },
         {
+          "id": "feed-3-5",
           "type": "multiple_choice",
           "prompt": "Your feed lists are in Redis. Redis restarts and loses everything. How bad?",
           "choices": [
@@ -222,6 +248,7 @@
           "why": "This is why derived-versus-authoritative was worth being religious about: no data was destroyed, so it's a bad afternoon rather than a company-ending event. But 34,700 reads/sec all missing simultaneously is unit 13's thundering herd at full scale, so the recovery plan matters as much as the fact that recovery is possible."
         },
         {
+          "id": "feed-3-6",
           "type": "multiple_choice",
           "prompt": "A user follows someone new. What has to happen to their feed?",
           "choices": [
@@ -240,6 +267,7 @@
       "title": "Ranking, paging, and lies",
       "exercises": [
         {
+          "id": "feed-4-1",
           "type": "multiple_choice",
           "prompt": "Your feed is ranked by relevance, not time. What does that break about fan-out on write?",
           "choices": [
@@ -252,6 +280,7 @@
           "why": "Chronological order is a property of the posts, so it can be materialized; relevance is a property of the reader right now, so it can't. The usual resolution is to keep fan-out as a candidate-generation step — it decides WHICH posts you might see — and rank those candidates at read time, which is affordable because the candidate set is a few hundred rather than millions."
         },
         {
+          "id": "feed-4-2",
           "type": "multiple_choice",
           "prompt": "Your feed uses ?offset=40&limit=20 for the third page. New posts arrive while the user scrolls. What do they see?",
           "choices": [
@@ -264,6 +293,7 @@
           "why": "Offset counts from the top of a list that keeps growing at the top, so every new post shifts the window and re-serves items the user already read. This is exactly unit 3's offset-pagination flaw, and a feed is its worst case: the insert rate is high and the insertions are precisely at the boundary offset depends on."
         },
         {
+          "id": "feed-4-3",
           "type": "multiple_choice",
           "prompt": "So how do feeds paginate correctly?",
           "choices": [
@@ -276,6 +306,7 @@
           "why": "A cursor names a position in the data rather than a count from a moving edge, so inserts above it are irrelevant to what comes next. That's why every real feed hands you an opaque cursor instead of a page number — and it's the same reasoning that made cursors right for the API unit, arriving here with much higher stakes."
         },
         {
+          "id": "feed-4-4",
           "type": "multi_select",
           "prompt": "Which parts of a feed can be eventually consistent? Select all.",
           "choices": [
@@ -284,18 +315,26 @@
             "Your own post appearing in your own profile immediately after posting",
             "A blocked user's posts continuing to appear"
           ],
-          "answer": [0, 1],
+          "answer": [
+            0,
+            1
+          ],
           "why": "Nobody can tell whether a friend's post arrived instantly or three seconds ago, and an approximate like count harms nobody. Your own post is unit 19's read-your-writes — its absence looks like data loss and you'll be told about it. And a block that doesn't take effect isn't staleness, it's a safety failure that can put someone in danger, so it needs to be correct immediately."
         },
         {
+          "id": "feed-4-5",
           "type": "tradeoff_slider",
           "prompt": "A user deletes a post that's already been fanned out to 200,000 feed lists. Slide toward your approach.",
           "leftLabel": "Purge it from all 200,000 lists now",
           "rightLabel": "Leave the ids; filter deleted posts at read time",
-          "answerRange": [55, 100],
+          "answerRange": [
+            55,
+            100
+          ],
           "why": "The lists hold ids rather than content, so a deleted post is already just a dangling pointer — you're hydrating posts at read time anyway, and skipping a missing one is nearly free. Chasing 200,000 lists is a huge write storm to save a filter. The caveat that decides the other direction: if deletion is a safety or legal matter, 'filtered at read time' isn't good enough, because a missed filter is a leak."
         },
         {
+          "id": "feed-4-6",
           "type": "multiple_choice",
           "prompt": "Summarize the news feed design.",
           "choices": [

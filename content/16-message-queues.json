@@ -15,6 +15,7 @@
       "title": "Work the user shouldn't wait for",
       "exercises": [
         {
+          "id": "mq-1-1",
           "type": "multiple_choice",
           "prompt": "A user signs up. Your handler creates the account (20ms), then sends a welcome email via a third-party API (2 seconds). How long do they stare at a spinner?",
           "choices": [
@@ -27,13 +28,20 @@
           "why": "The response can't return until the handler finishes, so the user waits for every line of it — including a slow call to a service they'll never see the result of. Worse, you've coupled signup's availability to the email provider's: if that API is down, your handler fails and nobody can sign up at all, over an email."
         },
         {
+          "id": "mq-1-2",
           "type": "fill_blank",
           "prompt": "A message ______ lets you hand off work now and have it performed later by a separate process.",
-          "choices": ["queue", "cache", "index", "replica"],
+          "choices": [
+            "queue",
+            "cache",
+            "index",
+            "replica"
+          ],
           "answer": 0,
           "why": "You write the job down somewhere durable and return immediately; something else picks it up and does it. The user's request stops being 'do the work' and becomes 'record that the work is needed'."
         },
         {
+          "id": "mq-1-3",
           "type": "order_steps",
           "prompt": "Order what happens when signup sends the welcome email asynchronously.",
           "steps": [
@@ -46,6 +54,7 @@
           "why": "The user's request now ends the moment the job is recorded, and the slow part happens on someone else's clock. Note the ordering that matters: the response goes out BEFORE the email is sent, which is precisely the trade — the user gets 25ms, and in exchange the email is a promise rather than a fact."
         },
         {
+          "id": "mq-1-4",
           "type": "multi_select",
           "prompt": "Which of these belong behind a queue? Select all.",
           "choices": [
@@ -54,10 +63,15 @@
             "Checking the password on login",
             "Encoding an uploaded video"
           ],
-          "answer": [0, 1, 3],
+          "answer": [
+            0,
+            1,
+            3
+          ],
           "why": "Emails, reports, and video encoding are slow, the user isn't watching the result, and a few seconds' delay costs nothing. The password check is the opposite on every count: the user is waiting on that exact answer, and deferring it is meaningless because there's nothing to return without it. The test is simply whether the user needs the result to continue."
         },
         {
+          "id": "mq-1-5",
           "type": "multiple_choice",
           "prompt": "What have you given up by moving the email to a queue?",
           "choices": [
@@ -70,6 +84,7 @@
           "why": "Async converts a synchronous fact into a promise — at the moment you respond, the work has not happened, and you're asserting it will. That's fine for a welcome email and unacceptable for 'your payment succeeded', so the question is always what happens if this promise is broken and nobody's watching. Answer it before you defer the work, not during the incident."
         },
         {
+          "id": "mq-1-6",
           "type": "multiple_choice",
           "prompt": "Beyond speed, what does the queue give you when the email provider goes down for an hour?",
           "choices": [
@@ -88,17 +103,31 @@
       "title": "Decoupling and buffering",
       "exercises": [
         {
+          "id": "mq-2-1",
           "type": "match_pairs",
           "prompt": "Match each part of a queue system.",
           "pairs": [
-            { "left": "Producer", "right": "Puts messages on the queue" },
-            { "left": "Consumer / worker", "right": "Takes messages off and does the work" },
-            { "left": "The queue", "right": "Durable storage for work not yet done" },
-            { "left": "Acknowledgement", "right": "The worker confirming it finished" }
+            {
+              "left": "Producer",
+              "right": "Puts messages on the queue"
+            },
+            {
+              "left": "Consumer / worker",
+              "right": "Takes messages off and does the work"
+            },
+            {
+              "left": "The queue",
+              "right": "Durable storage for work not yet done"
+            },
+            {
+              "left": "Acknowledgement",
+              "right": "The worker confirming it finished"
+            }
           ],
           "why": "Producers and consumers never speak to each other — they only touch the queue, which is what lets them be deployed, scaled, and broken independently. The acknowledgement is the load-bearing piece: without it the queue can't distinguish 'done' from 'the worker died holding it'."
         },
         {
+          "id": "mq-2-2",
           "type": "multiple_choice",
           "prompt": "Black Friday: uploads spike to 10× normal, far beyond what your video encoders can handle. With a queue in front, what happens?",
           "choices": [
@@ -111,6 +140,7 @@
           "why": "A queue turns a spike in arrival rate into a spike in queue DEPTH rather than a spike in failures, which is the whole reason to buffer: the users' side stays fast and the backlog just gets longer for a while. That only works if the average rate is sustainable, though — a buffer smooths bursts, and nothing can smooth a permanent excess."
         },
         {
+          "id": "mq-2-3",
           "type": "multiple_choice",
           "prompt": "Your queue depth has been growing steadily for six hours. What does that mean?",
           "choices": [
@@ -123,6 +153,7 @@
           "why": "A queue absorbing a burst rises and then falls; a queue that only rises means arrival rate exceeds service rate, and no amount of waiting fixes that — the gap compounds every second. Depth is therefore your key signal, and its DERIVATIVE is what matters: rising and returning is healthy, monotonically rising means add workers or shed load, now."
         },
         {
+          "id": "mq-2-4",
           "type": "multiple_choice",
           "prompt": "How do you make the backlog drain faster?",
           "choices": [
@@ -135,6 +166,7 @@
           "why": "Queued work is usually the ideal horizontal case from unit 11: each message is independent, so two workers never coordinate and ten workers do ten times the work. A bigger queue just gives you more room to fall behind — it changes when you notice the problem, not whether you have one."
         },
         {
+          "id": "mq-2-5",
           "type": "multiple_choice",
           "prompt": "A worker crashes halfway through processing a message. What should the queue do?",
           "choices": [
@@ -147,6 +179,7 @@
           "why": "This is exactly why acknowledgement exists: the queue holds the message as in-flight and only deletes it when a worker confirms success, so a crash means the ack never arrives and the message becomes available again. That in-flight message is state the system must not lose — the same point unit 5 made about work-in-progress — and it's why real queues persist messages to disk rather than holding them in memory."
         },
         {
+          "id": "mq-2-6",
           "type": "multiple_choice",
           "prompt": "Does adding a queue make the overall work finish sooner?",
           "choices": [
@@ -165,6 +198,7 @@
       "title": "Delivery guarantees",
       "exercises": [
         {
+          "id": "mq-3-1",
           "type": "multiple_choice",
           "prompt": "A worker finishes the job, then crashes before sending its acknowledgement. What happens to that message?",
           "choices": [
@@ -177,17 +211,31 @@
           "why": "The queue can only observe acknowledgements, not outcomes, so 'work done but unacked' and 'worker died before starting' look identical from outside — and it must assume the pessimistic one. That gap is unavoidable rather than a bug in any particular queue: there's no way to make finishing the work and confirming it a single atomic act across two machines."
         },
         {
+          "id": "mq-3-2",
           "type": "match_pairs",
           "prompt": "Match each delivery guarantee to what it means.",
           "pairs": [
-            { "left": "At-most-once", "right": "May be lost, never repeated" },
-            { "left": "At-least-once", "right": "Never lost, may be repeated" },
-            { "left": "Exactly-once", "right": "The one everyone wants" },
-            { "left": "The common default", "right": "At-least-once" }
+            {
+              "left": "At-most-once",
+              "right": "May be lost, never repeated"
+            },
+            {
+              "left": "At-least-once",
+              "right": "Never lost, may be repeated"
+            },
+            {
+              "left": "Exactly-once",
+              "right": "The one everyone wants"
+            },
+            {
+              "left": "The common default",
+              "right": "At-least-once"
+            }
           ],
           "why": "You're choosing which failure to accept: ack before working risks losing the job, ack after working risks doing it twice. Almost every real queue defaults to at-least-once because losing work is usually worse than repeating it — which quietly makes duplicate handling your problem."
         },
         {
+          "id": "mq-3-3",
           "type": "multiple_choice",
           "prompt": "Your queue is at-least-once. Your worker charges a credit card. What must be true?",
           "choices": [
@@ -200,6 +248,7 @@
           "why": "At-least-once means the duplicate isn't a rare accident, it's a documented behaviour that will happen — so a non-idempotent worker on a durable queue is a billing incident waiting for a network blip. For a charge specifically, the fix has to reach the payment provider: derive a stable idempotency key from the message id and pass it in the API call, so the provider collapses the duplicate. A local 'already processed' table isn't enough here — your record and the charge are two different systems, so a crash after the charge but before the record leaves redelivery seeing nothing and charging again. That's the dual-write problem lesson 4 is about, and it's why a local dedup table only works when the record and the effect land in the same transaction, which a third-party charge never does."
         },
         {
+          "id": "mq-3-4",
           "type": "multiple_choice",
           "prompt": "Vendors advertise 'exactly-once delivery'. What's actually going on?",
           "choices": [
@@ -212,6 +261,7 @@
           "why": "The message may genuinely arrive twice; the system just remembers it saw that id and discards the repeat, which is deduplication wearing a better name. That's a real and useful feature, with real limits — the dedup window is finite, and it only covers the queue's own boundary, so a side effect your worker performs on a third party is still yours to make idempotent."
         },
         {
+          "id": "mq-3-5",
           "type": "multiple_choice",
           "prompt": "A message fails, gets retried, fails again — forever. It's blocking the queue and filling your logs. What's it called and what's the fix?",
           "choices": [
@@ -224,6 +274,7 @@
           "why": "Some messages can never succeed — malformed payloads, a referenced row that's been deleted — and retrying them forever burns capacity while hiding the failure in noise. A dead-letter queue bounds the damage by giving up after N attempts and setting the message aside intact, which turns an infinite loop into a queue you can actually go and look at."
         },
         {
+          "id": "mq-3-6",
           "type": "multiple_choice",
           "prompt": "Your worker retries a failed message immediately, in a tight loop. The downstream service is already struggling. What have you built?",
           "choices": [
@@ -242,6 +293,7 @@
       "title": "The hard parts",
       "exercises": [
         {
+          "id": "mq-4-1",
           "type": "multiple_choice",
           "prompt": "Two messages for the same user: 'update email to A', then 'update email to B'. Your five workers process them in parallel. What can happen?",
           "choices": [
@@ -254,6 +306,7 @@
           "why": "Parallel workers give you no ordering: two messages in flight at once finish whenever they finish, and 'last write wins' means whichever finishes last, not whichever was sent last. Concurrency bought throughput and spent ordering — and the corruption is silent, since nothing errors and the row just holds a stale value forever."
         },
         {
+          "id": "mq-4-2",
           "type": "multiple_choice",
           "prompt": "You need those two updates to stay in order. What's the standard approach?",
           "choices": [
@@ -266,6 +319,7 @@
           "why": "Global ordering means one consumer and no parallelism at all, which throws away the reason you queued the work. Per-key ordering is the useful compromise: order is only guaranteed where you actually need it, and unrelated users remain fully parallel. Note this is unit 15's shard key wearing another hat — you're choosing what must be co-located to stay consistent."
         },
         {
+          "id": "mq-4-3",
           "type": "multiple_choice",
           "prompt": "Your worker updates the database, then publishes a message. It crashes in between. What's broken?",
           "choices": [
@@ -278,6 +332,7 @@
           "why": "A database transaction and a queue publish are two systems, so unit 9's boundary applies: you cannot make both happen atomically by wrapping them in a `BEGIN`. This is the dual-write problem, and the usual answer is the transactional outbox — write the message into a table inside the same transaction as your data change, then have a separate process read that table and publish. One atomic write, and publishing becomes at-least-once delivery from a durable record."
         },
         {
+          "id": "mq-4-4",
           "type": "multi_select",
           "prompt": "Which are real costs of moving work behind a queue? Select all.",
           "choices": [
@@ -286,18 +341,27 @@
             "Debugging spans two systems and a time gap",
             "The user's request gets slower"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Duplicates come from at-least-once, ordering is surrendered to parallelism, and failures now happen minutes later in a different process with no user waiting to notice — you have to go looking. The user's request gets FASTER, which is the whole point; you paid for it in complexity that lives entirely on your side."
         },
         {
+          "id": "mq-4-5",
           "type": "tradeoff_slider",
           "prompt": "A user clicks 'export my data'. Generating it takes about 90 seconds. Slide toward your design.",
           "leftLabel": "Synchronous (simple, user waits 90s)",
           "rightLabel": "Queue it and notify when ready (async, more moving parts)",
-          "answerRange": [60, 100],
+          "answerRange": [
+            60,
+            100
+          ],
           "why": "Ninety seconds is far past where a request should live: the browser or a proxy will likely time out, a retry starts the whole job again, and one slow export holds a connection and a worker hostage. Queue it, return 'we'll email you', and the work runs where nothing is waiting on it — the extra machinery is worth it the moment the task outlives a reasonable request."
         },
         {
+          "id": "mq-4-6",
           "type": "multiple_choice",
           "prompt": "Your queue backlog is 4 million messages and workers are at max. Adding workers hits the database's write limit. What now?",
           "choices": [
@@ -310,6 +374,7 @@
           "why": "The queue faithfully absorbed everything and handed the problem to the next stage: your real limit is the database's write rate, and unit 4's rule says capacity added anywhere but the bottleneck buys nothing. That's the queue's dark side — it hides a capacity deficit behind a growing number instead of failing loudly, so you discover the true constraint with four million messages of debt already accrued."
         },
         {
+          "id": "mq-4-7",
           "type": "multiple_choice",
           "prompt": "What's the honest summary of queues?",
           "choices": [

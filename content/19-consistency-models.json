@@ -15,6 +15,7 @@
       "title": "A promise about reads",
       "exercises": [
         {
+          "id": "cm-1-1",
           "type": "multiple_choice",
           "prompt": "What is a consistency model, at bottom?",
           "choices": [
@@ -27,6 +28,7 @@
           "why": "A consistency model isn't a quality level, it's a specification: it enumerates what a read may legally return, which means it defines exactly which weird outcomes you've agreed to. Reading it as 'stronger is better' misses the point — the model tells you which bugs are impossible and which are your job to handle."
         },
         {
+          "id": "cm-1-2",
           "type": "multiple_choice",
           "prompt": "Strong consistency: a write completes, and a read immediately after returns the new value. What does that require?",
           "choices": [
@@ -39,6 +41,7 @@
           "why": "To promise a read reflects the latest write, the system must know what the latest write IS — and with more than one machine that means asking, which costs a round trip you cannot optimize away. Strong consistency is therefore not a feature you enable; it's coordination you purchase, on every operation, at the price of the network's physics."
         },
         {
+          "id": "cm-1-3",
           "type": "multiple_choice",
           "prompt": "Eventual consistency guarantees what, exactly?",
           "choices": [
@@ -51,13 +54,20 @@
           "why": "Read the guarantee carefully: it says only that replicas agree in the end, given a pause in writes — it makes no claim at all about the interval you actually live in. That's why it's such a weak promise dressed in a reassuring word: 'eventually' is unbounded, and in a system that never stops writing, the precondition never arrives."
         },
         {
+          "id": "cm-1-4",
           "type": "fill_blank",
           "prompt": "______ consistency promises replicas converge if writes stop, but says nothing about what you read in the meantime.",
-          "choices": ["Eventual", "Strong", "Causal", "Linearizable"],
+          "choices": [
+            "Eventual",
+            "Strong",
+            "Causal",
+            "Linearizable"
+          ],
           "answer": 0,
           "why": "It's a promise about the destination and not the journey — which is fine when the journey is milliseconds and alarming when it's a partition lasting an hour."
         },
         {
+          "id": "cm-1-5",
           "type": "multiple_choice",
           "prompt": "Why isn't 'just use strong consistency everywhere' the obvious answer?",
           "choices": [
@@ -70,6 +80,7 @@
           "why": "Strong consistency has a price on the happy path (unit 18's latency-vs-consistency) and a price on the bad path (refusing service during a partition), and both are charged whether the data needed the guarantee or not. Buying it for a like counter means every like waits on a quorum — you've paid for a promise nobody would have missed."
         },
         {
+          "id": "cm-1-6",
           "type": "multiple_choice",
           "prompt": "So what's the design question?",
           "choices": [
@@ -88,6 +99,7 @@
       "title": "The useful middle",
       "exercises": [
         {
+          "id": "cm-2-1",
           "type": "multiple_choice",
           "prompt": "A user posts a comment, then refreshes — and their own comment is gone. Which guarantee were they expecting?",
           "choices": [
@@ -100,17 +112,31 @@
           "why": "They don't need to see everyone's comments instantly — they need to see THEIR OWN, because they know they wrote it and its absence looks like data loss. Read-your-writes is exactly that narrow promise, and it's much cheaper than strong consistency: route that user's reads to a replica that has their write, and everyone else can lag freely."
         },
         {
+          "id": "cm-2-2",
           "type": "match_pairs",
           "prompt": "Match each guarantee to the anomaly it forbids.",
           "pairs": [
-            { "left": "Read-your-writes", "right": "Your own write vanishing after you make it" },
-            { "left": "Monotonic reads", "right": "Time appearing to run backwards on refresh" },
-            { "left": "Consistent prefix", "right": "Seeing an answer before the question" },
-            { "left": "Strong consistency", "right": "Every anomaly above, at coordination cost" }
+            {
+              "left": "Read-your-writes",
+              "right": "Your own write vanishing after you make it"
+            },
+            {
+              "left": "Monotonic reads",
+              "right": "Time appearing to run backwards on refresh"
+            },
+            {
+              "left": "Consistent prefix",
+              "right": "Seeing an answer before the question"
+            },
+            {
+              "left": "Strong consistency",
+              "right": "Every anomaly above, at coordination cost"
+            }
           ],
           "why": "Each middle guarantee names one specific way reality can look broken and forbids just that one — which is why they're useful. You buy the narrow promise your product actually needs instead of the total order you can't afford, and you get most of the felt correctness for a fraction of the cost."
         },
         {
+          "id": "cm-2-3",
           "type": "multiple_choice",
           "prompt": "Two refreshes: the first shows a new message, the second doesn't. Which guarantee is missing?",
           "choices": [
@@ -123,6 +149,7 @@
           "why": "Two reads landed on replicas with different lag, so the second answered from an older state — the data was never corrupt, the user just time-travelled. Monotonic reads forbids that specific insult, and the usual mechanism is routing each user's reads to a consistent replica so their view only ever advances (with the caveat from unit 10 that re-pinning can break it)."
         },
         {
+          "id": "cm-2-4",
           "type": "multiple_choice",
           "prompt": "A chat shows a reply before the message it replies to. Which guarantee is missing?",
           "choices": [
@@ -135,6 +162,7 @@
           "why": "Nobody needs a global order of every message in the world — they need effects to follow their causes, because a reply arriving before its question isn't stale, it's nonsense. Causal consistency preserves exactly the ordering that carries meaning and leaves genuinely unrelated writes free to arrive in any order, which is why it's often the sweet spot for anything conversational."
         },
         {
+          "id": "cm-2-5",
           "type": "multiple_choice",
           "prompt": "Why is causal consistency so much cheaper than strong consistency?",
           "choices": [
@@ -147,6 +175,7 @@
           "why": "Strong consistency insists every write take a place in one global sequence, which means everyone agreeing about everything, all the time. Causal only insists that a write which depended on another comes after it — and in a system with millions of unrelated users, almost nothing is causally related, so almost nothing needs coordinating."
         },
         {
+          "id": "cm-2-6",
           "type": "multiple_choice",
           "prompt": "Your product needs users to see their own edits instantly, but is fine if other users see them a second later. What should you buy?",
           "choices": [
@@ -165,6 +194,7 @@
       "title": "Reading the complaint",
       "exercises": [
         {
+          "id": "cm-3-1",
           "type": "multiple_choice",
           "prompt": "A user says 'I changed my profile photo and it still shows the old one, but my friend can see the new one.' Diagnosis?",
           "choices": [
@@ -177,6 +207,7 @@
           "why": "The detail that identifies it is that the friend CAN see it — the write clearly succeeded and propagated, so nothing is broken except which replica the author's own read landed on. Notice the bug is defined by whose read it is rather than by the data, which is exactly why the fix is routing rather than a stronger database."
         },
         {
+          "id": "cm-3-2",
           "type": "multiple_choice",
           "prompt": "A user deletes a photo, gets confirmation, and it reappears in their feed ten minutes later. What likely happened?",
           "choices": [
@@ -189,6 +220,7 @@
           "why": "The resurrection of deleted data is a classic and it's usually a copy that never heard the news — a cache entry, a lagging replica, or a search index that indexed before the delete and was never told. Deletes are the nastiest case for derived copies because absence propagates badly: a copy holding stale data looks identical to a copy holding data that's supposed to exist."
         },
         {
+          "id": "cm-3-3",
           "type": "multi_select",
           "prompt": "A user reports 'the site shows me old data sometimes.' Which could cause it? Select all.",
           "choices": [
@@ -197,10 +229,15 @@
             "A search index that hasn't been updated yet",
             "A slow database query"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Every copy is a chance to be behind — replicas, caches, and derived indexes are all the same shape of problem wearing different names, which is why 'stale data' incidents so often involve hunting the layer responsible. A slow query is different: it returns the RIGHT answer, late. Stale means wrong-but-fast; slow means right-but-late, and they need opposite fixes."
         },
         {
+          "id": "cm-3-4",
           "type": "multiple_choice",
           "prompt": "Why is 'eventually consistent' a bad answer to give a user or a product manager?",
           "choices": [
@@ -213,6 +250,7 @@
           "why": "'Eventually' describes what the database guarantees and answers nothing anyone actually asked — how long, and what does it look like in the gap? Users and product owners can reason about 'up to two seconds, and you always see your own changes immediately'. Turning the mechanism into a stated bound with an observable behaviour is what makes the tradeoff decidable rather than mystical."
         },
         {
+          "id": "cm-3-5",
           "type": "multiple_choice",
           "prompt": "Your team says 'we need strong consistency.' What's the first question to ask?",
           "choices": [
@@ -225,6 +263,7 @@
           "why": "'We need strong consistency' is almost always a feeling standing in for a specific fear, and naming the fear usually shrinks it — often to read-your-writes for one user on one screen. And if the honest answer to 'what goes wrong?' is a real, irreversible loss, then you've justified the coordination cost with evidence instead of anxiety."
         },
         {
+          "id": "cm-3-6",
           "type": "multiple_choice",
           "prompt": "Which of these complaints is NOT a consistency problem?",
           "choices": [
@@ -243,6 +282,7 @@
       "title": "Choosing a model",
       "exercises": [
         {
+          "id": "cm-4-1",
           "type": "multiple_choice",
           "prompt": "Quorum reads and writes: N=3 replicas, W=2, R=2. What does W + R > N actually guarantee?",
           "choices": [
@@ -255,6 +295,7 @@
           "why": "It's pigeonhole arithmetic: write to 2 of 3 and read from 2 of 3, and the sets cannot be disjoint, so at least one replica you asked holds the newest completed write. Read that guarantee narrowly, though — overlap is necessary for a fresh read and NOT sufficient for strong consistency. A read racing an in-flight write can legitimately come back with either value; concurrent writes still have to be merged by some rule; and a 'sloppy' quorum that accepts writes onto substitute nodes can overlap with a set that never held the write at all. Real linearizability needs coordination — a leader, or consensus — which is what unit 20 is about. Arithmetic alone doesn't buy it."
         },
         {
+          "id": "cm-4-2",
           "type": "multiple_choice",
           "prompt": "Same 3 replicas, but W=1 and R=1. What did you buy and lose?",
           "choices": [
@@ -267,14 +308,19 @@
           "why": "W+R = 2, which isn't greater than 3, so the sets can miss each other entirely and you're squarely in eventual consistency. What you got in exchange is real: one replica is enough to serve, so writes and reads are fast and survive two nodes being down. That dial is the CAP tradeoff exposed as a config knob, and it's per-query in some systems — strict for a payment, loose for a feed."
         },
         {
+          "id": "cm-4-3",
           "type": "tradeoff_slider",
           "prompt": "You're designing 'items remaining in stock' shown during checkout for a limited product drop. Slide toward your model.",
           "leftLabel": "Strong (coordinate; slower, can refuse)",
           "rightLabel": "Eventual (fast, may oversell)",
-          "answerRange": [0, 35],
+          "answerRange": [
+            0,
+            35
+          ],
           "why": "Overselling a limited drop is a real-world commitment you cannot take back — you take money for something that doesn't exist and then apologize to strangers. Coordination on the decrement is worth the latency here, precisely because the wrong answer creates an obligation. Contrast the same number on a browsing page, where stale stock costs nothing: the data is identical and the cost of being wrong is not."
         },
         {
+          "id": "cm-4-4",
           "type": "multiple_choice",
           "prompt": "Someone proposes 'use timestamps — the newest write wins.' What's the flaw?",
           "choices": [
@@ -287,6 +333,7 @@
           "why": "Last-write-wins quietly assumes a shared global clock, and there isn't one — clocks drift, get corrected, and disagree by more than the interval between two writes. A machine running slightly fast can stamp a write far in the future and win every conflict for hours. This is why serious systems use logical clocks or version vectors, which order events by causality instead of trusting a wall clock nobody agrees on."
         },
         {
+          "id": "cm-4-5",
           "type": "multiple_choice",
           "prompt": "Can one product use several consistency models at once?",
           "choices": [
@@ -299,6 +346,7 @@
           "why": "Consistency is a property of an operation on a piece of data, not a badge worn by a company — so forcing one model everywhere means either overpaying for your feed or under-protecting your money. Mixing deliberately is the mature position, and the work is knowing which data is which, which is a product question rather than a database one."
         },
         {
+          "id": "cm-4-6",
           "type": "multiple_choice",
           "prompt": "What's the honest summary of consistency models?",
           "choices": [

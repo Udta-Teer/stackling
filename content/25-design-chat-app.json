@@ -15,6 +15,7 @@
       "title": "The server speaks first",
       "exercises": [
         {
+          "id": "chat-1-1",
           "type": "multiple_choice",
           "prompt": "Everything so far has been request/response: the client asks, the server answers. Why doesn't that work for chat?",
           "choices": [
@@ -27,6 +28,7 @@
           "why": "HTTP's shape is that the client initiates, and chat inverts that: the thing you need to know about originates elsewhere and arrives unprompted. This is the first system in the course where the fundamental model from unit 2 doesn't fit — everything difficult about chat descends from the server needing to initiate."
         },
         {
+          "id": "chat-1-2",
           "type": "multiple_choice",
           "prompt": "Simplest workaround: the client polls `GET /messages` every 2 seconds. What's wrong with it?",
           "choices": [
@@ -39,17 +41,31 @@
           "why": "Polling makes you choose between latency and cost with no good answer — poll faster and the request volume explodes, poll slower and chat feels broken. At a million idle users, 2-second polling is 500,000 requests/sec almost all of which return 'nothing', so you're spending your entire capacity asking a question whose answer is usually no."
         },
         {
+          "id": "chat-1-3",
           "type": "match_pairs",
           "prompt": "Match each approach to how it works.",
           "pairs": [
-            { "left": "Short polling", "right": "Ask repeatedly; mostly get nothing" },
-            { "left": "Long polling", "right": "Ask, and the server holds the request open until there's news" },
-            { "left": "Server-Sent Events", "right": "One long-lived stream, server to client only" },
-            { "left": "WebSocket", "right": "One connection, both directions, stays open" }
+            {
+              "left": "Short polling",
+              "right": "Ask repeatedly; mostly get nothing"
+            },
+            {
+              "left": "Long polling",
+              "right": "Ask, and the server holds the request open until there's news"
+            },
+            {
+              "left": "Server-Sent Events",
+              "right": "One long-lived stream, server to client only"
+            },
+            {
+              "left": "WebSocket",
+              "right": "One connection, both directions, stays open"
+            }
           ],
           "why": "They're four points on one line: how long does a connection live, and who may speak. Long polling was the clever hack that made real-time work over plain HTTP, SSE formalized the one-way stream, and WebSocket gives you a genuine two-way pipe — which is what chat actually wants, since both sides have things to say."
         },
         {
+          "id": "chat-1-4",
           "type": "multiple_choice",
           "prompt": "Why is WebSocket the natural fit for chat specifically?",
           "choices": [
@@ -62,6 +78,7 @@
           "why": "Chat is bidirectional and bursty, which is exactly what a persistent duplex connection is for: you pay the handshake once and then messages cost almost nothing in either direction. Compare unit 2's connection reuse reasoning — the same logic, taken to its limit, since the connection now outlives every individual message."
         },
         {
+          "id": "chat-1-5",
           "type": "multiple_choice",
           "prompt": "You hold a WebSocket open for every online user. What have you just given up?",
           "choices": [
@@ -74,6 +91,7 @@
           "why": "A persistent connection IS state living on one machine, which is precisely the property unit 11 said horizontal scaling depends on not having. Every hard problem in the rest of this unit — routing, deploys, failover — traces back to this moment: you traded statelessness for the ability to push, and it was worth it, and now you pay."
         },
         {
+          "id": "chat-1-6",
           "type": "estimate",
           "prompt": "You have 10 million users online, each holding one WebSocket. If a server can hold about 100,000 connections, roughly how many servers do you need just to hold them?",
           "answer": 100,
@@ -88,6 +106,7 @@
       "title": "Finding the recipient",
       "exercises": [
         {
+          "id": "chat-2-1",
           "type": "multiple_choice",
           "prompt": "Alice is connected to server 7. Bob is connected to server 31. Alice sends Bob a message. What's the problem?",
           "choices": [
@@ -100,14 +119,24 @@
           "why": "The message has a specific destination that lives in another process on another machine, which no previous system in this course had to deal with — a redirect or a feed read could be served by any server. Now delivery means routing to one exact connection, so you need to know where it is."
         },
         {
+          "id": "chat-2-2",
           "type": "build_diagram",
           "prompt": "Server 7 needs to know which server holds Bob's connection. Add the piece that tracks it.",
-          "slots": ["Chat Servers", "?", "Message Store"],
-          "palette": ["Connection registry (Redis)", "A CDN", "A second load balancer"],
+          "slots": [
+            "Chat Servers",
+            "?",
+            "Message Store"
+          ],
+          "palette": [
+            "Connection registry (Redis)",
+            "A CDN",
+            "A second load balancer"
+          ],
           "answer": "Connection registry (Redis)",
           "why": "You need a shared map from user id to the server holding their connection, and every server must be able to read it — which is unit 5's answer exactly: state that all servers need goes in a shared store, not in any one server's memory. Redis fits because the lookup is by one key and the data is rebuildable when a connection drops."
         },
         {
+          "id": "chat-2-3",
           "type": "order_steps",
           "prompt": "Order the delivery of Alice's message to Bob.",
           "steps": [
@@ -120,6 +149,7 @@
           "why": "Persist first, then route, then push — and the order matters enormously. Storing before delivering means a crash anywhere after that point loses a delivery attempt but never the message, so Bob can still fetch it later. Push first and you've built a system where a dropped connection destroys data."
         },
         {
+          "id": "chat-2-4",
           "type": "multiple_choice",
           "prompt": "Why persist the message BEFORE trying to deliver it?",
           "choices": [
@@ -132,6 +162,7 @@
           "why": "Delivery over a connection is inherently unreliable and the message is not, so you split them: durable write first, then an attempt to push. This is unit 5's discipline again — the store holds the truth, the push is derived — which is what makes offline delivery a natural consequence rather than a separate feature."
         },
         {
+          "id": "chat-2-5",
           "type": "multiple_choice",
           "prompt": "Bob is offline. What happens to the message?",
           "choices": [
@@ -144,6 +175,7 @@
           "why": "Because you persisted first, offline isn't a failure case needing new machinery — it's just a delivery that hasn't happened yet, and reconnection is a read. That's the payoff for getting the order right: 'Bob is offline' and 'Bob's server crashed mid-push' resolve identically, via the same fetch-on-reconnect path."
         },
         {
+          "id": "chat-2-6",
           "type": "multiple_choice",
           "prompt": "Server 31 crashes. Bob's connection dies and he reconnects — landing on server 12. What must happen?",
           "choices": [
@@ -162,6 +194,7 @@
       "title": "Delivery and ordering",
       "exercises": [
         {
+          "id": "chat-3-1",
           "type": "multiple_choice",
           "prompt": "Server 31 pushes the message down Bob's socket. Is it delivered?",
           "choices": [
@@ -174,17 +207,31 @@
           "why": "Writing to a socket means the bytes left your process, not that they arrived and were shown — this is unit 21's ambiguity in its purest form. Which is why every chat app has client acknowledgements: only Bob's client can say 'I have it', so the ticks you see in chat UIs are the protocol made visible."
         },
         {
+          "id": "chat-3-2",
           "type": "match_pairs",
           "prompt": "Match each chat state to what it actually means.",
           "pairs": [
-            { "left": "Sent", "right": "The server accepted and stored it" },
-            { "left": "Delivered", "right": "The recipient's client acknowledged receiving it" },
-            { "left": "Read", "right": "The recipient's client says it was displayed" },
-            { "left": "Pending", "right": "The sender's client hasn't heard back yet" }
+            {
+              "left": "Sent",
+              "right": "The server accepted and stored it"
+            },
+            {
+              "left": "Delivered",
+              "right": "The recipient's client acknowledged receiving it"
+            },
+            {
+              "left": "Read",
+              "right": "The recipient's client says it was displayed"
+            },
+            {
+              "left": "Pending",
+              "right": "The sender's client hasn't heard back yet"
+            }
           ],
           "why": "Each tick is an acknowledgement from a different party, which is why they arrive at different times and why 'delivered' can sit there for hours. The UI is honestly reporting the only thing anyone can know: what the last party confirmed."
         },
         {
+          "id": "chat-3-3",
           "type": "multiple_choice",
           "prompt": "Bob's client acknowledges, but the ack is lost. What happens?",
           "choices": [
@@ -197,6 +244,7 @@
           "why": "This is at-least-once delivery from unit 16, and the duplicate is the price of never losing anything — the alternative, acking before rendering, loses messages instead. So the client must be idempotent: track message ids it has already shown and discard repeats, which is unit 21's key applied on the phone."
         },
         {
+          "id": "chat-3-4",
           "type": "multiple_choice",
           "prompt": "Alice sends 'A' then 'B'. Bob sees 'B' then 'A'. Why can that happen?",
           "choices": [
@@ -209,6 +257,7 @@
           "why": "Concurrency without a defined order is unit 16's lesson: two messages in flight finish whenever they finish. In chat this is far worse than a technicality because reordering changes meaning — a reply landing before its question is nonsense, which is precisely the causal violation unit 19 named."
         },
         {
+          "id": "chat-3-5",
           "type": "multiple_choice",
           "prompt": "How do you order a conversation's messages without trusting anyone's clock?",
           "choices": [
@@ -221,6 +270,7 @@
           "why": "Unit 19 showed why timestamps fail: clocks disagree, so 'later' depends on whose watch you believe, and a phone with a skewed clock wins or loses every race. A per-conversation counter sidesteps clocks entirely — and note the scope is per-conversation rather than global, because you only need order where meaning lives, which is exactly unit 16's per-key partitioning."
         },
         {
+          "id": "chat-3-6",
           "type": "multiple_choice",
           "prompt": "Why is per-conversation ordering enough — why not order all messages globally?",
           "choices": [
@@ -239,6 +289,7 @@
       "title": "Presence and groups",
       "exercises": [
         {
+          "id": "chat-4-1",
           "type": "multiple_choice",
           "prompt": "You show a green dot when a user is online. What's the naive implementation, and why does it hurt?",
           "choices": [
@@ -251,6 +302,7 @@
           "why": "Presence is deceptively expensive because it's high-churn, low-value data: mobile connections flap constantly, and each flap fans out to everyone watching. It's the celebrity problem again — cost scales with how many people care — for a green dot nobody will remember seeing."
         },
         {
+          "id": "chat-4-2",
           "type": "multi_select",
           "prompt": "Which make presence affordable? Select all.",
           "choices": [
@@ -259,10 +311,15 @@
             "Accept staleness: a green dot that's a few seconds wrong harms nobody",
             "Store every presence change durably for audit"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Compute it lazily for the handful of contacts on screen, debounce the flapping, and let it be a little wrong — presence is the definitive case where staleness costs nothing, so unit 19 says buy the weakest guarantee available. Durably auditing it is the opposite instinct: paying storage and writes for data whose value expires in seconds."
         },
         {
+          "id": "chat-4-3",
           "type": "multiple_choice",
           "prompt": "A group chat has 100,000 members. Someone posts. What's the problem?",
           "choices": [
@@ -275,6 +332,7 @@
           "why": "This is unit 24's celebrity problem wearing a different hat — the cost of one write scales with the audience — and the resolution rhymes: for huge groups, stop pushing to everyone and let clients pull on open, since most members aren't watching. Small groups fan out eagerly because it's cheap and instant matters."
         },
         {
+          "id": "chat-4-4",
           "type": "multiple_choice",
           "prompt": "You're deploying. Restarting a server drops 100,000 WebSockets at once. What happens?",
           "choices": [
@@ -287,14 +345,19 @@
           "why": "Persistent connections make deploys genuinely harder than the stateless case from unit 12: draining doesn't help much because the connections are meant to be long-lived, so a restart is a synchronized mass reconnection. The fixes are jittered reconnect backoff on the client (unit 17's lesson: never let clients agree on a moment) and rolling restarts small enough that the herd stays survivable."
         },
         {
+          "id": "chat-4-5",
           "type": "tradeoff_slider",
           "prompt": "You're deciding how a mobile client gets messages while the app is backgrounded. Slide toward your approach.",
           "leftLabel": "Keep the WebSocket alive in the background",
           "rightLabel": "Drop it; use push notifications to wake the app",
-          "answerRange": [60, 100],
+          "answerRange": [
+            60,
+            100
+          ],
           "why": "A backgrounded app can't reliably hold a socket anyway — mobile operating systems suspend processes and reclaim connections, and fighting that burns the user's battery for a connection the OS will kill regardless. Push notification services exist precisely because they hold one connection on behalf of every app, which is the same consolidation argument as a shared cache: one expensive resource, amortized."
         },
         {
+          "id": "chat-4-6",
           "type": "multiple_choice",
           "prompt": "Summarize the chat design.",
           "choices": [

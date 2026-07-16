@@ -15,6 +15,7 @@
       "title": "The forced choice",
       "exercises": [
         {
+          "id": "cap-1-1",
           "type": "multiple_choice",
           "prompt": "Two datacenters hold copies of your data. The network link between them fails, but both are alive and users are hitting both. A user writes to datacenter A. What can datacenter B do about it?",
           "choices": [
@@ -27,17 +28,31 @@
           "why": "B has no way to learn about A's write while the link is down, so it faces two options and only two: answer with what it has and risk being wrong, or refuse to answer until it can be sure. That fork is the entire content of CAP — it isn't a theory about database vendors, it's what physically remains possible when two machines cannot talk."
         },
         {
+          "id": "cap-1-2",
           "type": "match_pairs",
           "prompt": "Match each letter of CAP to what it means.",
           "pairs": [
-            { "left": "Consistency", "right": "Every read sees the most recent write" },
-            { "left": "Availability", "right": "Every request gets a non-error response" },
-            { "left": "Partition tolerance", "right": "The system keeps working when the network splits" },
-            { "left": "A partition", "right": "Nodes alive, but unable to reach each other" }
+            {
+              "left": "Consistency",
+              "right": "Every read sees the most recent write"
+            },
+            {
+              "left": "Availability",
+              "right": "Every request gets a non-error response"
+            },
+            {
+              "left": "Partition tolerance",
+              "right": "The system keeps working when the network splits"
+            },
+            {
+              "left": "A partition",
+              "right": "Nodes alive, but unable to reach each other"
+            }
           ],
           "why": "Note that CAP's Consistency is a stricter thing than ACID's C from unit 9 — here it means reads reflect the latest write, not 'your constraints hold'. Same letter, different promise, and conflating them has confused engineers for two decades."
         },
         {
+          "id": "cap-1-3",
           "type": "multiple_choice",
           "prompt": "CAP is usually taught as 'pick two of three'. Why is that misleading?",
           "choices": [
@@ -50,6 +65,7 @@
           "why": "You can't opt out of the network failing any more than you can opt out of weather, so 'choosing CA' really means 'choosing to have no plan for a partition' — which isn't a design, it's an omission. The honest statement is narrower and more useful: WHEN a partition happens, you must choose between consistency and availability. The rest of the time the question isn't being asked."
         },
         {
+          "id": "cap-1-4",
           "type": "multiple_choice",
           "prompt": "So what does a 'CA system' actually describe?",
           "choices": [
@@ -62,13 +78,20 @@
           "why": "Partitions are a property of having more than one machine, so the only genuine CA system is one that isn't distributed at all — which is a real and often excellent choice, and it's exactly the single box unit 11 defended. The moment you add a second machine you've bought into P, and with it the choice you now have to make deliberately."
         },
         {
+          "id": "cap-1-5",
           "type": "fill_blank",
           "prompt": "A network ______ is when nodes are alive but can't reach each other.",
-          "choices": ["partition", "outage", "failure", "timeout"],
+          "choices": [
+            "partition",
+            "outage",
+            "failure",
+            "timeout"
+          ],
           "answer": 0,
           "why": "The nodes are healthy and doing their jobs — it's the path between them that's broken, which is what makes it so much nastier than a clean crash. A dead node stops answering; a partitioned node keeps happily answering, with a view of the world that's drifting away from its peers."
         },
         {
+          "id": "cap-1-6",
           "type": "multiple_choice",
           "prompt": "During a partition, why can't a node just tell whether it's the one that's cut off?",
           "choices": [
@@ -87,6 +110,7 @@
       "title": "CP: refusing to be wrong",
       "exercises": [
         {
+          "id": "cap-2-1",
           "type": "multiple_choice",
           "prompt": "A partition splits your cluster. You choose consistency. What does a user on the minority side experience?",
           "choices": [
@@ -99,6 +123,7 @@
           "why": "Choosing consistency means choosing to fail rather than to guess, so a node that can't confirm it has the latest data must decline — and 'decline' is what the user sees as an error. That's the honest shape of CP: the system stays correct by becoming partly unavailable, and the unavailability is the mechanism, not a bug in it."
         },
         {
+          "id": "cap-2-2",
           "type": "multiple_choice",
           "prompt": "How does a CP system decide which side of a partition may keep serving?",
           "choices": [
@@ -111,6 +136,7 @@
           "why": "Majority is the trick that makes it safe: with an odd number of nodes, at most one side of any split can have more than half, so a quorum rule guarantees the two sides can never both believe they're in charge. That's precisely the split-brain from unit 10 being prevented by arithmetic instead of hope — and it's why cluster sizes are odd, since 3 tolerates one failure while 4 tolerates exactly the same one and costs more."
         },
         {
+          "id": "cap-2-3",
           "type": "multiple_choice",
           "prompt": "5-node cluster, quorum of 3. A partition leaves 3 nodes on one side and 2 on the other. What happens?",
           "choices": [
@@ -123,6 +149,7 @@
           "why": "The minority nodes aren't broken — they're working fine and simply can't prove they aren't missing writes, so they must stand down. This is CP's bargain stated plainly: you deliberately give up capacity that physically exists in order to guarantee no one is served a wrong answer. Users on the minority side are down, and that's the design working."
         },
         {
+          "id": "cap-2-4",
           "type": "multi_select",
           "prompt": "Which systems should lean CP? Select all.",
           "choices": [
@@ -131,10 +158,15 @@
             "A distributed lock service",
             "A view counter on a video"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Money, stock, and locks share a property: a wrong answer creates a real-world commitment you can't take back — you've double-spent, oversold, or handed the same lock to two owners. Refusing to answer is recoverable; answering wrongly isn't. A view counter is the opposite, where being briefly wrong costs nothing at all."
         },
         {
+          "id": "cap-2-5",
           "type": "multiple_choice",
           "prompt": "A distributed lock service goes AP — both sides of a partition keep granting locks. What breaks?",
           "choices": [
@@ -147,6 +179,7 @@
           "why": "A lock's entire value is that exactly one holder exists, so a lock service that stays available during a partition by granting both sides isn't a degraded lock — it's not a lock. This is the clearest case where availability is worthless: an always-available service that doesn't do its job has no reason to exist, which is why lock services are firmly CP and simply go down rather than lie."
         },
         {
+          "id": "cap-2-6",
           "type": "multiple_choice",
           "prompt": "What's the real cost of choosing CP?",
           "choices": [
@@ -165,6 +198,7 @@
       "title": "AP: answering anyway",
       "exercises": [
         {
+          "id": "cap-3-1",
           "type": "multiple_choice",
           "prompt": "Same partition, but you choose availability. What does the user on the minority side experience?",
           "choices": [
@@ -177,6 +211,7 @@
           "why": "AP keeps answering with local knowledge, so nobody sees an error and some people see the past — the failure moves from visible to invisible. That's often exactly right: for a social feed, a comment appearing a few seconds late is nothing, while an error page is a real problem the user will actually notice and resent."
         },
         {
+          "id": "cap-3-2",
           "type": "multiple_choice",
           "prompt": "During an AP partition, users on both sides edit the same record. The network heals. What now?",
           "choices": [
@@ -189,17 +224,31 @@
           "why": "AP's bill comes due at healing time: both sides accepted writes in good faith, so you now hold two histories and must merge them with rules you invented. 'Last write wins' is the common choice and it silently discards someone's work — and it leans on clocks from different machines agreeing, which is its own well-known trap."
         },
         {
+          "id": "cap-3-3",
           "type": "match_pairs",
           "prompt": "Match each conflict resolution strategy.",
           "pairs": [
-            { "left": "Last write wins", "right": "Simple — and silently destroys one edit" },
-            { "left": "Keep both versions", "right": "Push the choice to the user or app" },
-            { "left": "CRDTs", "right": "Structure the data so merges can't conflict" },
-            { "left": "Domain rules", "right": "'Add to cart' merges; 'set quantity' doesn't" }
+            {
+              "left": "Last write wins",
+              "right": "Simple — and silently destroys one edit"
+            },
+            {
+              "left": "Keep both versions",
+              "right": "Push the choice to the user or app"
+            },
+            {
+              "left": "CRDTs",
+              "right": "Structure the data so merges can't conflict"
+            },
+            {
+              "left": "Domain rules",
+              "right": "'Add to cart' merges; 'set quantity' doesn't"
+            }
           ],
           "why": "The choice depends entirely on what the data means, which is why no database can solve it for you. Notice the last row: an operation expressed as 'add this item' merges cleanly from both sides, while the same intent expressed as 'the cart now contains N' cannot — so how you model the write decides whether conflicts are resolvable at all."
         },
         {
+          "id": "cap-3-4",
           "type": "multiple_choice",
           "prompt": "Why is a shopping cart the classic AP example?",
           "choices": [
@@ -212,6 +261,7 @@
           "why": "The reasoning is about business cost rather than technology: refusing an add-to-cart is revenue that vanishes, and a resurrected item is something the customer can just remove at checkout. Notice they didn't abandon consistency everywhere — the actual purchase and payment are far stricter. Different data in the same system gets different answers, because different data has a different cost of being wrong."
         },
         {
+          "id": "cap-3-5",
           "type": "multi_select",
           "prompt": "Which systems reasonably lean AP? Select all.",
           "choices": [
@@ -220,10 +270,15 @@
             "A 'likes' counter",
             "An account balance shown before a transfer"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Feeds, DNS, and like counts all tolerate being briefly behind — DNS is aggressively AP by design, which is why a record change takes time to propagate and nobody considers that a bug. A balance is different: showing a stale number right before someone commits to a transfer invites a decision they'd not have made, so staleness there has a real cost."
         },
         {
+          "id": "cap-3-6",
           "type": "multiple_choice",
           "prompt": "What's the real cost of choosing AP?",
           "choices": [
@@ -242,6 +297,7 @@
       "title": "CAP in the real world",
       "exercises": [
         {
+          "id": "cap-4-1",
           "type": "multiple_choice",
           "prompt": "Your network is healthy — no partition at all. Does CAP say anything about your system right now?",
           "choices": [
@@ -254,6 +310,7 @@
           "why": "CAP is a statement about one specific failure mode, and outside it the theorem is simply silent — which is why 'we're an AP system' as a permanent identity is a category error. The right reading is conditional: when a partition happens, here's what we do. The other 99.9% of the time, that choice isn't being exercised at all."
         },
         {
+          "id": "cap-4-2",
           "type": "multiple_choice",
           "prompt": "So if CAP is silent when the network is fine, what tradeoff still exists during normal operation?",
           "choices": [
@@ -266,6 +323,7 @@
           "why": "Confirming you have the latest data means asking someone else, and asking someone else takes time — so strong consistency is bought with latency on the happy path, every single day. This is what PACELC adds to CAP: else (no partition), you're trading Latency against Consistency, which is the tradeoff you actually live with continuously rather than during rare failures."
         },
         {
+          "id": "cap-4-3",
           "type": "multiple_choice",
           "prompt": "Why does that latency-vs-consistency tradeoff matter more day to day than CAP itself?",
           "choices": [
@@ -278,14 +336,19 @@
           "why": "You'll meet a partition a handful of times a year and the coordination cost on every request today — so a design chosen entirely around CAP optimizes for the rare case while ignoring the constant one. That's also unit 4's physics reasserting itself: a cross-region quorum means waiting for a machine 150ms away, and no protocol negotiates with the speed of light."
         },
         {
+          "id": "cap-4-4",
           "type": "tradeoff_slider",
           "prompt": "You're designing 'number of people currently viewing this page'. A partition splits your cluster. Slide toward your choice.",
           "leftLabel": "CP — refuse rather than show a wrong count",
           "rightLabel": "AP — show a possibly-stale count",
-          "answerRange": [65, 100],
+          "answerRange": [
+            65,
+            100
+          ],
           "why": "The count is decorative: nobody makes a decision from it, and being off by a few during a partition costs precisely nothing, while an error where a number should be looks broken. This is the whole method — ask what a wrong answer actually costs, and here it costs less than no answer. Run the same question on a bank balance and you'll slide to the opposite end."
         },
         {
+          "id": "cap-4-5",
           "type": "multiple_choice",
           "prompt": "A vendor says their database is 'CA — no compromises'. What should you conclude?",
           "choices": [
@@ -298,6 +361,7 @@
           "why": "Nobody has repealed the theorem, so a distributed 'CA' system is one that hasn't told you its behaviour during a partition — and that behaviour exists whether documented or not. The question worth asking a vendor is concrete: during a partition, does the minority side serve reads, and what happens to writes? A good answer is specific; a bad one repeats the marketing."
         },
         {
+          "id": "cap-4-6",
           "type": "multiple_choice",
           "prompt": "Should one system pick CP or AP for all its data?",
           "choices": [
@@ -310,6 +374,7 @@
           "why": "CAP applies per operation and per dataset rather than per company, and treating it as an identity forces every piece of data to inherit the strictness that only your money needed. Real systems mix deliberately: strict where a wrong answer creates an irreversible commitment, relaxed where staleness is a shrug — which is the same 'what does being wrong cost?' question that has run through every unit since state."
         },
         {
+          "id": "cap-4-7",
           "type": "multiple_choice",
           "prompt": "What's the honest summary of CAP?",
           "choices": [

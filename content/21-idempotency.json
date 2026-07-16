@@ -15,6 +15,7 @@
       "title": "The timeout you can't interpret",
       "exercises": [
         {
+          "id": "idem-1-1",
           "type": "multiple_choice",
           "prompt": "You POST a payment. The request times out. Did the charge happen?",
           "choices": [
@@ -27,6 +28,7 @@
           "why": "A timeout tells you that you stopped waiting, and nothing whatsoever about what the server did — the failure could be on the way there, during processing, or on the way back with a completed charge behind it. This ambiguity is not a bug in your HTTP client; it's a permanent property of asking anything over a network, and it's the reason this entire unit exists."
         },
         {
+          "id": "idem-1-2",
           "type": "multiple_choice",
           "prompt": "So what are your two options after that timeout?",
           "choices": [
@@ -39,13 +41,20 @@
           "why": "Both options are guesses about a fact you can't observe, so you're choosing which failure to inflict rather than avoiding failure — double-charge a customer, or silently drop their order. Idempotency is what dissolves the dilemma: make the retry harmless, and you can always retry, which turns an unanswerable question into a non-question."
         },
         {
+          "id": "idem-1-3",
           "type": "fill_blank",
           "prompt": "An operation is ______ if performing it many times has the same effect as performing it once.",
-          "choices": ["idempotent", "atomic", "durable", "consistent"],
+          "choices": [
+            "idempotent",
+            "atomic",
+            "durable",
+            "consistent"
+          ],
           "answer": 0,
           "why": "The word says the outcome is unchanged by repetition — not that the operation refuses to run twice, but that running it twice lands you in the same state as running it once."
         },
         {
+          "id": "idem-1-4",
           "type": "multi_select",
           "prompt": "Where do duplicate requests come from? Select all.",
           "choices": [
@@ -54,10 +63,16 @@
             "An at-least-once message queue redelivering",
             "A user double-clicking the button"
           ],
-          "answer": [0, 1, 2, 3],
+          "answer": [
+            0,
+            1,
+            2,
+            3
+          ],
           "why": "All four are routine, and notice how little control you have over most of them — a proxy may retry without telling you, a queue redelivers by design (unit 16), and users click twice because your button didn't respond fast enough. Duplicates aren't an edge case you might hit; they're a standing condition of running a service on a network."
         },
         {
+          "id": "idem-1-5",
           "type": "multiple_choice",
           "prompt": "Why is 'we'll just be careful not to retry' not a strategy?",
           "choices": [
@@ -70,6 +85,7 @@
           "why": "Your discipline governs your code and nothing else in the path — the mobile SDK, the corporate proxy, and the customer's finger all retry on their own schedules. Since you cannot make duplicates not arrive, the only durable answer is to make arriving twice harmless, which puts the responsibility where you actually have authority: the server."
         },
         {
+          "id": "idem-1-6",
           "type": "multiple_choice",
           "prompt": "Your service is idempotent. What does that let you do that you couldn't before?",
           "choices": [
@@ -88,17 +104,31 @@
       "title": "What's already safe",
       "exercises": [
         {
+          "id": "idem-2-1",
           "type": "match_pairs",
           "prompt": "Match each operation to whether repeating it is safe.",
           "pairs": [
-            { "left": "`GET /users/42`", "right": "Safe — reads change nothing" },
-            { "left": "`DELETE /users/42`", "right": "Safe — still deleted the second time" },
-            { "left": "PUT balance = 100", "right": "Safe — the value is absolute" },
-            { "left": "`POST /payments`", "right": "Not safe — creates something new each time" }
+            {
+              "left": "`GET /users/42`",
+              "right": "Safe — reads change nothing"
+            },
+            {
+              "left": "`DELETE /users/42`",
+              "right": "Safe — still deleted the second time"
+            },
+            {
+              "left": "PUT balance = 100",
+              "right": "Safe — the value is absolute"
+            },
+            {
+              "left": "`POST /payments`",
+              "right": "Not safe — creates something new each time"
+            }
           ],
           "why": "The pattern is that operations naming a final state are repeatable, while operations describing an increment or a creation are not. This is unit 2's methods with the reasoning made explicit: GET, PUT, and DELETE are idempotent by their semantics, and POST is the one that isn't."
         },
         {
+          "id": "idem-2-2",
           "type": "multiple_choice",
           "prompt": "Why is 'set balance to 100' idempotent but 'add 50 to balance' isn't?",
           "choices": [
@@ -111,6 +141,7 @@
           "why": "Absolute operations are self-correcting under repetition because they don't care what came before — run 'set 100' five times and it's 100. Relative operations compound, so five retries of 'add 50' is 250. That's a genuine design lever: expressing an intent absolutely rather than relatively can make it idempotent for free, before any keys or bookkeeping."
         },
         {
+          "id": "idem-2-3",
           "type": "multiple_choice",
           "prompt": "Is `DELETE /users/42` returning 404 on the second call a problem?",
           "choices": [
@@ -123,6 +154,7 @@
           "why": "Idempotency is a claim about state, not about status codes, and the user is equally gone either way — so DELETE is idempotent regardless. But a client can't tell 'already deleted' from 'never existed' if you say 404, and it may escalate a successful retry as an error. Returning 204 for both keeps the state guarantee and makes the retry legible."
         },
         {
+          "id": "idem-2-4",
           "type": "multiple_choice",
           "prompt": "Your endpoint is `POST /orders`. How could you make it naturally idempotent without any extra bookkeeping?",
           "choices": [
@@ -135,6 +167,7 @@
           "why": "The reason POST isn't idempotent is that the server invents the identity, so every call creates something new — hand identity to the client and the operation becomes 'ensure this specific thing exists', which repeats harmlessly. Note this is the same move as PUT, and a unique constraint on that id makes the database enforce it, which unit 6 taught is the only enforcement that can't be bypassed."
         },
         {
+          "id": "idem-2-5",
           "type": "multi_select",
           "prompt": "Which are naturally idempotent as written? Select all.",
           "choices": [
@@ -143,10 +176,15 @@
             "INSERT ... ON CONFLICT DO NOTHING",
             "DELETE FROM sessions WHERE id='abc'"
           ],
-          "answer": [0, 2, 3],
+          "answer": [
+            0,
+            2,
+            3
+          ],
           "why": "Setting an absolute value, inserting-if-absent, and deleting a specific row all land in the same state however many times they run. The increment is the odd one out and it's worth noticing why: unit 6 recommended 'n = n + 1' as the fix for lost updates, and it's atomic — but atomic and idempotent are different properties, and a retried increment counts twice."
         },
         {
+          "id": "idem-2-6",
           "type": "multiple_choice",
           "prompt": "So what's the first question to ask about any write?",
           "choices": [
@@ -165,6 +203,7 @@
       "title": "Idempotency keys",
       "exercises": [
         {
+          "id": "idem-3-1",
           "type": "multiple_choice",
           "prompt": "`POST /payments` genuinely creates a charge. How do you make retrying it safe?",
           "choices": [
@@ -177,6 +216,7 @@
           "why": "The key names the INTENT rather than the request, so all retries of one intended charge carry the same key and the server can recognise them as the same act. 'Similar payment recently' is a heuristic that fails both ways — it blocks a customer legitimately buying the same coffee twice, and it misses a retry that arrives late."
         },
         {
+          "id": "idem-3-2",
           "type": "order_steps",
           "prompt": "Order the server's handling of a request with an idempotency key.",
           "steps": [
@@ -189,6 +229,7 @@
           "why": "The trick is step 2. Reserving the key atomically BEFORE doing the work is what makes two simultaneous retries resolve to exactly one winner — the store's uniqueness constraint arbitrates, and the loser is told K already exists rather than finding nothing. Looking the key up and then acting on what you found is check-then-act, the same race from unit 6, and under concurrency it double-charges: both retries look, both find nothing, both proceed. That matters because a timeout typically triggers the client's retry AND a proxy's retry at once, so the concurrent case is the normal case rather than the exotic one."
         },
         {
+          "id": "idem-3-3",
           "type": "multiple_choice",
           "prompt": "Why must the key be generated by the CLIENT, not the server?",
           "choices": [
@@ -201,6 +242,7 @@
           "why": "The key's only job is to be the same on every retry of one intent, and only the client knows that two attempts are the same intent — the server sees two indistinguishable requests. So the client mints the key once, before the first attempt, and reuses it for every retry of that attempt. A key generated per-request would make every retry look brand new."
         },
         {
+          "id": "idem-3-4",
           "type": "multiple_choice",
           "prompt": "Two retries of the same key arrive simultaneously and both find no existing record. What happens?",
           "choices": [
@@ -213,6 +255,7 @@
           "why": "This is unit 6's check-then-act race living inside the very mechanism meant to prevent duplicates — and it's the bug that makes an idempotency implementation look correct until traffic is concurrent. The fix is the same: let the store enforce uniqueness on the key with an atomic insert, so one attempt wins and the other sees the conflict rather than an empty result."
         },
         {
+          "id": "idem-3-5",
           "type": "multiple_choice",
           "prompt": "The idempotency store is itself state. What does it demand?",
           "choices": [
@@ -225,6 +268,7 @@
           "why": "Unit 5's question applied to the key store gives brutal answers: lose it and you lose the record of what you already did, so it must be durable; the retry may hit any server, so it must be shared; and it accumulates a row per intent forever, so it needs a retention policy. This is why idempotency isn't free — 'make it reliable' meant 'add state, in the right place', and here the state is as critical as the payments themselves."
         },
         {
+          "id": "idem-3-6",
           "type": "multiple_choice",
           "prompt": "You expire idempotency keys after 24 hours. A client retries after 25. What happens?",
           "choices": [
@@ -243,6 +287,7 @@
       "title": "The boundaries",
       "exercises": [
         {
+          "id": "idem-4-1",
           "type": "multiple_choice",
           "prompt": "Your payment endpoint is idempotent. It also sends a confirmation email. A retry arrives. What does the customer get?",
           "choices": [
@@ -255,6 +300,7 @@
           "why": "Idempotency protects whatever the key covers and nothing else, so a side effect performed outside that record happily runs again. The fix is to make the stored result the boundary — record the outcome and fire effects from it once, or hand the email its own key. Every side effect is a separate promise, and each needs deciding."
         },
         {
+          "id": "idem-4-2",
           "type": "multi_select",
           "prompt": "Which are side effects that need their own idempotency thought? Select all.",
           "choices": [
@@ -263,10 +309,15 @@
             "Publishing an event other services consume",
             "Reading a row to build the response"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Emails, external calls, and published events all reach outside your database and can't be rolled back — a retry that re-fires them is visible to customers or triggers downstream work twice. The read is harmless because it changes nothing, which is the whole distinction: side effects are the things the world remembers."
         },
         {
+          "id": "idem-4-3",
           "type": "multiple_choice",
           "prompt": "Your idempotency store is in your database; the payment goes to Stripe. You record the key, then call Stripe, then crash. What state are you in?",
           "choices": [
@@ -279,6 +330,7 @@
           "why": "This is unit 9's boundary again — your database and Stripe cannot commit together — so recording the key and doing the work are two steps with a crash-shaped hole between them. Which is why the mature pattern stores the key as in-progress first, then reconciles: on retry you see 'started but unconfirmed' and go ask Stripe what actually happened, using YOUR key as the identifier you gave them."
         },
         {
+          "id": "idem-4-4",
           "type": "multiple_choice",
           "prompt": "Why does Stripe accept an `Idempotency-Key` header from you?",
           "choices": [
@@ -291,14 +343,19 @@
           "why": "The only place a charge can truly be deduplicated is at the system that performs it, so Stripe offers the guarantee at the boundary where it's enforceable. The general principle is worth taking: an API that performs irreversible side effects should accept an idempotency key, because its callers will retry whether it's safe or not."
         },
         {
+          "id": "idem-4-5",
           "type": "tradeoff_slider",
           "prompt": "You're designing a public API that creates resources. Slide toward your approach to duplicate protection.",
           "leftLabel": "Accept a client-supplied idempotency key",
           "rightLabel": "Detect duplicates heuristically (same fields, recent)",
-          "answerRange": [0, 35],
+          "answerRange": [
+            0,
+            35
+          ],
           "why": "Heuristics guess at intent and are wrong in both directions — they block a customer genuinely ordering the same thing twice, and they miss a retry that arrives outside the window. A key is unambiguous because the client states 'this is the same intent as before', which is the one fact only the client knows. Explicit intent beats inferred intent every time you can get it."
         },
         {
+          "id": "idem-4-6",
           "type": "multiple_choice",
           "prompt": "What's the honest summary of idempotency?",
           "choices": [

@@ -15,6 +15,7 @@
       "title": "The traffic cop",
       "exercises": [
         {
+          "id": "lb-1-1",
           "type": "multiple_choice",
           "prompt": "You now run 3 identical app servers. Your users only know one address. What has to exist?",
           "choices": [
@@ -27,24 +28,44 @@
           "why": "Users can't be asked to know your machines, so something must present one address to the world and route each request behind it. That's a load balancer — and what it really sells is indirection: because the outside world talks to one stable thing, you can add, remove, restart, and replace machines behind it all day without anyone noticing. Every machine becoming disposable is what horizontal scaling actually cashes in."
         },
         {
+          "id": "lb-1-2",
           "type": "fill_blank",
           "prompt": "A ______ balancer presents one address to clients and distributes requests across many servers.",
-          "choices": ["load", "packet", "cache", "session"],
+          "choices": [
+            "load",
+            "packet",
+            "cache",
+            "session"
+          ],
           "answer": 0,
           "why": "One front door, many rooms behind it — and the clients never learn how many rooms there are."
         },
         {
+          "id": "lb-1-3",
           "type": "match_pairs",
           "prompt": "Match each thing a load balancer gives you.",
           "pairs": [
-            { "left": "One address", "right": "Clients don't know or care how many servers exist" },
-            { "left": "Distribution", "right": "Requests spread across the pool" },
-            { "left": "Health checking", "right": "Dead servers stop receiving traffic" },
-            { "left": "Draining", "right": "A server can finish its work before leaving" }
+            {
+              "left": "One address",
+              "right": "Clients don't know or care how many servers exist"
+            },
+            {
+              "left": "Distribution",
+              "right": "Requests spread across the pool"
+            },
+            {
+              "left": "Health checking",
+              "right": "Dead servers stop receiving traffic"
+            },
+            {
+              "left": "Draining",
+              "right": "A server can finish its work before leaving"
+            }
           ],
           "why": "Distribution is the obvious job, but the other three are what you'll actually think about day to day. Most people describe a load balancer as 'it spreads traffic'; in practice it's the stable address, the removal of dead machines, and graceful departure that let you deploy on a Tuesday afternoon without anyone noticing."
         },
         {
+          "id": "lb-1-4",
           "type": "multiple_choice",
           "prompt": "Beyond spreading load, what does a load balancer let you do that's arguably more valuable day to day?",
           "choices": [
@@ -57,6 +78,7 @@
           "why": "If traffic can be moved off a machine at will, that machine can be upgraded or destroyed whenever you like, so deploys become routine instead of events. This is why balancers appear even in systems whose traffic one server could handle: you're often not buying capacity at all, you're buying the ability to take a machine away safely."
         },
         {
+          "id": "lb-1-5",
           "type": "multiple_choice",
           "prompt": "Your load balancer sends requests to 3 servers. One is much slower than the others — but it's not down. What does the LB do about it?",
           "choices": [
@@ -69,6 +91,7 @@
           "why": "A basic health check asks a yes/no question — are you answering? — and a server answering slowly passes it and keeps taking traffic. That gap between 'up' and 'healthy' is where a lot of real pain lives: a machine responding in 8 seconds is often worse for users than one that's cleanly dead, because a dead one gets removed and a slow one keeps accepting their requests."
         },
         {
+          "id": "lb-1-6",
           "type": "multiple_choice",
           "prompt": "What does adding a load balancer NOT do?",
           "choices": [
@@ -87,6 +110,7 @@
       "title": "How it chooses",
       "exercises": [
         {
+          "id": "lb-2-1",
           "type": "multiple_choice",
           "prompt": "The simplest algorithm: send request 1 to server A, request 2 to B, request 3 to C, then back to A. What's it called, and what does it quietly assume?",
           "choices": [
@@ -99,17 +123,31 @@
           "why": "Round robin takes turns, which distributes request COUNTS evenly — and that only distributes LOAD evenly when requests cost about the same. If one request in fifty is a report that takes 30 seconds while the rest take 5ms, taking turns will cheerfully deal three reports onto one machine while the others idle."
         },
         {
+          "id": "lb-2-2",
           "type": "match_pairs",
           "prompt": "Match each algorithm to what it does.",
           "pairs": [
-            { "left": "Round robin", "right": "Take turns, in order" },
-            { "left": "Least connections", "right": "Send to whoever is currently least busy" },
-            { "left": "Weighted", "right": "Bigger servers get a larger share" },
-            { "left": "Hash the key", "right": "The same key always lands on the same server" }
+            {
+              "left": "Round robin",
+              "right": "Take turns, in order"
+            },
+            {
+              "left": "Least connections",
+              "right": "Send to whoever is currently least busy"
+            },
+            {
+              "left": "Weighted",
+              "right": "Bigger servers get a larger share"
+            },
+            {
+              "left": "Hash the key",
+              "right": "The same key always lands on the same server"
+            }
           ],
           "why": "Four strategies for four situations: uniform requests, uneven requests, uneven servers, and requests that need to land somewhere specific. Notice only the last is about WHERE a request goes rather than how busy a server is — hashing exists for when the destination matters, which is a different problem from balancing."
         },
         {
+          "id": "lb-2-3",
           "type": "multiple_choice",
           "prompt": "Your requests vary wildly: most take 5ms, some take 30 seconds. Which algorithm handles that better?",
           "choices": [
@@ -122,6 +160,7 @@
           "why": "Least connections uses live evidence: a machine stuck on a 30-second request still shows an open connection, so it stops receiving new work, while round robin has no idea and keeps dealing it cards. The general principle is that round robin is open-loop — it never looks at the result — and least-connections is closed-loop. Uniform workloads make that feedback nearly worthless; the more variance you have, the more it's worth."
         },
         {
+          "id": "lb-2-4",
           "type": "multiple_choice",
           "prompt": "Your fleet has a mix: some machines have 8 cores, some have 32. Which approach fits?",
           "choices": [
@@ -134,6 +173,7 @@
           "why": "Equal shares to unequal machines overloads the small ones while the big ones coast, so weights let you say 'this one takes four times as much.' The catch is that a weight is a number a human guessed and then forgot, and it drifts out of date as hardware and workloads change — which is a real part of why homogeneous fleets are popular. Uniformity isn't elegant, it just deletes a config nobody maintains."
         },
         {
+          "id": "lb-2-5",
           "type": "multiple_choice",
           "prompt": "Why might you hash a user's id to pick their server, instead of balancing by load?",
           "choices": [
@@ -146,6 +186,7 @@
           "why": "Hashing trades load-balancing quality for predictable placement: the same key reaches the same server every time, so whatever that server cached for them is still there. The cost is that you've deliberately made servers non-interchangeable — the very property unit 11 said horizontal scaling depends on — so losing a server now loses something, and adding one reshuffles who goes where."
         },
         {
+          "id": "lb-2-6",
           "type": "multiple_choice",
           "prompt": "Which algorithm is 'best'?",
           "choices": [
@@ -164,6 +205,7 @@
       "title": "Health checks",
       "exercises": [
         {
+          "id": "lb-3-1",
           "type": "multiple_choice",
           "prompt": "How does the load balancer know a server has died?",
           "choices": [
@@ -176,6 +218,7 @@
           "why": "Dead machines can't announce anything, so the balancer has to keep asking. That's an active health check — probing an endpoint like `/health` on a schedule. The alternative is passive: watch real traffic and notice failures, which costs nothing extra but only learns by hurting real users first, whereas active spends probes to find out before anyone gets hurt."
         },
         {
+          "id": "lb-3-2",
           "type": "multiple_choice",
           "prompt": "Your `/health` endpoint just returns `200 OK` unconditionally. What's the problem?",
           "choices": [
@@ -188,6 +231,7 @@
           "why": "A hardcoded 200 tests one thing: the process is running and can serve a route. It says nothing about whether this server can fulfil a real request. So a good check exercises the dependencies the server truly needs — but don't over-swing, because if your check queries the database then one database blip fails the check on every server at once and the balancer dutifully removes your entire fleet. Too shallow keeps broken servers; too deep takes everything out together."
         },
         {
+          "id": "lb-3-3",
           "type": "multiple_choice",
           "prompt": "Under heavy load your servers get slow, so health checks start timing out. The LB removes those servers. What happens next?",
           "choices": [
@@ -200,6 +244,7 @@
           "why": "You removed capacity from an overloaded system: the load didn't leave, it redistributed onto fewer machines and pushed them over the same line, one after another. That's a cascading failure, and the bitter part is the health check did exactly what it was told — a slow-but-working server was worth keeping, and the check couldn't tell 'overloaded' from 'broken.' Some balancers guard against this with a floor that never removes more than a set fraction of the pool, precisely because 'everything looks unhealthy at once' more often means overload than mass death."
         },
         {
+          "id": "lb-3-4",
           "type": "multi_select",
           "prompt": "Which are real risks of health check configuration? Select all.",
           "choices": [
@@ -208,10 +253,15 @@
             "Too aggressive: brief slowness under load evicts healthy machines",
             "Too many servers to check"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Shallow, deep, and aggressive are all real failure modes, and they pull against each other — so you're tuning between them rather than eliminating them. Checking many servers is just work the balancer does. Every one of these is the same 'is it dead or just slow?' question from the replication unit in different clothes: you can't answer it from outside, so you're choosing which mistake to make — keep a broken server, or evict a healthy one."
         },
         {
+          "id": "lb-3-5",
           "type": "multiple_choice",
           "prompt": "You're deploying. You want to stop sending new requests to a server but let it finish the ones it's already handling. What's that called?",
           "choices": [
@@ -224,6 +274,7 @@
           "why": "Draining stops new traffic while in-flight requests complete, so nobody eats an error just because you deployed. Skipping it is why so many deploys produce a small spike of 502s — the machine vanished mid-request — and it's the difference between deploys nobody notices and deploys that quietly fail a few hundred people every time, for years, because nobody looks at a spike that small."
         },
         {
+          "id": "lb-3-6",
           "type": "multiple_choice",
           "prompt": "A server that failed its health check recovers and rejoins the pool. What's the risk?",
           "choices": [
@@ -242,6 +293,7 @@
       "title": "The hard parts",
       "exercises": [
         {
+          "id": "lb-4-1",
           "type": "multiple_choice",
           "prompt": "You put a load balancer in front of your servers so no single machine can take you down. Then the load balancer dies. What have you built?",
           "choices": [
@@ -254,17 +306,31 @@
           "why": "Everything now flows through one box, so its death is total — precisely the property you added it to fix. The honest framing is that you don't remove single points of failure so much as push them somewhere you can afford: real setups run multiple balancers, via DNS handing out several addresses, a floating IP that moves between them, or anycast. The question is never 'is there a SPOF?' but 'where is it, and how fast can it be replaced?'"
         },
         {
+          "id": "lb-4-2",
           "type": "match_pairs",
           "prompt": "Match each load balancer type to what it can do.",
           "pairs": [
-            { "left": "Layer 4 (transport)", "right": "Routes by IP and port, without reading the request" },
-            { "left": "Layer 7 (application)", "right": "Reads the HTTP request — can route by path or header" },
-            { "left": "L4's advantage", "right": "Less work per connection" },
-            { "left": "L7's advantage", "right": "Smarter routing decisions" }
+            {
+              "left": "Layer 4 (transport)",
+              "right": "Routes by IP and port, without reading the request"
+            },
+            {
+              "left": "Layer 7 (application)",
+              "right": "Reads the HTTP request — can route by path or header"
+            },
+            {
+              "left": "L4's advantage",
+              "right": "Less work per connection"
+            },
+            {
+              "left": "L7's advantage",
+              "right": "Smarter routing decisions"
+            }
           ],
           "why": "L4 moves packets between addresses without opening them; L7 understands HTTP, so it can send /api one way and /images another, and pays overhead for the privilege of understanding. The tell for which you need: are you routing on anything INSIDE the request — path, host, header, cookie? That's L7, because L4 literally cannot see those. If you're just spreading connections across identical servers, L4 does it with less machinery."
         },
         {
+          "id": "lb-4-3",
           "type": "multiple_choice",
           "prompt": "Sessions live in each server's local memory, so users break when they land on a different machine. Someone suggests sticky sessions — pinning each user to one server. Is that a fix?",
           "choices": [
@@ -277,14 +343,19 @@
           "why": "Sticky sessions work by giving up interchangeability — the session still exists in exactly one place, you've just arranged for the user to keep going back to it. So you inherit what that implies: that server dying logs those users out, load distributes worse because a machine with heavy users stays hot, and draining for a deploy pushes people off their sessions anyway. Moving session state out of local memory (unit 5) fixes the cause instead of the symptom."
         },
         {
+          "id": "lb-4-4",
           "type": "tradeoff_slider",
           "prompt": "Your app keeps sessions in local server memory and it's hurting. Slide toward your approach.",
           "leftLabel": "Sticky sessions (quick, keeps the coupling)",
           "rightLabel": "Move sessions to a shared store (real fix, more work)",
-          "answerRange": [55, 100],
+          "answerRange": [
+            55,
+            100
+          ],
           "why": "Sticky sessions buy you today at the cost of every day after: servers stay non-interchangeable, so deploys, failures, and autoscaling all keep hurting. They're defensible as a deliberate stopgap while you do the real work, or for something genuinely local and cheap to lose. What makes them a smell is being load-bearing forever — at that point your architecture has quietly decided machines aren't disposable, and everything downstream gets harder."
         },
         {
+          "id": "lb-4-5",
           "type": "multiple_choice",
           "prompt": "A load balancer distributes traffic across servers. So can it protect you from a traffic spike bigger than your whole fleet can handle?",
           "choices": [
@@ -297,6 +368,7 @@
           "why": "Balancing decides who does the work, not how much work exists — so if the total exceeds your fleet's capacity, spreading it perfectly still exceeds your fleet's capacity. Protection from too much load is a different tool entirely: shedding it (rejecting early with a 429, unit 2), limiting it, or adding capacity. Confusing 'balanced' with 'protected' is a common and expensive mistake, because an evenly overloaded fleet is still an overloaded fleet."
         },
         {
+          "id": "lb-4-6",
           "type": "multiple_choice",
           "prompt": "Users report intermittent errors during every deploy. You use round robin, no draining, and health checks every 30 seconds. What's the most likely cause?",
           "choices": [
@@ -309,6 +381,7 @@
           "why": "Two gaps compound: no draining means in-flight requests die with the process, and a 30-second interval means the balancer keeps confidently routing to a dead machine until its next probe. The interval is a tradeoff you're making whether you notice or not — probe often and you spend requests while risking eviction on a blip; probe rarely and you feed traffic to corpses. Draining is what makes the interval mostly stop mattering, because the machine leaves on purpose instead of being discovered missing."
         },
         {
+          "id": "lb-4-7",
           "type": "multiple_choice",
           "prompt": "What's the honest summary of load balancing?",
           "choices": [

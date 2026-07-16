@@ -15,6 +15,7 @@
       "title": "Saying no on purpose",
       "exercises": [
         {
+          "id": "rl-1-1",
           "type": "multiple_choice",
           "prompt": "Your API can serve 1,000 requests/second. One client starts sending 50,000/second. With no limit, what happens?",
           "choices": [
@@ -27,13 +28,20 @@
           "why": "Without a limit there's no such thing as 'that client's problem' — the flood consumes shared capacity, so unit 4's queueing arrives and everybody's latency explodes together. The blast radius is what makes this urgent: one misbehaving script degrades every well-behaved customer you have, and none of them did anything wrong."
         },
         {
+          "id": "rl-1-2",
           "type": "fill_blank",
           "prompt": "______ limiting caps how many requests a client may make in a given period.",
-          "choices": ["Rate", "Load", "Bandwidth", "Session"],
+          "choices": [
+            "Rate",
+            "Load",
+            "Bandwidth",
+            "Session"
+          ],
           "answer": 0,
           "why": "You define a budget per client per period, and requests beyond it are refused rather than served — which is what stops one caller consuming everyone's capacity."
         },
         {
+          "id": "rl-1-3",
           "type": "multiple_choice",
           "prompt": "Why is rejecting a request instantly better than accepting it and being slow?",
           "choices": [
@@ -46,13 +54,20 @@
           "why": "An overloaded system that keeps accepting work does the work badly and then times out, having spent the resources and delivered nothing — you paid full price for a failure. Rejecting early spends microseconds and protects the requests you can still serve, which is why load shedding is a feature rather than an admission of defeat: a system that refuses 10% cleanly beats one that fails 100% slowly."
         },
         {
+          "id": "rl-1-4",
           "type": "multiple_choice",
           "prompt": "Which status code says 'you're over your limit'?",
-          "choices": ["`503 Service Unavailable`", "`429 Too Many Requests`", "`403 Forbidden`", "`500 Internal Server Error`"],
+          "choices": [
+            "`503 Service Unavailable`",
+            "`429 Too Many Requests`",
+            "`403 Forbidden`",
+            "`500 Internal Server Error`"
+          ],
           "answer": 1,
           "why": "429 is the specific, machine-readable signal that the request was fine but you've sent too many — and it matters that it's distinct from 503, because 429 tells the client the fix is to slow down while 503 says the service itself is unwell. Pair it with a `Retry-After` header and a well-behaved client knows exactly how long to wait rather than guessing."
         },
         {
+          "id": "rl-1-5",
           "type": "multi_select",
           "prompt": "What does rate limiting protect you from? Select all.",
           "choices": [
@@ -61,10 +76,15 @@
             "Deliberate abuse and scraping",
             "A slow database query"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "Runaway loops, noisy neighbours, and abuse are all the same shape — too many requests from one source — and a limit is the tool for exactly that shape. A slow query is a different problem entirely: it's one request doing too much work, which limits won't touch. In practice the accidental cases dominate: most floods are somebody's retry loop, not an attacker."
         },
         {
+          "id": "rl-1-6",
           "type": "multiple_choice",
           "prompt": "Your limit is 100 requests/minute per user. A user hits 101. What should you NOT do?",
           "choices": [
@@ -83,6 +103,7 @@
       "title": "How to count",
       "exercises": [
         {
+          "id": "rl-2-1",
           "type": "multiple_choice",
           "prompt": "Simplest approach: count requests per user per minute, reset to zero at the top of each minute. Limit is 100. What can a client do?",
           "choices": [
@@ -95,17 +116,31 @@
           "why": "A fixed window counts within a bucket and doesn't care where in the bucket the requests land, so traffic at a boundary lets a client legally sustain double the rate across it. That's the fixed-window boundary problem, and it's why the simplest counter can permit exactly the burst you were trying to prevent — the rule was honoured and the intent wasn't."
         },
         {
+          "id": "rl-2-2",
           "type": "match_pairs",
           "prompt": "Match each algorithm to how it behaves.",
           "pairs": [
-            { "left": "Fixed window", "right": "Simple counter per period — allows 2× bursts at boundaries" },
-            { "left": "Sliding window", "right": "Counts the last 60 seconds continuously — no boundary trick" },
-            { "left": "Token bucket", "right": "Tokens refill steadily; spend them in bursts if you've saved up" },
-            { "left": "Leaky bucket", "right": "Drains at a fixed rate — smooths output completely" }
+            {
+              "left": "Fixed window",
+              "right": "Simple counter per period — allows 2× bursts at boundaries"
+            },
+            {
+              "left": "Sliding window",
+              "right": "Counts the last 60 seconds continuously — no boundary trick"
+            },
+            {
+              "left": "Token bucket",
+              "right": "Tokens refill steadily; spend them in bursts if you've saved up"
+            },
+            {
+              "left": "Leaky bucket",
+              "right": "Drains at a fixed rate — smooths output completely"
+            }
           ],
           "why": "They differ mainly in how they treat bursts: fixed window permits them accidentally, sliding window forbids them, token bucket permits them deliberately up to the bucket size, and leaky bucket refuses to emit them at all. Choosing between them is really deciding how much burstiness you want to tolerate."
         },
         {
+          "id": "rl-2-3",
           "type": "multiple_choice",
           "prompt": "Token bucket: tokens refill at 10/second, bucket holds 100. A client idle for a minute suddenly needs 80 requests at once. What happens?",
           "choices": [
@@ -118,6 +153,7 @@
           "why": "Unused capacity accumulates as tokens up to the bucket's size, so an idle client can spend that saving in one burst and then falls back to the refill rate. This is why token bucket is so popular for APIs: it matches how real clients behave — mostly quiet, occasionally busy — and the bucket size lets you say exactly how big a burst you'll forgive while the refill rate still caps the long-run average."
         },
         {
+          "id": "rl-2-4",
           "type": "multiple_choice",
           "prompt": "When would you choose leaky bucket over token bucket?",
           "choices": [
@@ -130,6 +166,7 @@
           "why": "Leaky bucket emits at a constant rate no matter how spiky the arrivals, which is what you want when the downstream is fragile — a legacy system or a device that falls over on a spike. You're trading responsiveness for smoothness: a burst that token bucket would pass instantly gets stretched out instead, so callers wait even when capacity was momentarily free."
         },
         {
+          "id": "rl-2-5",
           "type": "multiple_choice",
           "prompt": "Why is a true sliding window log — storing a timestamp for every request — often impractical?",
           "choices": [
@@ -142,6 +179,7 @@
           "why": "Keeping every timestamp gives a perfectly precise window, and it makes your memory bill scale with traffic — at millions of requests a second you're storing millions of timestamps just to count. Which is why the common compromise is a sliding window counter that approximates by weighting the previous window: it's slightly wrong at the edges, and it's a fixed small cost per client rather than a growing one."
         },
         {
+          "id": "rl-2-6",
           "type": "multiple_choice",
           "prompt": "So which algorithm should you reach for by default on a public API?",
           "choices": [
@@ -160,6 +198,7 @@
       "title": "Where the counter lives",
       "exercises": [
         {
+          "id": "rl-3-1",
           "type": "multiple_choice",
           "prompt": "You run 10 servers. Each keeps its own in-memory counter with a limit of 100/minute per user. What's the client's real limit?",
           "choices": [
@@ -172,6 +211,7 @@
           "why": "A local counter can only count local traffic, so with N servers your effective limit is roughly N × the configured value — you wrote 100 and shipped 1,000. This is unit 5's lesson arriving again: the counter is state, and state kept locally on interchangeable machines means each machine holds a different fragment of the truth."
         },
         {
+          "id": "rl-3-2",
           "type": "multiple_choice",
           "prompt": "So you move the counter to a shared store like Redis. What did that cost you?",
           "choices": [
@@ -184,6 +224,7 @@
           "why": "Exactness requires one place to count, and one place means a network hop in front of every request plus a component whose failure is now your failure. That last decision deserves thought before the incident: fail-open lets a flood through when Redis dies, fail-closed takes your API down to protect it — and 'we never decided' means you'll discover your default at 3am."
         },
         {
+          "id": "rl-3-3",
           "type": "multiple_choice",
           "prompt": "Why do many real systems combine a local counter with a shared one?",
           "choices": [
@@ -196,14 +237,19 @@
           "why": "A client sending 50,000/second doesn't need precise accounting — the local counter can reject it instantly for free, so the flood never reaches Redis at all. The shared store then handles the borderline cases where precision actually matters, which is a nice general pattern: put a cheap approximate filter in front of an expensive exact one, and the expensive one only sees what's worth being exact about."
         },
         {
+          "id": "rl-3-4",
           "type": "tradeoff_slider",
           "prompt": "You're rate-limiting a free tier where the limit is generous and being slightly over costs you nothing. Slide toward where the counter lives.",
           "leftLabel": "Local per-server (fast, approximate)",
           "rightLabel": "Shared store (exact, adds a hop)",
-          "answerRange": [0, 40],
+          "answerRange": [
+            0,
+            40
+          ],
           "why": "If a user occasionally getting 3× a generous free limit costs you nothing, paying a Redis round trip on every request to prevent it is a bad trade — you've added latency and a failure mode to enforce a number that was arbitrary anyway. Contrast a paid quota that maps to real money, where exactness is the product and the hop is worth it. The counter's home follows the cost of being wrong."
         },
         {
+          "id": "rl-3-5",
           "type": "multiple_choice",
           "prompt": "Where should the rate limiter sit in your stack?",
           "choices": [
@@ -216,6 +262,7 @@
           "why": "The value of a rejection is proportional to how little it cost you, so a limiter that runs after you've parsed a body, authenticated, and hit the database has already spent everything you were trying to save. Push it to the edge and a 429 costs a lookup and a header. Client-side limiting is a courtesy, not a control — anything the client enforces, a hostile or broken client simply won't."
         },
         {
+          "id": "rl-3-6",
           "type": "multiple_choice",
           "prompt": "What should you limit on — what's the key?",
           "choices": [
@@ -234,6 +281,7 @@
       "title": "The hard parts",
       "exercises": [
         {
+          "id": "rl-4-1",
           "type": "multiple_choice",
           "prompt": "You start returning 429s. Clients retry immediately on every 429. What happens?",
           "choices": [
@@ -246,6 +294,7 @@
           "why": "Rejecting is cheap but not free, and a client that retries the instant it's refused converts your limit into a busy-loop generator — you're spending real capacity manufacturing 429s. That's why `Retry-After` and backoff matter: the limit only works if the answer changes the client's behaviour, otherwise you've just made refusing people your main workload."
         },
         {
+          "id": "rl-4-2",
           "type": "multiple_choice",
           "prompt": "A thousand clients all get rate-limited at 10:00:00 and all obey '`Retry-After`: 60'. What happens at 10:01:00?",
           "choices": [
@@ -258,6 +307,7 @@
           "why": "Telling everyone the same number makes them agree on the same moment, so obedience produces a spike — the clients did exactly what you asked and that's what hurt you. The fix is jitter: randomize the wait so retries spread across an interval instead of stacking on a boundary. Any time you give many clients an identical instruction about time, you're scheduling a stampede."
         },
         {
+          "id": "rl-4-3",
           "type": "multi_select",
           "prompt": "Which make a rate limit friendlier to legitimate clients? Select all.",
           "choices": [
@@ -266,10 +316,15 @@
             "Allowing a burst above the sustained rate",
             "Rejecting silently to save bandwidth"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "`Retry-After`, quota headers, and a burst allowance all let a well-built client self-regulate before it ever gets refused — which is what you actually want, since a client that never trips the limit costs you nothing. Silence does the reverse: it forces clients to discover your limit by hitting it, which means guessing, and guessing means retry storms."
         },
         {
+          "id": "rl-4-4",
           "type": "multiple_choice",
           "prompt": "Your limits are per-endpoint at 1,000/minute each. A client calls 20 endpoints. What did you actually authorize?",
           "choices": [
@@ -282,6 +337,7 @@
           "why": "Limits compose by adding up, so a set of individually reasonable per-endpoint budgets can sum to something absurd — you bounded each door and left the building open. If total load is what you care about, you need a limit on the total, and per-endpoint caps then exist for a different purpose: protecting one expensive endpoint from consuming the budget that cheap ones could have shared."
         },
         {
+          "id": "rl-4-5",
           "type": "multiple_choice",
           "prompt": "One endpoint runs a 30-second report; another returns a cached string in 2ms. Should they share one 'requests per minute' limit?",
           "choices": [
@@ -294,6 +350,7 @@
           "why": "A request-count limit is a proxy for load, and it's a good proxy only while requests cost roughly the same — the moment they don't, the number stops describing anything real. A client burning your fleet on reports looks identical to one fetching cached strings. Either weight requests by cost (charging more tokens for expensive ones) or give the expensive endpoint its own much lower limit."
         },
         {
+          "id": "rl-4-6",
           "type": "multiple_choice",
           "prompt": "A customer complains your limits are 'hostile'. What's the honest counter-argument?",
           "choices": [
@@ -306,6 +363,7 @@
           "why": "A limit isn't a restriction on a good client so much as a guarantee to them — it's the mechanism ensuring nobody else's mistake becomes their outage. That's genuinely true and worth saying plainly, provided your limits are actually set to protect capacity rather than to sell upgrades. Which is the real design question: is this number derived from what you can serve, or from what you'd like to charge?"
         },
         {
+          "id": "rl-4-7",
           "type": "multiple_choice",
           "prompt": "What's the honest summary of rate limiting?",
           "choices": [

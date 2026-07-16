@@ -15,6 +15,7 @@
       "title": "Specifying it",
       "exercises": [
         {
+          "id": "drl-1-1",
           "type": "multiple_choice",
           "prompt": "'Build a rate limiter for our API.' What must you pin down before designing anything?",
           "choices": [
@@ -27,6 +28,7 @@
           "why": "Those four answers determine the whole design, and the fourth is the one people skip: 'exactly 100, never 101' and 'roughly 100' are different systems with different costs. Unit 17 gave you the algorithms; this unit is about the fact that the limiter is now a service that must survive your entire traffic volume."
         },
         {
+          "id": "drl-1-2",
           "type": "multiple_choice",
           "prompt": "What makes a rate limiter unusual compared to every system so far?",
           "choices": [
@@ -39,6 +41,7 @@
           "why": "Every other component in this course served a slice of traffic; the limiter serves all of it, and it runs before you've decided whether the request is even worth serving. That inverts the usual reasoning — a protective component that fails takes down the thing it protects, so its own availability budget must exceed its dependents'."
         },
         {
+          "id": "drl-1-3",
           "type": "estimate",
           "prompt": "Your API handles 500,000 requests/second. How many rate limit checks per second must the limiter perform?",
           "answer": 500000,
@@ -47,6 +50,7 @@
           "why": "Every request is checked, so the limiter's load is exactly your total traffic — 500,000/sec, with no cache to soften it and no way to sample. That number is why the naive 'just use Redis' answer needs examining: it means half a million round trips per second to one store."
         },
         {
+          "id": "drl-1-4",
           "type": "multiple_choice",
           "prompt": "Each check is a read and a write to a counter. Why can't you just add read replicas?",
           "choices": [
@@ -59,6 +63,7 @@
           "why": "A limiter check is fundamentally a read-modify-write, so unit 10's rule bites: replicas can't help because a stale read defeats the entire purpose. This is the same asymmetry as the write bottleneck in unit 15 — the only real options are to shard the counters or to stop being exact."
         },
         {
+          "id": "drl-1-5",
           "type": "multiple_choice",
           "prompt": "What should happen when a request is rejected?",
           "choices": [
@@ -71,6 +76,7 @@
           "why": "The limiter's job isn't only to refuse, it's to teach clients to stop asking — a client that can read its remaining quota never trips the limit at all, which costs you nothing. Queueing is the wrong instinct entirely: holding a rejected request consumes exactly the resources you were trying to protect."
         },
         {
+          "id": "drl-1-6",
           "type": "multiple_choice",
           "prompt": "Spec so far: token bucket, 1,000 requests/minute per API key, 429 on breach. What's still missing?",
           "choices": [
@@ -89,6 +95,7 @@
       "title": "The counter store",
       "exercises": [
         {
+          "id": "drl-2-1",
           "type": "multiple_choice",
           "prompt": "Your limiter runs on 50 API servers, each keeping counters in local memory. What's the actual limit a client experiences?",
           "choices": [
@@ -101,14 +108,24 @@
           "why": "This is unit 17's multiplication and unit 5's diagnosis: the counter is state, and state kept locally on interchangeable machines means each holds a fragment of the truth. Notice it fails silently — nothing errors, your dashboard shows limits being enforced, and clients quietly get 50× what you promised."
         },
         {
+          "id": "drl-2-2",
           "type": "build_diagram",
           "prompt": "You need one shared count across all 50 API servers. Add the piece.",
-          "slots": ["API Servers ×50", "?", "Backend Services"],
-          "palette": ["Redis (shared counters)", "A read replica", "A message queue"],
+          "slots": [
+            "API Servers ×50",
+            "?",
+            "Backend Services"
+          ],
+          "palette": [
+            "Redis (shared counters)",
+            "A read replica",
+            "A message queue"
+          ],
           "answer": "Redis (shared counters)",
           "why": "One shared, fast, atomic store is the only way 50 servers can agree on a count — and Redis fits because the operation is a single-key increment, which unit 7 identified as the cleanest key-value case there is. A replica can't help (stale reads defeat the check) and a queue is asynchronous, which is useless when you must decide right now."
         },
         {
+          "id": "drl-2-3",
           "type": "multiple_choice",
           "prompt": "Your code does: GET count, check it's under the limit, `INCR`, allow. What's the bug?",
           "choices": [
@@ -121,6 +138,7 @@
           "why": "This is unit 6's race living inside the mechanism meant to enforce limits, and it looks perfectly correct until traffic is concurrent — which is the only condition a rate limiter ever operates under. The check and the increment must be one atomic operation, or the limit is decorative at exactly the moment it matters."
         },
         {
+          "id": "drl-2-4",
           "type": "multiple_choice",
           "prompt": "So how do you make the check atomic?",
           "choices": [
@@ -133,6 +151,7 @@
           "why": "Push the decision to where the data lives so there's no window between reading and acting — an atomic increment returns the new count, and you compare against the limit afterwards. A transaction per request at 500,000/sec would be absurd overhead, and taking a lock adds another round trip plus a lock to clean up when a client dies holding it."
         },
         {
+          "id": "drl-2-5",
           "type": "multiple_choice",
           "prompt": "500,000 checks/sec is too much for one Redis instance. What do you do?",
           "choices": [
@@ -145,6 +164,7 @@
           "why": "Unit 15 applies cleanly here because the workload is perfectly partitionable: a client's counter is only ever touched by that client's requests, so different keys never need to meet. And the shard key picks itself — it's the same key you're limiting on, which is exactly unit 15's rule about sharding by what your hot query filters on."
         },
         {
+          "id": "drl-2-6",
           "type": "multiple_choice",
           "prompt": "A single enormous customer sends 200,000 requests/second by themselves. What breaks?",
           "choices": [
@@ -163,6 +183,7 @@
       "title": "When exactness costs too much",
       "exercises": [
         {
+          "id": "drl-3-1",
           "type": "multiple_choice",
           "prompt": "Every check is a Redis round trip — say 0.5ms. What have you added to every single API request?",
           "choices": [
@@ -175,6 +196,7 @@
           "why": "Exactness is bought with a round trip you pay universally, and unit 4's ladder says that hop costs roughly 5,000 RAM reads — so you've made every request meaningfully slower to catch the rare one that's over. Whether that's worth it depends entirely on what being wrong costs, which is the question this whole lesson turns on."
         },
         {
+          "id": "drl-3-2",
           "type": "multiple_choice",
           "prompt": "So how do you get most of the protection without paying that hop on every request?",
           "choices": [
@@ -187,14 +209,19 @@
           "why": "A client sending 50,000/sec doesn't need precise accounting to be refused, so the local check kills the flood for free and the expensive path only sees traffic where precision changes the answer. That's a broadly reusable shape — a cheap approximate filter in front of an expensive exact one — and it's what unit 5's rate-limit slider was pointing at."
         },
         {
+          "id": "drl-3-3",
           "type": "tradeoff_slider",
           "prompt": "You're limiting a paid API where every request over the plan is billable revenue. Slide toward your design.",
           "leftLabel": "Local approximate (fast, can overshoot)",
           "rightLabel": "Shared exact (precise, hop per request)",
-          "answerRange": [60, 100],
+          "answerRange": [
+            60,
+            100
+          ],
           "why": "When the limit IS the billing boundary, overshooting means giving away product or overcharging a customer — both are real money and one is a support incident. That justifies the round trip, exactly as unit 5 argued. Run the same question on a generous free tier and you'd slide the other way, because there the only cost of overshoot is a bit of capacity nobody missed."
         },
         {
+          "id": "drl-3-4",
           "type": "multiple_choice",
           "prompt": "Redis goes down. Your limiter can't check anything. What should happen?",
           "choices": [
@@ -207,6 +234,7 @@
           "why": "There's no universal answer because the two failures are asymmetric in ways that depend on the limit's purpose — failing closed on a courtesy limit turns a Redis blip into a full outage, while failing open on an abuse control invites exactly the flood you built it for. Retrying is the worst option: you add latency to every request during an incident and still have to decide."
         },
         {
+          "id": "drl-3-5",
           "type": "multiple_choice",
           "prompt": "You run in three regions. A client's limit is 1,000/minute globally. Should the counter be global?",
           "choices": [
@@ -219,6 +247,7 @@
           "why": "A truly global counter needs cross-region coordination on every request, which is unit 20's warning and unit 4's physics — you'd add 100ms+ to every call to enforce a number to the digit. Splitting the budget per region keeps the check local, and the imprecision runs the opposite way from what you'd guess: give each of 3 regions 333/min, and a client sending all 900 of their requests to one region gets cut off at 333 while their budget in the other two sits unused. Lopsided traffic under-serves rather than over-serves, and the total can never exceed 1,000. Real systems soften that by letting regions borrow unused budget or rebalancing shares from observed demand. You'd only exceed the global limit the other way around — if each region enforced the full 1,000 and the traffic were evenly spread, a client could get 3,000."
         },
         {
+          "id": "drl-3-6",
           "type": "multiple_choice",
           "prompt": "What's the honest way to describe a per-region split to a customer?",
           "choices": [
@@ -237,6 +266,7 @@
       "title": "The edges",
       "exercises": [
         {
+          "id": "drl-4-1",
           "type": "multiple_choice",
           "prompt": "Your limiter counts requests. One endpoint runs a 30-second report; another returns a cached string. What's wrong?",
           "choices": [
@@ -249,6 +279,7 @@
           "why": "Counting requests is only meaningful while requests are roughly interchangeable, which is exactly unit 17's warning and unit 12's round-robin problem in a different costume. The fix is to charge by cost — expensive endpoints deduct more tokens — so the budget tracks the resource you're actually protecting rather than a number that happens to be easy to count."
         },
         {
+          "id": "drl-4-2",
           "type": "multi_select",
           "prompt": "Your limiter is the front door for everything. Which properties does it need? Select all.",
           "choices": [
@@ -257,10 +288,15 @@
             "A defined behaviour when its own dependencies fail",
             "Strong durability of the counters"
           ],
-          "answer": [0, 1, 2],
+          "answer": [
+            0,
+            1,
+            2
+          ],
           "why": "It must be more available than what it protects, fast enough to disappear into the request, and explicit about its own failure — those follow from sitting in front of 100% of traffic. Durability is the one it doesn't need: losing counters means a brief window of unlimited traffic, and counters rebuild within a window, so it's derived state in unit 5's sense."
         },
         {
+          "id": "drl-4-3",
           "type": "multiple_choice",
           "prompt": "Where should the limiter run?",
           "choices": [
@@ -273,6 +309,7 @@
           "why": "A rejection that happens after you've parsed a body, authenticated, and queried the database has already spent everything you were trying to save. The awkward part is that limiting by API key needs identity, so you want authentication early too — which is why gateways typically do both, cheaply, before any real work begins."
         },
         {
+          "id": "drl-4-4",
           "type": "multiple_choice",
           "prompt": "10,000 clients get limited at once and all obey `Retry-After`: 60. What have you built?",
           "choices": [
@@ -285,6 +322,7 @@
           "why": "Giving many clients an identical instruction about time schedules a thundering herd, and the clients did exactly what you asked — this is unit 17's trap and it's the same shape as unit 20's split votes. Jitter the value you hand out so retries spread across an interval, because any time you make clients agree on a moment, you've built a stampede."
         },
         {
+          "id": "drl-4-5",
           "type": "multiple_choice",
           "prompt": "A single client's limit is enforced correctly — but 10,000 clients each at their limit still overwhelm you. What's missing?",
           "choices": [
@@ -297,6 +335,7 @@
           "why": "Per-client limits answer 'is this client being unfair?' and say nothing about 'can we serve this much in total' — every client can be perfectly compliant while the sum exceeds your fleet. That's unit 17's composition problem at the top level, and it's why real front doors have both: fairness limits per client, and a global shed valve that doesn't care whose request it is."
         },
         {
+          "id": "drl-4-6",
           "type": "multiple_choice",
           "prompt": "Summarize the rate limiter design.",
           "choices": [

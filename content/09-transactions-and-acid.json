@@ -15,6 +15,7 @@
       "title": "All or nothing",
       "exercises": [
         {
+          "id": "txn-1-1",
           "type": "multiple_choice",
           "prompt": "Transfer $100: subtract from account A, then add to account B. The server crashes between the two steps. What happened?",
           "choices": [
@@ -27,13 +28,20 @@
           "why": "Two writes that must both happen or neither — crash in the middle and you've destroyed money, with no error, and no way for either account to know. This is the canonical example for a reason: it's the clearest case where *half done* is strictly worse than *not done at all*. A failed transfer is an inconvenience; a half transfer is a corrupted ledger, and nobody can tell by looking at it."
         },
         {
+          "id": "txn-1-2",
           "type": "fill_blank",
           "prompt": "A ______ groups multiple operations so they all succeed together or all fail together.",
-          "choices": ["transaction", "migration", "query", "connection"],
+          "choices": [
+            "transaction",
+            "migration",
+            "query",
+            "connection"
+          ],
           "answer": 0,
           "why": "A transaction turns many operations into one indivisible unit — the database's answer to 'half done'."
         },
         {
+          "id": "txn-1-3",
           "type": "multiple_choice",
           "prompt": "What does `COMMIT` actually mean?",
           "choices": [
@@ -46,6 +54,7 @@
           "why": "`COMMIT` applies your whole transaction as one unit: either the whole thing takes effect, or none of it does. `ROLLBACK` is the opposite — discard everything since `BEGIN`, as though it never happened."
         },
         {
+          "id": "txn-1-4",
           "type": "multiple_choice",
           "prompt": "You're 5 of 10 writes into a transaction when it hits an error and rolls back. What happens to those 5 writes?",
           "choices": [
@@ -58,6 +67,7 @@
           "why": "That's atomicity: the transaction is indivisible, so a failure anywhere undoes everything since `BEGIN` and you can never be left with a half-finished transfer sitting in the data. Be careful with a related-but-different question: could OTHER transactions have seen those 5 writes before you committed? That is NOT atomicity — it's isolation, and the answer depends on the isolation level you're running (at Read Uncommitted they genuinely could — a *dirty read*). Atomicity is only about whether you can be left half-done; lesson 3 takes isolation apart properly."
         },
         {
+          "id": "txn-1-5",
           "type": "order_steps",
           "prompt": "Order the life of a transaction.",
           "steps": [
@@ -70,6 +80,7 @@
           "why": "Open it, do the work, commit — and only at `COMMIT` do all the changes take effect, as one unit, with anything before that point still undoable. If anything fails between `BEGIN` and `COMMIT` — an error, a crash, a `ROLLBACK` — the database rewinds to the state at `BEGIN`, and that rewind is exactly what the write-ahead log from unit 6 makes possible."
         },
         {
+          "id": "txn-1-6",
           "type": "multiple_choice",
           "prompt": "Why is a transaction the right tool for a bank transfer, but overkill for logging one analytics event?",
           "choices": [
@@ -88,17 +99,31 @@
       "title": "ACID, honestly",
       "exercises": [
         {
+          "id": "txn-2-1",
           "type": "match_pairs",
           "prompt": "Match each letter of ACID to what it promises.",
           "pairs": [
-            { "left": "Atomicity", "right": "All or nothing" },
-            { "left": "Consistency", "right": "Your declared rules are never violated" },
-            { "left": "Isolation", "right": "Concurrent transactions don't corrupt each other" },
-            { "left": "Durability", "right": "Committed means it survives a crash" }
+            {
+              "left": "Atomicity",
+              "right": "All or nothing"
+            },
+            {
+              "left": "Consistency",
+              "right": "Your declared rules are never violated"
+            },
+            {
+              "left": "Isolation",
+              "right": "Concurrent transactions don't corrupt each other"
+            },
+            {
+              "left": "Durability",
+              "right": "Committed means it survives a crash"
+            }
           ],
           "why": "Four promises: indivisible, rule-abiding, non-interfering, and permanent. They're not equally interesting, which the acronym hides — two are essentially on/off, one is barely the database's doing, and one is a dial you're probably turning without realising. The rest of this lesson sorts out which is which."
         },
         {
+          "id": "txn-2-2",
           "type": "multiple_choice",
           "prompt": "Durability: you commit, and a microsecond later the power dies. Your data?",
           "choices": [
@@ -111,6 +136,7 @@
           "why": "That's the D, and it's the promise you met in unit 6: the write-ahead log is forced to disk before `COMMIT` returns. Which is why `COMMIT` isn't instant — it's waiting on physics, and every 'why are my writes slow?' question eventually arrives here: you asked for a guarantee that requires the disk to confirm."
         },
         {
+          "id": "txn-2-3",
           "type": "multiple_choice",
           "prompt": "Which letter of ACID is really about YOUR rules rather than the database's own machinery?",
           "choices": [
@@ -123,6 +149,7 @@
           "why": "A, I, and D are properties the engine provides; C only says the database won't let you violate the constraints you defined — so if you declared no constraints, C promises approximately nothing. Plenty of practitioners argue the C is a bit of a cheat, since it's really 'the database enforces your declared invariants', which is just... constraints. And watch out: the C in CAP means something completely different, a collision of names that has confused engineers for twenty years."
         },
         {
+          "id": "txn-2-4",
           "type": "multiple_choice",
           "prompt": "Which ACID property do you actually have to make decisions about?",
           "choices": [
@@ -135,6 +162,7 @@
           "why": "Atomicity and durability are essentially on or off — you get them — while isolation is a spectrum you configure, and the setting decides which concurrency bugs remain possible. Here's the uncomfortable part: most engineers cannot tell you what isolation level their production database runs at, so they're relying on guarantees they've never looked up — and the defaults are not the strongest ones."
         },
         {
+          "id": "txn-2-5",
           "type": "multi_select",
           "prompt": "Which of these statements are TRUE? Select all.",
           "choices": [
@@ -143,10 +171,15 @@
             "Isolation is a single fixed guarantee every database provides identically",
             "The C in ACID means something different from the C in CAP"
           ],
-          "answer": [0, 1, 3],
+          "answer": [
+            0,
+            1,
+            3
+          ],
           "why": "Isolation is the odd one — it's configurable, and databases differ in both their defaults and what their level names actually mean. That last point is a genuine trap: two databases can both say 'Repeatable Read' and give you materially different guarantees, so the label is not the specification."
         },
         {
+          "id": "txn-2-6",
           "type": "multiple_choice",
           "prompt": "A colleague says 'we use Postgres, so we're ACID — concurrency bugs are impossible.' What's wrong?",
           "choices": [
@@ -165,6 +198,7 @@
       "title": "Isolation is a dial",
       "exercises": [
         {
+          "id": "txn-3-1",
           "type": "multiple_choice",
           "prompt": "Why don't databases just always use the strictest isolation?",
           "choices": [
@@ -177,17 +211,31 @@
           "why": "Isolation is bought with throughput: the stricter you go, the more the database must coordinate or abort, so it lets you pick your point on the curve. And the defaults are NOT the strictest — Postgres defaults to Read Committed, MySQL's InnoDB to Repeatable Read, neither of which is serializable. So unless you changed it deliberately, you are running with known anomalies permitted, right now, in production."
         },
         {
+          "id": "txn-3-2",
           "type": "match_pairs",
           "prompt": "Match each concurrency anomaly to what goes wrong.",
           "pairs": [
-            { "left": "Dirty read", "right": "You read data another transaction hasn't committed" },
-            { "left": "Non-repeatable read", "right": "You read the same row twice and get different values" },
-            { "left": "Phantom read", "right": "You re-run a range query and new rows appear" },
-            { "left": "Lost update", "right": "Two read-modify-writes; one is silently overwritten" }
+            {
+              "left": "Dirty read",
+              "right": "You read data another transaction hasn't committed"
+            },
+            {
+              "left": "Non-repeatable read",
+              "right": "You read the same row twice and get different values"
+            },
+            {
+              "left": "Phantom read",
+              "right": "You re-run a range query and new rows appear"
+            },
+            {
+              "left": "Lost update",
+              "right": "Two read-modify-writes; one is silently overwritten"
+            }
           ],
           "why": "Each isolation level is defined by which of these it forbids, so knowing the anomalies is how you read the levels. You already met lost update in unit 6 — the counter that went from 10 to 11 instead of 12 — and it wasn't a database bug: it was an isolation level doing exactly what it promised, which was less than you assumed."
         },
         {
+          "id": "txn-3-3",
           "type": "order_steps",
           "prompt": "Order the isolation levels from weakest to strongest.",
           "steps": [
@@ -199,6 +247,7 @@
           "why": "Each rung forbids more anomalies and costs more coordination: Read Uncommitted allows dirty reads, Read Committed stops them, Repeatable Read stops non-repeatable reads, and Serializable stops everything. Read Uncommitted is almost never worth using — you get dirty reads for a performance win modern engines barely deliver — so the real decision in practice is between the other three."
         },
         {
+          "id": "txn-3-4",
           "type": "multiple_choice",
           "prompt": "What does Serializable actually guarantee?",
           "choices": [
@@ -211,6 +260,7 @@
           "why": "It's a promise about the outcome rather than the schedule: the database may run everything concurrently, as long as the final state matches SOME serial order. That 'as if' does enormous work — the engine may let transactions run in parallel and then ABORT one when it spots a conflict that couldn't have arisen serially, which means under Serializable your transaction can fail through no fault of its own and your code must be ready to retry. Correctness didn't become free; it moved into your error handling."
         },
         {
+          "id": "txn-3-5",
           "type": "multiple_choice",
           "prompt": "Two doctors are on call. Each opens a transaction, checks 'is at least one OTHER doctor on call?', sees yes, and books themselves off. Both commit. Now nobody is on call — though each transaction was individually valid. What is this?",
           "choices": [
@@ -223,6 +273,7 @@
           "why": "No two transactions touched the same row, so most isolation levels see no conflict at all — yet together they broke an invariant that neither broke alone. This is the anomaly that snapshot isolation (which is what Postgres's 'Repeatable Read' actually is) still permits, and that Serializable prevents. It's subtle precisely BECAUSE nothing overlapped: the bug lives in a rule spanning rows rather than in any single row, so if your correctness depends on an invariant across multiple rows, Read Committed and Repeatable Read will not save you."
         },
         {
+          "id": "txn-3-6",
           "type": "multiple_choice",
           "prompt": "Your correctness depends on an invariant spanning multiple rows that must never break. What do you do?",
           "choices": [
@@ -241,6 +292,7 @@
       "title": "Transactions in the real world",
       "exercises": [
         {
+          "id": "txn-4-1",
           "type": "multiple_choice",
           "prompt": "Transaction 1 locks row A and then wants row B. Transaction 2 locks row B and then wants row A. What happens?",
           "choices": [
@@ -253,6 +305,7 @@
           "why": "Each holds what the other needs, and real databases detect the cycle and abort a victim rather than hanging forever — so one transaction gets an error out of nowhere. The classic prevention is to always acquire locks in a consistent order (e.g. always lock the lower account id first) so a cycle can't form. Deadlocks aren't a database defect; they're an emergent property of concurrent code, and your app must be prepared to retry."
         },
         {
+          "id": "txn-4-2",
           "type": "multiple_choice",
           "prompt": "You open a transaction and hold it for 10 minutes while calling an external payment API inside it. What's the damage?",
           "choices": [
@@ -265,17 +318,31 @@
           "why": "A held transaction holds locks and pins old versions of rows, so everyone who needs those rows queues behind you — for as long as a third party takes to answer. The rule: never do network I/O inside a transaction. This is one of the most common real production outages there is — the slow API call holds locks, waiting transactions pile up (unit 4's queueing), the connection pool exhausts, and a payments hiccup becomes a total site outage. Do the I/O first, then open a short transaction to record the result."
         },
         {
+          "id": "txn-4-3",
           "type": "match_pairs",
           "prompt": "Match each concurrency strategy to what it is.",
           "pairs": [
-            { "left": "Pessimistic locking", "right": "Lock up front — assume conflict is likely" },
-            { "left": "Optimistic concurrency", "right": "Proceed, detect conflict at commit, retry" },
-            { "left": "Version number check", "right": "How optimistic concurrency spots a conflict" },
-            { "left": "Deadlock", "right": "Two transactions each holding what the other wants" }
+            {
+              "left": "Pessimistic locking",
+              "right": "Lock up front — assume conflict is likely"
+            },
+            {
+              "left": "Optimistic concurrency",
+              "right": "Proceed, detect conflict at commit, retry"
+            },
+            {
+              "left": "Version number check",
+              "right": "How optimistic concurrency spots a conflict"
+            },
+            {
+              "left": "Deadlock",
+              "right": "Two transactions each holding what the other wants"
+            }
           ],
           "why": "Two philosophies: prevent conflicts by excluding others, or allow them and detect collisions at the end. Optimistic concurrency is usually a version column — read version 7, write only if it's still 7; if someone else got there first it's now 8, your update matches nothing, and you retry. It's just compare-and-set, applied to a row."
         },
         {
+          "id": "txn-4-4",
           "type": "multiple_choice",
           "prompt": "Your workload has rare conflicts — users almost never edit the same row simultaneously. Which strategy usually wins?",
           "choices": [
@@ -288,6 +355,7 @@
           "why": "If collisions are rare, locking everyone up front taxes the 99% of transactions that would never have conflicted — let them run and pay only when you actually collide. The inverse matters just as much: under HIGH contention, optimistic degenerates as everyone retries, collides again, and you burn capacity making no progress, so pessimistic is calmer there. Choose from how often you actually collide, not from which sounds more sophisticated."
         },
         {
+          "id": "txn-4-5",
           "type": "multiple_choice",
           "prompt": "You must charge a credit card (an external service) AND create an order (your database) atomically. Can a database transaction do this?",
           "choices": [
@@ -300,14 +368,19 @@
           "why": "Atomicity stops at the database boundary: your `ROLLBACK` can rewind your rows, but it cannot un-charge someone's card. This is where people get badly burned, because the code LOOKS atomic. The real patterns are two-phase commit (a coordinator asks every participant to prepare, then commit — correct, but slow, and it blocks if the coordinator dies mid-flight) or a saga (do the steps, and if a later one fails, run compensating actions like a refund). Most modern systems choose sagas plus idempotency over 2PC."
         },
         {
+          "id": "txn-4-6",
           "type": "tradeoff_slider",
           "prompt": "Microservices: an order service and a payment service, each with its own database. Slide toward your approach for keeping them consistent.",
           "leftLabel": "Two-phase commit (strict atomicity)",
           "rightLabel": "Saga (compensating actions, eventual)",
-          "answerRange": [55, 100],
+          "answerRange": [
+            55,
+            100
+          ],
           "why": "Across services, 2PC's blocking behaviour and coordinator failure modes are usually worse than the complexity of writing compensating actions, so most real distributed systems choose sagas. But be honest about what you gave up: there's now a window where the payment succeeded and the order doesn't exist yet — you accepted a temporarily inconsistent state plus a compensation path, because the alternative (a distributed lock spanning services) is worse. That acceptance is the road to eventual consistency, and it's where Tier 3 begins."
         },
         {
+          "id": "txn-4-7",
           "type": "multiple_choice",
           "prompt": "What's the honest summary of transactions?",
           "choices": [
