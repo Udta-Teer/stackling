@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A **Duolingo-style app that teaches system design**, beginner → advanced, through short gamified interactive lessons. Target platform is **mobile (React Native + Expo)**, but the app is not scaffolded yet — the repo is currently in the **content-authoring + prototype** phase.
+**Stackling** — a **Duolingo-style app that teaches system design**, beginner → advanced, through short gamified interactive lessons. Target platform is **mobile (React Native + Expo)**, but the app is not scaffolded yet — the repo is currently in the **content-authoring + prototype** phase. (Name locked 2026-07-16: *stack* + *-ling*; verified clear on App Store/Play + software trademark. Domain: grab `stackling.app` / `getstackling.com` — `stackling.com` is parked.)
 
 ## ⛔ Read these before doing anything
 

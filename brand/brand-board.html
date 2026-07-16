@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Truss — Brand System v0.1</title>
+<title>Stackling — Brand System v0.2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -47,10 +47,11 @@
   .hero{padding:64px 0 80px;border-top:none}
   .hero-top{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;color:var(--fog);margin-bottom:56px;flex-wrap:wrap;gap:8px}
   .hero-top .dot{color:var(--mint)}
-  .wordmark{display:flex;align-items:center;gap:18px;margin-bottom:18px}
-  .wordmark h1{font-family:var(--disp);font-weight:800;font-size:clamp(56px,12vw,120px);line-height:.9;margin:0;letter-spacing:-.04em}
-  .tag{font-size:clamp(17px,2.4vw,22px);color:#cfe0f0;max-width:560px;font-weight:400}
+  .wordmark{display:flex;align-items:center;gap:20px;margin-bottom:18px;flex-wrap:wrap}
+  .wordmark h1{font-family:var(--disp);font-weight:800;font-size:clamp(52px,11vw,110px);line-height:.9;margin:0;letter-spacing:-.04em}
+  .tag{font-size:clamp(17px,2.4vw,22px);color:#cfe0f0;max-width:580px;font-weight:400}
   .tag b{color:var(--signal);font-weight:600}
+  .lockpill{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;color:var(--mint);border:1px solid rgba(53,208,165,.4);border-radius:99px;padding:5px 12px;margin-bottom:22px}
 
   /* system-diagram hero device */
   .diagram{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:48px 0 8px}
@@ -72,7 +73,7 @@
   .panel .caption{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:20px;color:var(--fog)}
   .panel.light .caption{color:#5a6b7d}
   .logo-lockup{display:flex;align-items:center;gap:16px}
-  .logo-lockup .lw{font-family:var(--disp);font-weight:800;font-size:34px;letter-spacing:-.03em}
+  .logo-lockup .lw{font-family:var(--disp);font-weight:800;font-size:32px;letter-spacing:-.03em}
   .clearspace{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
   .cs-chip{font-family:var(--mono);font-size:11px;color:var(--fog);border:1px dashed var(--line);border-radius:8px;padding:8px 10px}
 
@@ -97,9 +98,8 @@
   /* ---------- MASCOT ---------- */
   .mascot-wrap{display:grid;grid-template-columns:0.85fr 1.15fr;gap:20px}
   @media(max-width:720px){.mascot-wrap{grid-template-columns:1fr}}
-  .mascot-hero{background:radial-gradient(120% 120% at 50% 0%,var(--blueprint),var(--navy) 70%);border:1px solid var(--wire);border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;text-align:center;position:relative;overflow:hidden}
-  .mascot-hero .face{font-size:104px;line-height:1;filter:drop-shadow(0 8px 18px rgba(0,0,0,.4))}
-  .mascot-hero .nm{font-family:var(--disp);font-weight:800;font-size:26px;margin-top:12px}
+  .mascot-hero{background:radial-gradient(120% 120% at 50% 0%,var(--blueprint),var(--navy) 70%);border:1px solid var(--wire);border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;text-align:center;position:relative;overflow:hidden;min-height:280px}
+  .mascot-hero .nm{font-family:var(--disp);font-weight:800;font-size:26px;margin-top:18px}
   .mascot-hero .roleline{font-family:var(--mono);font-size:12px;color:var(--wire);margin-top:4px;letter-spacing:.06em}
   .mascot-hero .ph{position:absolute;top:12px;right:14px;font-family:var(--mono);font-size:10px;color:var(--fog);border:1px dashed var(--line);padding:4px 7px;border-radius:6px}
   .traits{display:flex;flex-direction:column;gap:12px}
@@ -108,14 +108,14 @@
   .trait p{margin:0;font-size:13.5px;color:var(--fog)}
   .trait .k{font-family:var(--mono);font-size:11px;color:var(--signal)}
 
-  /* ---------- NAMES ---------- */
-  .names{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
-  .name{border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--navy);position:relative}
-  .name.pick{border-color:var(--signal);background:linear-gradient(180deg,rgba(255,176,32,.08),var(--navy))}
-  .name .tagpick{position:absolute;top:-10px;left:18px;background:var(--signal);color:var(--ink);font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:.06em}
-  .name .n{font-family:var(--disp);font-weight:800;font-size:24px;letter-spacing:-.02em}
-  .name .why{font-size:13.5px;color:var(--fog);margin-top:8px;line-height:1.45}
-  .name .risk{font-family:var(--mono);font-size:11px;margin-top:10px;color:var(--wire)}
+  /* ---------- NAME / DOMAINS ---------- */
+  .dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+  .drow{border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:var(--navy)}
+  .drow .d{font-family:var(--mono);font-size:15px;font-weight:700}
+  .drow .s{font-family:var(--mono);font-size:12px;margin-top:8px}
+  .ok{color:var(--mint)} .warn{color:var(--signal)} .no{color:var(--fault)}
+  .story{font-size:14.5px;color:#cfe0f0;max-width:760px;line-height:1.6}
+  .story b{color:#fff}
 
   ul.next{list-style:none;padding:0;margin:0;display:grid;gap:10px}
   ul.next li{font-family:var(--mono);font-size:13.5px;color:#cfe0f0;border-left:2px solid var(--wire);padding:6px 0 6px 14px}
@@ -126,22 +126,14 @@
 </head>
 <body>
 
-<!-- reusable truss mark -->
+<!-- reusable stack mark: three ascending layers, top block amber (the "-ling") -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="truss" viewBox="0 0 100 100">
-    <g fill="none" stroke="#4cb0ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M50 14 L15 84 L85 84 Z"/>
-      <path d="M50 14 L50 84"/>
-      <path d="M50 14 L32.5 49 M50 14 L67.5 49 M32.5 49 L50 84 M67.5 49 L50 84 M32.5 49 L67.5 49"/>
-    </g>
-    <g>
-      <circle cx="50" cy="14" r="8" fill="#ffb020"/>
-      <circle cx="15" cy="84" r="7" fill="#4cb0ff"/>
-      <circle cx="85" cy="84" r="7" fill="#4cb0ff"/>
-      <circle cx="50" cy="84" r="6" fill="#eef3f9"/>
-      <circle cx="32.5" cy="49" r="5" fill="#eef3f9"/>
-      <circle cx="67.5" cy="49" r="5" fill="#eef3f9"/>
-    </g>
+  <symbol id="stack" viewBox="0 0 100 100">
+    <rect x="16" y="60" width="68" height="18" rx="5" fill="#1e5aa8"/>
+    <rect x="26" y="38" width="48" height="18" rx="5" fill="#4cb0ff"/>
+    <rect x="38" y="16" width="24" height="18" rx="6" fill="#ffb020"/>
+    <circle cx="46" cy="25" r="2.4" fill="#071522"/>
+    <circle cx="54" cy="25" r="2.4" fill="#071522"/>
   </symbol>
 </svg>
 
@@ -150,17 +142,18 @@
   <!-- ================= HERO ================= -->
   <header class="hero">
     <div class="hero-top">
-      <span>truss/brand-system <span class="dot">●</span> v0.1</span>
-      <span>2026-07-16 · internal · react @ owner</span>
+      <span>stackling/brand-system <span class="dot">●</span> v0.2</span>
+      <span>2026-07-16 · internal · name = LOCKED</span>
     </div>
 
+    <div class="lockpill">✓ name locked · domains verified</div>
     <div class="wordmark">
-      <svg class="mark" style="--s:88px"><use href="#truss"/></svg>
-      <h1>Truss</h1>
+      <svg class="mark" style="--s:92px"><use href="#stack"/></svg>
+      <h1>Stackling</h1>
     </div>
-    <p class="tag">Interview-grade <b>system design</b>, 10 minutes a day. The structure that lets your thinking hold load — at scale.</p>
+    <p class="tag">Interview-grade <b>system design</b>, one layer at a time. Start as a curious coder — leave able to reason about systems that hold at scale.</p>
 
-    <div class="diagram" role="img" aria-label="Brand as a system diagram: curious coder plus Truss produces a systems thinker">
+    <div class="diagram" role="img" aria-label="Brand as a system diagram: curious coder plus Stackling produces a systems thinker">
       <div class="dnode">
         <div class="lbl">input</div>
         <div class="val">Curious coder</div>
@@ -171,7 +164,7 @@
       </div>
       <div class="dnode brand">
         <div class="lbl" style="color:#bfe0ff">the app</div>
-        <div class="val">Truss</div>
+        <div class="val">Stackling</div>
       </div>
       <div>
         <div class="wire-link"></div>
@@ -186,48 +179,33 @@
 
   <!-- ================= NAME ================= -->
   <section id="name">
-    <div class="sec-head"><span class="sec-no">01</span><h2 class="sec">The name</h2><span class="cmt">// recommendation + alternates — your call</span></div>
-    <div class="names">
-      <div class="name pick">
-        <span class="tagpick">RECOMMENDED</span>
-        <div class="n">Truss</div>
-        <div class="why">The triangulated frame that lets a bridge or roof carry huge load without buckling. One syllable, structural-engineering native, and it literally means "the thing that holds at scale." The mark doubles as a distributed-node graph.</div>
-        <div class="risk">collision: low · verb-adjacent · app-store clean</div>
-      </div>
-      <div class="name">
-        <div class="n">Keystone</div>
-        <div class="why">The wedge stone that locks an arch together — the core skill everything rests on. Premium and confident.</div>
-        <div class="risk">collision: medium (KeystoneJS, habit books)</div>
-      </div>
-      <div class="name">
-        <div class="n">Quorum</div>
-        <div class="why">The majority that must agree for a distributed system to commit. Insider term, sounds smart, great for interview positioning.</div>
-        <div class="risk">collision: medium (blockchain, gov-tech)</div>
-      </div>
-      <div class="name">
-        <div class="n">Shard</div>
-        <div class="why">A native system-design term (splitting data to scale). Short, sharp, techy, memorable.</div>
-        <div class="risk">collision: medium-high (gaming, crypto)</div>
-      </div>
+    <div class="sec-head"><span class="sec-no">01</span><h2 class="sec">The name</h2><span class="cmt">// Stackling — locked</span></div>
+    <p class="story"><b>Stackling</b> = <b>stack</b> (a word every beginner meets via Stack Overflow, and literally what system design is — layers stacked together) + <b>-ling</b> (a small, young thing: duck<i>ling</i>, fledg<i>ling</i> — the learner you are at the start, and a nod to Duo<i>lingo</i>). It is on-theme for the subject, friendly to a noob, and — unlike Byte, Chip, Stack, Nibble, Kernel, and a dozen twists we checked — <b>actually ownable</b>: no app, no software trademark conflict.</p>
+    <div class="dgrid" style="margin-top:24px">
+      <div class="drow"><div class="d">App Store / Play</div><div class="s ok">✓ clear — no such app</div></div>
+      <div class="drow"><div class="d">Trademark (SW)</div><div class="s ok">✓ no conflict found*</div></div>
+      <div class="drow"><div class="d">stackling.app</div><div class="s ok">✓ likely available — grab this</div></div>
+      <div class="drow"><div class="d">stackling.com</div><div class="s warn">⚠ parked — use getstackling.com / .io</div></div>
     </div>
+    <p class="cmt" style="margin-top:14px">* informal search — run a formal USPTO Class 9/42 check before filing.</p>
   </section>
 
   <!-- ================= LOGO ================= -->
   <section id="logo">
-    <div class="sec-head"><span class="sec-no">02</span><h2 class="sec">Logo</h2><span class="cmt">// one mark, two meanings: a truss + a node graph</span></div>
+    <div class="sec-head"><span class="sec-no">02</span><h2 class="sec">Logo</h2><span class="cmt">// a stack of layers, topped by the amber "-ling"</span></div>
     <div class="grid2">
       <div class="panel">
         <div class="caption">Primary — on ink</div>
         <div class="logo-lockup">
-          <svg class="mark" style="--s:64px"><use href="#truss"/></svg>
-          <span class="lw">Truss</span>
+          <svg class="mark" style="--s:64px"><use href="#stack"/></svg>
+          <span class="lw">Stackling</span>
         </div>
       </div>
       <div class="panel light">
         <div class="caption">Reversed — on paper</div>
         <div class="logo-lockup">
-          <svg class="mark" style="--s:64px"><use href="#truss"/></svg>
-          <span class="lw" style="color:#071522">Truss</span>
+          <svg class="mark" style="--s:64px"><use href="#stack"/></svg>
+          <span class="lw" style="color:#071522">Stackling</span>
         </div>
       </div>
     </div>
@@ -236,21 +214,22 @@
         <div class="caption">Mark alone — app icon</div>
         <div style="display:flex;gap:18px;align-items:center">
           <div style="background:linear-gradient(135deg,var(--blueprint),#0b2f5e);border-radius:22px;padding:16px;display:grid;place-items:center">
-            <svg class="mark" style="--s:56px"><use href="#truss"/></svg>
+            <svg class="mark" style="--s:56px"><use href="#stack"/></svg>
           </div>
           <div style="background:var(--signal);border-radius:22px;padding:16px;display:grid;place-items:center">
-            <svg class="mark" style="--s:56px;filter:saturate(0) brightness(.2)"><use href="#truss"/></svg>
+            <svg class="mark" style="--s:56px"><use href="#stack"/></svg>
           </div>
         </div>
       </div>
       <div class="panel">
-        <div class="caption">Construction — apex node is always amber</div>
+        <div class="caption">Idea — the top block is the learner</div>
         <div class="clearspace">
-          <span class="cs-chip">apex = amber (signal / XP)</span>
-          <span class="cs-chip">joints = wire-blue</span>
-          <span class="cs-chip">clear space = 1× node</span>
+          <span class="cs-chip">bottom layers = the system (blue)</span>
+          <span class="cs-chip">top block = you, the stackling (amber)</span>
+          <span class="cs-chip">clear space = 1× block</span>
           <span class="cs-chip">min size = 24px</span>
         </div>
+        <p class="cmt" style="margin-top:14px">The two dots on the top block let the mark double as the mascot's face — logo and character are the same shape.</p>
       </div>
     </div>
   </section>
@@ -260,9 +239,9 @@
     <div class="sec-head"><span class="sec-no">03</span><h2 class="sec">Color</h2><span class="cmt">// "blueprint at night" — not Duolingo green</span></div>
     <div class="swatches">
       <div class="sw"><div class="cap" style="background:#071522"><span class="role">bg</span></div><div class="meta"><div class="nm">Ink</div><div class="hex">#071522</div><div class="use">The dark canvas — a blueprint after hours. App background.</div></div></div>
-      <div class="sw"><div class="cap" style="background:#1e5aa8"><span class="role">brand</span></div><div class="meta"><div class="nm">Blueprint</div><div class="hex">#1E5AA8</div><div class="use">Primary brand blue. Buttons, key surfaces, the logo field.</div></div></div>
+      <div class="sw"><div class="cap" style="background:#1e5aa8"><span class="role">brand</span></div><div class="meta"><div class="nm">Blueprint</div><div class="hex">#1E5AA8</div><div class="use">Primary brand blue. Buttons, key surfaces, the logo base.</div></div></div>
       <div class="sw"><div class="cap" style="background:#4cb0ff"><span class="role">interactive</span></div><div class="meta"><div class="nm">Wire</div><div class="hex">#4CB0FF</div><div class="use">The connecting line. Links, selection, diagram arrows.</div></div></div>
-      <div class="sw"><div class="cap" style="background:#ffb020"><span class="role" style="color:#071522;background:rgba(255,255,255,.5)">accent</span></div><div class="meta"><div class="nm">Signal</div><div class="hex">#FFB020</div><div class="use">The one bold move. XP, streaks, the highlight on a diagram. Use sparingly.</div></div></div>
+      <div class="sw"><div class="cap" style="background:#ffb020"><span class="role" style="color:#071522;background:rgba(255,255,255,.5)">accent</span></div><div class="meta"><div class="nm">Signal</div><div class="hex">#FFB020</div><div class="use">The one bold move. XP, streaks, the top block, the highlight. Sparingly.</div></div></div>
       <div class="sw"><div class="cap" style="background:#35d0a5"><span class="role">success</span></div><div class="meta"><div class="nm">Mint</div><div class="hex">#35D0A5</div><div class="use">Correct answers, completion. Deliberately teal, not lime.</div></div></div>
       <div class="sw"><div class="cap" style="background:#ff5c7a"><span class="role">error</span></div><div class="meta"><div class="nm">Fault</div><div class="hex">#FF5C7A</div><div class="use">Wrong answers, lost hearts. A warm rose — firm, not harsh.</div></div></div>
     </div>
@@ -288,35 +267,35 @@
 
   <!-- ================= MASCOT ================= -->
   <section id="mascot">
-    <div class="sec-head"><span class="sec-no">05</span><h2 class="sec">Mascot</h2><span class="cmt">// concept — final character art to be produced</span></div>
+    <div class="sec-head"><span class="sec-no">05</span><h2 class="sec">Mascot</h2><span class="cmt">// frontrunner now that the name is locked — your call</span></div>
     <div class="mascot-wrap">
       <div class="mascot-hero">
         <span class="ph">concept · placeholder art</span>
-        <div class="face">🦫</div>
-        <div class="nm">Rivet</div>
-        <div class="roleline">// nature's engineer</div>
+        <svg class="mark" style="--s:120px"><use href="#stack"/></svg>
+        <div class="nm">The Stackling</div>
+        <div class="roleline">// the top block, come to life</div>
       </div>
       <div class="traits">
-        <div class="trait"><h4>Why a beaver <span class="k">// not an owl</span></h4><p>The only animal that reshapes its environment by building. Beavers engineer dams — literal systems that manage flow and load. Industrious, calm, a little clever. It owns a lane Duolingo's owl can't.</p></div>
-        <div class="trait"><h4>Personality</h4><p>Encouraging but honest. Rivet doesn't just clap — it points at the bottleneck. "Nice — but what happens when this shard gets hot?" It embodies the push-harder depth rule.</p></div>
-        <div class="trait"><h4>How it shows up</h4><p>Holds the amber <span class="k">Signal</span> as a streak flame. Hard hat for boss/capstone lessons. Reacts on wrong answers (thoughtful, never mocking). Celebrates a completed unit by adding a beam to its dam.</p></div>
+        <div class="trait"><h4>Why this beats the beaver <span class="k">// computer-native</span></h4><p>The mascot <i>is</i> the logo: the amber top block with two eyes — a small stacked-block creature. Unmistakably digital, born from the brand itself, and it literally grows a taller stack as you complete units. No unrelated animal required.</p></div>
+        <div class="trait"><h4>Personality</h4><p>Encouraging but honest. The Stackling doesn't just cheer — it points at the bottleneck: "Nice — but what happens when this shard gets hot?" It embodies the push-harder depth rule.</p></div>
+        <div class="trait"><h4>Still on the table</h4><p>If you'd rather have a face-forward character, the <b>engineer-bot</b>, <b>chip</b>, or <b>computer-mouse</b> ideas still stand and can pair with the name. Say which direction and I'll develop it.</p></div>
       </div>
     </div>
   </section>
 
   <!-- ================= NEXT ================= -->
   <section id="next">
-    <div class="sec-head"><span class="sec-no">06</span><h2 class="sec">What this unlocks</h2><span class="cmt">// once you react</span></div>
+    <div class="sec-head"><span class="sec-no">06</span><h2 class="sec">What this unlocks</h2><span class="cmt">// next moves</span></div>
     <ul class="next">
-      <li><b>Apply</b> this palette + type to <span class="mono">prototype/lesson.html</span> so the lesson loop looks like the real product</li>
-      <li><b>Lock</b> the name → check domain + app-store availability</li>
-      <li><b>Commission</b> Rivet's real character art (this 🦫 is a stand-in)</li>
+      <li><b>Register</b> stackling.app (+ getstackling.com) and reserve the App Store / social handles</li>
+      <li><b>Decide</b> the mascot: the stacked-block Stackling (frontrunner) vs bot / chip / mouse</li>
+      <li><b>Apply</b> this palette + type to <span class="mono">prototype/lesson.html</span> so the lesson loop becomes Stackling</li>
       <li><b>Resume</b> content: concept #2, Client–server &amp; HTTP, at the new depth bar</li>
     </ul>
   </section>
 
   <footer>
-    truss/brand-system v0.1 — all values are proposals, everything is changeable. // react and we build.
+    stackling/brand-system v0.2 — name locked, everything else is a proposal and changeable. // react and we build.
   </footer>
 </div>
 </body>
