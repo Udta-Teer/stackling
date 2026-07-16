@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SysDesign — How the Internet Works</title>
+<style>
+  :root{
+    --green:#58cc02; --green-dark:#58a700; --green-soft:#d7ffb8;
+    --red:#ff4b4b; --red-soft:#ffdfe0;
+    --blue:#1cb0f6; --ink:#3c3c3c; --muted:#afafaf;
+    --line:#e5e5e5; --bg:#fff; --card:#fff;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --ink:#f0f0f0; --muted:#8a8a8a; --line:#37474f; --bg:#131f24; --card:#1c2b33; --green-soft:#1f3d17; --red-soft:#3d1f22; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Nunito,sans-serif;
+    background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  .app{max-width:600px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:16px;}
+  /* top bar */
+  .top{display:flex;align-items:center;gap:14px;margin-bottom:24px;}
+  .close{background:none;border:none;font-size:26px;color:var(--muted);cursor:pointer;line-height:1;}
+  .bar{flex:1;height:16px;background:var(--line);border-radius:99px;overflow:hidden;}
+  .bar>i{display:block;height:100%;width:0;background:var(--green);border-radius:99px;transition:width .3s ease;}
+  .hearts{display:flex;align-items:center;gap:4px;color:var(--red);font-weight:800;font-size:18px;}
+  /* body */
+  .stage{flex:1;display:flex;flex-direction:column;}
+  .kicker{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:6px;}
+  .prompt{font-size:22px;font-weight:800;line-height:1.35;margin:0 0 22px;}
+  /* choices */
+  .choices{display:flex;flex-direction:column;gap:12px;}
+  .choice{display:flex;align-items:center;gap:12px;text-align:left;padding:16px;border:2px solid var(--line);
+    border-bottom-width:4px;border-radius:14px;background:var(--card);color:var(--ink);font-size:16px;font-weight:700;
+    cursor:pointer;transition:.08s;}
+  .choice:hover{background:rgba(28,176,246,.06);}
+  .choice.sel{border-color:var(--blue);background:rgba(28,176,246,.1);}
+  .choice.ok{border-color:var(--green);background:var(--green-soft);}
+  .choice.bad{border-color:var(--red);background:var(--red-soft);}
+  .choice .k{width:26px;height:26px;flex:none;border:2px solid var(--line);border-radius:7px;display:grid;place-items:center;font-size:13px;color:var(--muted);}
+  .choice.sel .k{border-color:var(--blue);color:var(--blue);}
+  /* generic tiles / chips */
+  .chips{display:flex;flex-wrap:wrap;gap:10px;}
+  .chip{padding:12px 16px;border:2px solid var(--line);border-bottom-width:4px;border-radius:12px;background:var(--card);
+    color:var(--ink);font-weight:700;cursor:pointer;transition:.08s;}
+  .chip:hover{border-color:var(--blue);}
+  .chip.used{opacity:.35;pointer-events:none;}
+  .bank{min-height:56px;padding:8px;border:2px dashed var(--line);border-radius:12px;display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;margin-bottom:16px;}
+  /* order list */
+  .order{display:flex;flex-direction:column;gap:10px;}
+  .order .row{display:flex;align-items:center;gap:10px;padding:14px;border:2px solid var(--line);border-bottom-width:4px;border-radius:12px;background:var(--card);font-weight:700;}
+  .order .row .num{width:24px;height:24px;flex:none;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:13px;}
+  .order .arrows{margin-left:auto;display:flex;gap:6px;}
+  .order .arrows button{width:30px;height:30px;border-radius:8px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-weight:800;}
+  /* match */
+  .match{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .match .col{display:flex;flex-direction:column;gap:10px;}
+  /* diagram slots */
+  .diagram{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:18px;}
+  .node{padding:14px 16px;border-radius:12px;font-weight:800;border:2px solid var(--line);background:var(--card);}
+  .node.fixed{background:rgba(28,176,246,.12);border-color:var(--blue);}
+  .slot{min-width:90px;text-align:center;padding:14px 12px;border:2px dashed var(--muted);border-radius:12px;font-weight:800;color:var(--muted);}
+  .slot.filled{border-style:solid;border-color:var(--green);color:var(--ink);background:var(--green-soft);}
+  .arrow{color:var(--muted);font-size:20px;font-weight:900;}
+  /* estimate */
+  .est{display:flex;align-items:center;gap:10px;}
+  .est input{font-size:22px;font-weight:800;padding:12px;width:130px;border:2px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);}
+  .est .unit{font-weight:800;color:var(--muted);}
+  /* slider */
+  .slider-wrap{margin:10px 0 4px;}
+  .slider-labels{display:flex;justify-content:space-between;font-weight:800;font-size:13px;color:var(--muted);margin-bottom:10px;gap:10px;}
+  input[type=range]{width:100%;accent-color:var(--blue);height:8px;}
+  .slider-val{text-align:center;font-weight:800;margin-top:8px;color:var(--blue);}
+  /* footer */
+  .foot{position:sticky;bottom:0;padding-top:16px;background:var(--bg);}
+  .btn{width:100%;padding:15px;border:none;border-radius:14px;font-size:16px;font-weight:800;letter-spacing:.03em;
+    text-transform:uppercase;cursor:pointer;color:#fff;background:var(--green);border-bottom:4px solid var(--green-dark);transition:.08s;}
+  .btn:disabled{background:var(--line);color:var(--muted);border-bottom-color:var(--line);cursor:not-allowed;}
+  .btn.grey{background:var(--line);color:var(--muted);border-bottom-color:var(--line);}
+  .feedback{border-radius:16px 16px 0 0;margin:16px -16px -16px;padding:18px 16px 22px;}
+  .feedback.ok{background:var(--green-soft);}
+  .feedback.bad{background:var(--red-soft);}
+  .feedback h4{margin:0 0 6px;font-size:18px;font-weight:900;display:flex;align-items:center;gap:8px;}
+  .feedback.ok h4{color:var(--green-dark);}
+  .feedback.bad h4{color:var(--red);}
+  .feedback p{margin:0 0 10px;font-weight:600;line-height:1.45;}
+  .deeper{background:rgba(28,176,246,.14);border-left:4px solid var(--blue);border-radius:8px;padding:10px 12px;font-size:14px;font-weight:600;line-height:1.45;}
+  .deeper b{color:var(--blue);}
+  /* complete */
+  .done{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;}
+  .done .big{font-size:64px;}
+  .done h2{margin:0;font-size:28px;}
+  .stat{display:flex;gap:12px;margin-top:10px;}
+  .stat .box{border:2px solid var(--line);border-radius:14px;padding:12px 18px;font-weight:800;}
+  .stat .box small{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;}
+  .lessonpick{display:flex;flex-direction:column;gap:12px;margin-top:10px;}
+  .hidden{display:none!important;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <button class="close" onclick="location.reload()">✕</button>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="hearts">♥ <span id="hearts">5</span></div>
+  </div>
+
+  <!-- lesson picker -->
+  <div id="picker" class="stage">
+    <div class="kicker">Unit 1 · Foundations</div>
+    <h1 class="prompt">How the Internet Works</h1>
+    <p style="margin-top:-12px;color:var(--muted);font-weight:700;">Pick a lesson to play the prototype.</p>
+    <div class="lessonpick" id="lessonpick"></div>
+  </div>
+
+  <!-- exercise -->
+  <div id="stage" class="stage hidden"></div>
+
+  <!-- complete -->
+  <div id="complete" class="stage hidden">
+    <div class="done">
+      <div class="big">🎉</div>
+      <h2>Lesson complete!</h2>
+      <div class="stat">
+        <div class="box"><small>XP</small><span id="xp">0</span></div>
+        <div class="box"><small>Accuracy</small><span id="acc">0%</span></div>
+        <div class="box"><small>Hearts left</small><span id="hleft">5</span></div>
+      </div>
+      <button class="btn" style="max-width:260px;margin-top:18px" onclick="location.reload()">Back to lessons</button>
+    </div>
+  </div>
+
+  <div id="foot" class="foot hidden">
+    <div id="feedback"></div>
+    <button id="action" class="btn" disabled>Check</button>
+  </div>
+</div>
+
+<script>
+/* ---- content (from content/01-how-the-internet-works.json) ---- */
+const UNIT = {"title":"How the Internet Works","lessons":[
+{"id":"hiw-1","title":"It's just computers passing notes","exercises":[
+ {"type":"multiple_choice","prompt":"You open a website. Roughly how many separate computers might your request pass through before it reaches the server?","choices":["Just 1 — mine and theirs","About 3","Often 10–20","Exactly 100"],"answer":2,"why":"Your data hops through many routers along the way — often 10 to 20 — each one passing it one step closer to the destination.","goDeeper":"Run traceroute google.com (or tracert on Windows) and you'll literally see every hop your packets take across the internet."},
+ {"type":"fill_blank","prompt":"Data doesn't travel as one big blob. It's broken into small chunks called ______.","choices":["packets","pixels","cookies","threads"],"answer":0,"why":"The internet splits your data into small packets, sends them independently, and reassembles them at the other end.","goDeeper":"Packets can take different routes and arrive out of order. Something has to put them back in order — that's TCP's job, coming up in lesson 4."},
+ {"type":"multiple_choice","prompt":"Every device on the internet needs one of these to be found. What is it?","choices":["A username","An IP address","A password","A phone number"],"answer":1,"why":"An IP address (like 142.250.72.14) is a device's location on the internet — data can't be delivered without one.","goDeeper":"There aren't enough old IPv4 addresses (~4.3 billion) for the world, which is why IPv6 exists with 340 undecillion addresses."},
+ {"type":"match_pairs","prompt":"Match each piece to what it does.","pairs":[{"left":"Packet","right":"A small chunk of your data"},{"left":"IP address","right":"A device's location on the internet"},{"left":"Router","right":"Passes packets toward their destination"}],"why":"Packets carry the data, IP addresses say where it's going, and routers move it hop by hop.","goDeeper":"Routers don't know the whole path — each just knows the next best hop. The internet has no central map."},
+ {"type":"multiple_choice","prompt":"There's no master computer running the internet. So how do packets find their way?","choices":["A central server in the US decides every route","Each router just forwards to the next-best hop toward the target","Packets are sent to every computer until one matches","Your ISP pre-computes the full path"],"answer":1,"why":"The internet is decentralized. Each router makes a local decision — 'who gets me closer?' — and no single machine is in charge.","goDeeper":"This decentralization is why the internet is resilient: knock out a router and traffic just routes around it."}
+]},
+{"id":"hiw-2","title":"DNS: the internet's phonebook","exercises":[
+ {"type":"multiple_choice","prompt":"You type google.com, but computers route by IP address. Who turns the name into the number?","choices":["Your keyboard","DNS","The CPU","Your Wi-Fi router alone"],"answer":1,"why":"DNS (Domain Name System) is the internet's phonebook — it looks up 'google.com' and returns its IP address.","goDeeper":"Humans remember names; machines need numbers. DNS is the translation layer that lets us live in a world of words."},
+ {"type":"fill_blank","prompt":"DNS translates a human-friendly ______ into a machine-friendly IP address.","choices":["domain name","password","packet","port"],"answer":0,"why":"A domain name like 'netflix.com' is for humans; DNS converts it to the IP address machines actually use.","goDeeper":null},
+ {"type":"order_steps","prompt":"Put a DNS lookup in order (simplified).","steps":["Browser asks: what's the IP for example.com?","Check the local cache — seen it recently?","If not cached, ask a DNS resolver","Resolver returns the IP address","Browser connects to that IP"],"why":"DNS checks the fastest sources first (local cache) before asking a resolver, then hands the browser an IP to connect to.","goDeeper":"Results are cached at many levels with a 'TTL' — time to live. That's why a DNS change can take hours to reach everyone."},
+ {"type":"multiple_choice","prompt":"In Oct 2016, a DNS company called Dyn was attacked. Twitter, Spotify, Reddit and Netflix all went dark at once — though those companies were fine. What had been knocked out?","choices":["A single giant server","A major DNS provider","The undersea cables","Everyone's Wi-Fi"],"answer":1,"why":"Dyn was a big DNS provider. Take out DNS and users can't translate names to IPs — so sites become unreachable even while running perfectly.","goDeeper":"DNS is a quiet single point of failure for huge chunks of the web. Serious systems use multiple DNS providers."},
+ {"type":"multi_select","prompt":"Why does DNS cache results instead of looking up every time? Select all that apply.","choices":["Lookups take time — caching makes pages load faster","It reduces load on DNS servers","It makes the answer more accurate","The same names are requested over and over"],"answer":[0,1,3],"why":"Caching is about speed and load. It does NOT make answers more accurate — stale caches can serve outdated IPs.","goDeeper":"This is your first taste of caching — keep the hot answer close. You'll see it everywhere in system design."}
+]},
+{"id":"hiw-3","title":"The journey of a request","exercises":[
+ {"type":"multiple_choice","prompt":"Before your browser can send an HTTP request to a server, what does it need first?","choices":["The server's IP address","The server's password","A faster CPU","More RAM"],"answer":0,"why":"You can't send data anywhere without a destination address. DNS supplies the server's IP first — then the request can travel.","goDeeper":null},
+ {"type":"order_steps","prompt":"Order what happens when you visit example.com.","steps":["DNS resolves example.com to an IP address","Browser opens a connection to that IP","Browser sends an HTTP request","Server processes the request","Server sends back an HTTP response","Browser renders the page"],"why":"Every page load is this dance: name → IP → connect → ask → process → answer → render.","goDeeper":"On HTTPS there's also a TLS handshake after connecting, which encrypts everything. That's the 's' in https — secure."},
+ {"type":"build_diagram","prompt":"Place the missing piece: your browser needs to turn 'example.com' into an IP before reaching the server.","slots":["Browser","?","Web Server"],"palette":["DNS","Database","Cache"],"answer":"DNS","why":"DNS sits between you and the server on that first step, translating the name so your browser knows where to connect.","goDeeper":null},
+ {"type":"estimate","prompt":"A round trip from New York to a server in London and back is roughly how many milliseconds — at the physical minimum?","answer":70,"tolerance":30,"unit":"ms","why":"Even at light speed through fiber, NY↔London round-trips take ~70ms. Physics sets a floor on latency no engineering can beat.","goDeeper":"This is why companies put servers close to users (CDNs, a later unit). You can't outrun light — so you shorten the distance."},
+ {"type":"multiple_choice","prompt":"Your page felt slow. The server responded in 5ms, but the total was 300ms. Where did the time most likely go?","choices":["The server was slow","Network round-trips across distance","The database was down","Your CPU was busy"],"answer":1,"why":"If the server itself took 5ms, the other 295ms was the network — the round-trips of getting data there and back.","goDeeper":"Rule of thumb: often the network, not the server, is your latency bottleneck. Measure before you optimize."}
+]},
+{"id":"hiw-4","title":"TCP vs UDP: reliable vs fast","exercises":[
+ {"type":"multiple_choice","prompt":"You're loading a bank statement. Every byte must arrive, in order, no errors. Which protocol fits?","choices":["UDP","TCP","Neither","Both equally"],"answer":1,"why":"TCP guarantees delivery and order — it re-sends lost packets and reassembles them correctly. Perfect for data you can't lose.","goDeeper":"TCP uses acknowledgements: the receiver confirms each chunk, and anything unconfirmed gets re-sent. Reliability costs round-trips."},
+ {"type":"multiple_choice","prompt":"You're on a live video call. A dropped frame is fine, but a 2-second delay to re-send it is not. Which protocol fits?","choices":["TCP","UDP","Neither","Always TCP for video"],"answer":1,"why":"UDP just fires packets and doesn't wait. For live audio/video, a missing frame beats a laggy one — speed over perfection.","goDeeper":"A classic tradeoff: reliability vs latency. You'll make this call again and again in system design."},
+ {"type":"match_pairs","prompt":"Match the use case to the better protocol.","pairs":[{"left":"Downloading a file","right":"TCP"},{"left":"Live game / video call","right":"UDP"},{"left":"Loading a web page","right":"TCP"},{"left":"DNS lookup (small, fast)","right":"UDP"}],"why":"TCP for anything that must be complete and correct; UDP for small or real-time traffic where speed wins.","goDeeper":"DNS traditionally uses UDP because a lookup is tiny — if lost, just ask again. Modern DNS-over-HTTPS uses TCP for privacy."},
+ {"type":"tradeoff_slider","prompt":"You're designing a multiplayer game's networking. Slide toward what you'd prioritize for player-movement updates.","leftLabel":"Guaranteed delivery (TCP)","rightLabel":"Lowest latency (UDP)","answerRange":[65,100],"why":"For fast-moving positions, low latency wins — a slightly stale position NOW beats a perfect one that arrives late. Games lean UDP.","goDeeper":"Games send newer position updates constantly, so a lost one is instantly replaced. Re-sending old ones (TCP) would feel worse."},
+ {"type":"fill_blank","prompt":"The core tradeoff: TCP gives you reliability, UDP gives you ______.","choices":["speed","security","storage","encryption"],"answer":0,"why":"TCP trades speed for guaranteed, ordered delivery. UDP trades those guarantees for raw speed and low latency.","goDeeper":"Neither is 'better' — the right choice depends on what your system values most. That judgment IS system design."},
+ {"type":"multiple_choice","prompt":"You've traced a request end to end. Which statement best captures how the internet moves your data?","choices":["One connection sends the whole file at once with no addressing","Data is split into packets, addressed by IP, routed hop-by-hop, and reassembled","A central server copies data directly to your screen","The browser stores everything locally and never contacts a server"],"answer":1,"why":"That's the whole picture: split into packets, addressed by IP (found via DNS), routed hop-by-hop, reassembled — reliably (TCP) or fast (UDP).","goDeeper":"Everything else in this course — caching, load balancing, databases — is built on this foundation."}
+]}
+]};
+
+/* ---- engine ---- */
+let hearts=5, xp=0, correct=0, total=0, idx=0, ex=null, lesson=null, checked=false, current=null;
+const $=id=>document.getElementById(id);
+
+function shuffle(a){ // deterministic-ish shuffle without Math.random dependency issues
+  const arr=a.slice(); for(let i=arr.length-1;i>0;i--){const j=(i*7+3)%(i+1);[arr[i],arr[j]]=[arr[j],arr[i]];} return arr;
+}
+
+function boot(){
+  const lp=$('lessonpick'); lp.innerHTML='';
+  UNIT.lessons.forEach((l,i)=>{
+    const b=document.createElement('button'); b.className='choice';
+    b.innerHTML=`<span class="k">${i+1}</span> ${l.title}`;
+    b.onclick=()=>startLesson(i); lp.appendChild(b);
+  });
+}
+function startLesson(i){
+  lesson=UNIT.lessons[i]; idx=0; correct=0; total=0; hearts=5; xp=0;
+  $('hearts').textContent=hearts;
+  $('picker').classList.add('hidden'); $('complete').classList.add('hidden');
+  $('stage').classList.remove('hidden'); $('foot').classList.remove('hidden');
+  render();
+}
+function progress(){ $('bar').style.width=(idx/lesson.exercises.length*100)+'%'; }
+
+function render(){
+  checked=false; ex=lesson.exercises[idx]; progress();
+  $('feedback').innerHTML=''; $('feedback').className='';
+  const a=$('action'); a.className='btn'; a.textContent='Check'; a.disabled=true; a.onclick=check;
+  const s=$('stage'); s.className='stage';
+  s.innerHTML=`<div class="kicker">${lesson.title} · ${idx+1}/${lesson.exercises.length}</div><p class="prompt">${ex.prompt}</p><div id="body"></div>`;
+  ({multiple_choice:mc,fill_blank:mc,multi_select:ms,match_pairs:match,order_steps:order,build_diagram:diagram,estimate:estimate,tradeoff_slider:slider})[ex.type]();
+}
+function enable(){ $('action').disabled=false; }
+
+/* single-select (mc + fill_blank) */
+function mc(){
+  const opts=ex.type==='fill_blank'?ex.choices:ex.choices; current=null;
+  const w=$('body'); const c=document.createElement('div'); c.className='choices';
+  opts.forEach((t,i)=>{
+    const b=document.createElement('button'); b.className='choice';
+    b.innerHTML=`<span class="k">${String.fromCharCode(65+i)}</span> ${t}`;
+    b.onclick=()=>{ if(checked)return; current=i; [...c.children].forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); enable(); };
+    c.appendChild(b);
+  });
+  w.appendChild(c);
+}
+/* multi-select */
+function ms(){
+  current=new Set(); const w=$('body'); const c=document.createElement('div'); c.className='choices';
+  ex.choices.forEach((t,i)=>{
+    const b=document.createElement('button'); b.className='choice';
+    b.innerHTML=`<span class="k">${String.fromCharCode(65+i)}</span> ${t}`;
+    b.onclick=()=>{ if(checked)return; if(current.has(i)){current.delete(i);b.classList.remove('sel');}else{current.add(i);b.classList.add('sel');} $('action').disabled=current.size===0; };
+    c.appendChild(b);
+  });
+  w.appendChild(c);
+}
+/* match pairs */
+function match(){
+  const w=$('body'); current={sel:null,map:{}};
+  const lefts=ex.pairs.map(p=>p.left), rights=shuffle(ex.pairs.map(p=>p.right));
+  const grid=document.createElement('div'); grid.className='match';
+  const cl=document.createElement('div'); cl.className='col'; const cr=document.createElement('div'); cr.className='col';
+  const lb={},rb={};
+  lefts.forEach(l=>{const b=document.createElement('button');b.className='chip';b.textContent=l;b.style.textAlign='left';lb[l]=b;
+    b.onclick=()=>{if(checked)return;current.sel={side:'l',v:l};highlight();};cl.appendChild(b);});
+  rights.forEach(r=>{const b=document.createElement('button');b.className='chip';b.textContent=r;b.style.textAlign='left';rb[r]=b;
+    b.onclick=()=>{if(checked)return;current.sel={side:'r',v:r};highlight();};cr.appendChild(b);});
+  function highlight(){
+    Object.values(lb).forEach(b=>b.classList.remove('sel'));Object.values(rb).forEach(b=>b.classList.remove('sel'));
+    const s=current.sel; if(!s)return;
+    (s.side==='l'?lb[s.v]:rb[s.v]).classList.add('sel');
+    // try pairing: if one of each selected across clicks
+    if(current._pending && current._pending.side!==s.side){
+      const l=s.side==='l'?s.v:current._pending.v, r=s.side==='r'?s.v:current._pending.v;
+      current.map[l]=r; lb[l].classList.add('used'); rb[r].classList.add('used'); current._pending=null; current.sel=null;
+      Object.values(lb).forEach(b=>b.classList.remove('sel'));Object.values(rb).forEach(b=>b.classList.remove('sel'));
+      if(Object.keys(current.map).length===lefts.length) enable();
+    } else { current._pending=s; }
+  }
+  grid.appendChild(cl); grid.appendChild(cr); w.appendChild(grid);
+}
+/* order steps */
+function order(){
+  const w=$('body'); current=shuffle(ex.steps.map((s,i)=>({s,i}))); enable();
+  function draw(){
+    const list=document.createElement('div'); list.className='order';
+    current.forEach((it,pos)=>{
+      const r=document.createElement('div'); r.className='row';
+      r.innerHTML=`<span class="num">${pos+1}</span> <span>${it.s}</span>`;
+      const ar=document.createElement('div'); ar.className='arrows';
+      const up=document.createElement('button'); up.textContent='↑'; up.onclick=()=>{if(checked||pos===0)return;[current[pos-1],current[pos]]=[current[pos],current[pos-1]];refresh();};
+      const dn=document.createElement('button'); dn.textContent='↓'; dn.onclick=()=>{if(checked||pos===current.length-1)return;[current[pos+1],current[pos]]=[current[pos],current[pos+1]];refresh();};
+      ar.appendChild(up);ar.appendChild(dn); r.appendChild(ar); list.appendChild(r);
+    });
+    w.innerHTML=''; w.appendChild(list);
+  }
+  function refresh(){draw();}
+  draw();
+}
+/* build diagram */
+function diagram(){
+  const w=$('body'); current=null;
+  const d=document.createElement('div'); d.className='diagram';
+  ex.slots.forEach((sl,i)=>{
+    if(i>0) d.insertAdjacentHTML('beforeend','<span class="arrow">→</span>');
+    if(sl==='?'){ const slot=document.createElement('div'); slot.className='slot'; slot.id='slot'; slot.textContent='?'; d.appendChild(slot); }
+    else { const n=document.createElement('div'); n.className='node fixed'; n.textContent=sl; d.appendChild(n); }
+  });
+  w.appendChild(d);
+  const chips=document.createElement('div'); chips.className='chips'; chips.style.justifyContent='center';
+  shuffle(ex.palette).forEach(p=>{
+    const c=document.createElement('button'); c.className='chip'; c.textContent=p;
+    c.onclick=()=>{ if(checked)return; current=p; const slot=$('slot'); slot.textContent=p; slot.classList.add('filled');
+      [...chips.children].forEach(x=>x.classList.remove('sel')); c.classList.add('sel'); enable(); };
+    chips.appendChild(c);
+  });
+  w.appendChild(chips);
+}
+/* estimate */
+function estimate(){
+  const w=$('body'); current=null;
+  const box=document.createElement('div'); box.className='est';
+  const inp=document.createElement('input'); inp.type='number'; inp.placeholder='?';
+  inp.oninput=()=>{ current=parseFloat(inp.value); $('action').disabled=isNaN(current); };
+  box.appendChild(inp); const u=document.createElement('span'); u.className='unit'; u.textContent=ex.unit||''; box.appendChild(u);
+  w.appendChild(box);
+}
+/* tradeoff slider */
+function slider(){
+  const w=$('body'); current=50;
+  const wrap=document.createElement('div'); wrap.className='slider-wrap';
+  wrap.innerHTML=`<div class="slider-labels"><span>◀ ${ex.leftLabel}</span><span>${ex.rightLabel} ▶</span></div>`;
+  const r=document.createElement('input'); r.type='range'; r.min=0; r.max=100; r.value=50;
+  const val=document.createElement('div'); val.className='slider-val'; val.textContent='50 / 50';
+  r.oninput=()=>{ current=+r.value; val.textContent=`${100-current} / ${current}`; };
+  wrap.appendChild(r); wrap.appendChild(val); w.appendChild(wrap); enable();
+}
+
+/* ---- checking ---- */
+function check(){
+  checked=true; total++;
+  let ok=false;
+  const body=$('body');
+  if(ex.type==='multiple_choice'||ex.type==='fill_blank'){
+    ok=current===ex.answer;
+    const btns=body.querySelectorAll('.choice');
+    btns[ex.answer].classList.add('ok'); if(!ok&&current!=null) btns[current].classList.add('bad');
+  } else if(ex.type==='multi_select'){
+    const want=new Set(ex.answer); ok=current.size===want.size&&[...current].every(x=>want.has(x));
+    const btns=body.querySelectorAll('.choice');
+    ex.answer.forEach(i=>btns[i].classList.add('ok'));
+    [...current].forEach(i=>{if(!want.has(i))btns[i].classList.add('bad');});
+  } else if(ex.type==='order_steps'){
+    ok=current.every((it,pos)=>it.i===pos);
+  } else if(ex.type==='match_pairs'){
+    ok=ex.pairs.every(p=>current.map[p.left]===p.right);
+  } else if(ex.type==='build_diagram'){
+    ok=current===ex.answer; const slot=$('slot'); slot.classList.remove('filled'); slot.classList.add(ok?'filled':'');
+    slot.style.borderColor=ok?'var(--green)':'var(--red)'; slot.style.background=ok?'var(--green-soft)':'var(--red-soft)';
+  } else if(ex.type==='estimate'){
+    ok=Math.abs(current-ex.answer)<=(ex.tolerance||0);
+  } else if(ex.type==='tradeoff_slider'){
+    ok=current>=ex.answerRange[0]&&current<=ex.answerRange[1];
+  }
+  if(ok){correct++; xp+=10;} else {hearts=Math.max(0,hearts-1); $('hearts').textContent=hearts;}
+  showFeedback(ok);
+}
+function showFeedback(ok){
+  const f=$('feedback'); f.className='feedback '+(ok?'ok':'bad');
+  f.innerHTML=`<h4>${ok?'✓ Nice!':'✗ Not quite'}</h4><p>${ex.why}</p>`+
+    (ex.goDeeper?`<div class="deeper"><b>Go deeper:</b> ${ex.goDeeper}</div>`:'');
+  const a=$('action'); a.textContent = idx+1<lesson.exercises.length?'Continue':'Finish'; a.disabled=false;
+  a.className='btn'+(ok?'':' '); a.onclick=next;
+  if(hearts===0){ a.textContent='Out of hearts — Finish'; }
+}
+function next(){
+  if(hearts===0){ return finish(); }
+  idx++;
+  if(idx>=lesson.exercises.length) return finish();
+  render();
+}
+function finish(){
+  $('bar').style.width='100%';
+  $('stage').classList.add('hidden'); $('foot').classList.add('hidden');
+  $('complete').classList.remove('hidden');
+  $('xp').textContent=xp; $('acc').textContent=Math.round(correct/Math.max(1,total)*100)+'%'; $('hleft').textContent=hearts;
+}
+boot();
+</script>
+</body>
+</html>

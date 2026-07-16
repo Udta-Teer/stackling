@@ -1,0 +1,61 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+A **Duolingo-style app that teaches system design**, beginner → advanced, through short gamified interactive lessons. Target platform is **mobile (React Native + Expo)**, but the app is not scaffolded yet — the repo is currently in the **content-authoring + prototype** phase.
+
+## ⛔ Read these before doing anything
+
+1. **`CONTENT_MASTER.md`** — the anchor doc and single source of truth for *what* we teach, *in what order*, *in what voice*, and *how far along we are*. **Every content-authoring session must start by reading it.** It exists to prevent scope-spiral: build **one concept at a time, top to bottom**, in the order of its build tracker (§6), and mark a concept ✅ before starting the next.
+2. **`SPEC.md`** — product + technical design (exercise types, screens, tech stack, roadmap, content JSON schema).
+
+## The hard rules (non-negotiable)
+
+- **Content is DATA, not code.** Every lesson/exercise is JSON validated against a schema (`content/*.json`). Adding content = editing JSON, never touching components. This is the load-bearing architectural decision — preserve it.
+- **Depth bar (owner directive):** the primary learner is a *basic coder who is NOT a system-design expert, building this to master the subject themselves*. Content must **start accessible but ramp to real depth and push hard** — the why, tradeoffs, failure modes, real numbers, "what breaks at scale." Never shallow. A unit that only tests recognition is unfinished. **Accuracy is on us — the learner cannot fact-check; be rigorous.** (Full rule: `CONTENT_MASTER.md` §1.)
+- **Deliverables in HTML.** The owner wants tangible, clickable output — prefer self-contained HTML files (or Artifacts) over markdown/JSON docs. Keep the JSON content model as the source of truth regardless; HTML is a renderer/preview.
+
+## Architecture: two renderers, one content model
+
+```
+content/*.json  ── the source of truth (lessons + exercises)
+   │
+   ├──►  prototype/lesson.html   the HTML preview renderer (built now, for feel/review)
+   └──►  React Native / Expo app the real product renderer (built later)
+```
+
+- **`content/NN-<concept>.json`** — one file per concept/unit. A unit has `lessons[]`; each lesson has `exercises[]`; every exercise has a `type`, its type-specific answer fields, and a **`why`** line (always). Optional `goDeeper` (mid-level depth nugget) and `hint`. Schema reference lives in `SPEC.md` §6.3 and `CONTENT_MASTER.md` §7; the worked example is `content/01-how-the-internet-works.json`.
+- **`prototype/lesson.html`** — a self-contained, dependency-free HTML file that embeds unit JSON and renders the full lesson loop (progress bar, hearts, XP, per-type exercise renderers, instant feedback with `why`/`goDeeper`, completion screen). Its embedded `UNIT` object mirrors a `content/*.json` file — **when you author or change content, update the prototype's embedded copy too** so the two stay in sync until a loader replaces the manual embed.
+
+## Exercise types
+
+Nine types drive all content (defined in `SPEC.md` §3.2, usage guidance in `CONTENT_MASTER.md` §4): `multiple_choice`, `fill_blank`, `match_pairs`, `order_steps`, `multi_select`, `build_diagram`, `spot_bottleneck`, `tradeoff_slider`, `estimate`. Each is JSON-driven and has a matching renderer in `prototype/lesson.html`. Adding a new type means: define its JSON shape in the spec **and** add a renderer + a `check()` branch in the prototype.
+
+## Commands
+
+No build system yet (Expo app not scaffolded). Current workflow:
+
+```bash
+# Preview the lesson loop
+open prototype/lesson.html      # macOS; just open the file in any browser
+
+# Validate content JSON is well-formed (no dedicated validator yet)
+python3 -m json.tool content/01-how-the-internet-works.json >/dev/null && echo OK
+```
+
+When the Expo app is scaffolded, add its `install / start / test / lint` commands here.
+
+## Authoring workflow (per concept)
+
+1. Read `CONTENT_MASTER.md`; take the next `⬜` concept in the §6 tracker (in order — don't jump ahead).
+2. Author `content/NN-<concept>.json` following the lesson anatomy (hook → build → stretch → land), mixing 3–5 exercise types, ramping **easy → hard**, with a `why` on every exercise and depth as the default.
+3. Mirror the new unit into `prototype/lesson.html` so it's playable.
+4. Mark the concept ✅ in the `CONTENT_MASTER.md` tracker.
+
+## Business context (affects content/product decisions)
+
+- Pricing (recommended, under review): **$19/mo, $149/yr, 7-day free trial**. Positioning: "interview-grade system design, 10 minutes a day."
+- **Launch at ~30% content** (Tiers 0–1 + Caching, Load balancing, Sharding, URL-shortener capstone ≈ 11 units), then keep shipping units.
+- Offline-first through early milestones; backend/auth/payments are v2.
