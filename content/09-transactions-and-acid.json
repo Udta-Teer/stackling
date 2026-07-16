@@ -40,13 +40,13 @@
           "prompt": "What does COMMIT actually mean?",
           "choices": [
             "Save the data to memory",
-            "Make every change in the transaction permanent and visible — atomically",
+            "Make every change in the transaction permanent — all of them, together",
             "Close the connection",
             "Write to a log file for later"
           ],
           "answer": 1,
-          "why": "COMMIT is the moment your work becomes real and public, all at once. ROLLBACK is the opposite: discard everything since BEGIN, as though it never happened.",
-          "goDeeper": "The load-bearing word is 'atomically': at COMMIT every change lands together, so there's no instant where half your writes are permanent and half aren't. Note what this does NOT claim — whether another transaction could peek at your work BEFORE you committed is a separate property entirely. That's isolation, and it's lesson 3."
+          "why": "COMMIT is the moment your work becomes permanent, all at once. ROLLBACK is the opposite: discard everything since BEGIN, as though it never happened.",
+          "goDeeper": "The load-bearing word is 'together': at COMMIT every change lands as one unit, so there's no instant where half your writes are permanent and half aren't. That's atomicity, and notice it's a claim about what SURVIVES. It says nothing at all about who can SEE your work — that's a different property called isolation, and it's lesson 3."
         },
         {
           "type": "multiple_choice",
@@ -69,9 +69,9 @@
             "Debit account A",
             "Credit account B",
             "COMMIT",
-            "Changes become visible to everyone at once"
+            "All the changes become permanent together"
           ],
-          "why": "Open it, do the work invisibly, commit — and only then does the world see all of it, simultaneously.",
+          "why": "Open it, do the work, commit — and only at COMMIT do all the changes become permanent, as one unit. Anything before that point can still be undone.",
           "goDeeper": "If anything fails between BEGIN and COMMIT — an error, a crash, a ROLLBACK — the database rewinds to the state at BEGIN. That rewind is exactly what the write-ahead log from unit 6 makes possible."
         },
         {
