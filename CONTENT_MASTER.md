@@ -157,8 +157,8 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 13 | Caching | ✅ done | `content/13-caching.json` |
 | 14 | CDNs | ✅ done | `content/14-cdns.json` |
 | 15 | Sharding / partitioning | ✅ done | `content/15-sharding.json` |
-| 16 | Message queues & async | ⬜ | — |
-| 17 | Rate limiting | ⬜ | — |
+| 16 | Message queues & async | ✅ done | `content/16-message-queues.json` |
+| 17 | Rate limiting | ✅ done | `content/17-rate-limiting.json` |
 | 18 | CAP theorem | ⬜ | — |
 | 19 | Consistency models | ⬜ | — |
 | 20 | Consensus & leader election | ⬜ | — |

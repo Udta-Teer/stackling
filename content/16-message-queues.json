@@ -1,0 +1,327 @@
+{
+  "unitId": "message-queues",
+  "tier": 2,
+  "title": "Message Queues & Async",
+  "subtitle": "Stop making the user wait for work they don't need to watch",
+  "objectives": [
+    "Decide what work belongs in the request and what belongs behind a queue",
+    "Explain how a queue decouples producer from consumer and absorbs spikes",
+    "Reason about delivery guarantees and why consumers must be idempotent",
+    "Handle the failures: retries, poison messages, ordering, and a backlog you can't drain"
+  ],
+  "lessons": [
+    {
+      "id": "mq-1",
+      "title": "Work the user shouldn't wait for",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "A user signs up. Your handler creates the account (20ms), then sends a welcome email via a third-party API (2 seconds). How long do they stare at a spinner?",
+          "choices": [
+            "20ms",
+            "Over 2 seconds — they're waiting on an email they aren't even looking at",
+            "2 seconds, but only sometimes",
+            "It happens in the background automatically"
+          ],
+          "answer": 1,
+          "why": "The response can't return until the handler finishes, so the user waits for every line of it — including a slow call to a service they'll never see the result of. Worse, you've coupled signup's availability to the email provider's: if that API is down, your handler fails and nobody can sign up at all, over an email."
+        },
+        {
+          "type": "fill_blank",
+          "prompt": "A message ______ lets you hand off work now and have it performed later by a separate process.",
+          "choices": ["queue", "cache", "index", "replica"],
+          "answer": 0,
+          "why": "You write the job down somewhere durable and return immediately; something else picks it up and does it. The user's request stops being 'do the work' and becomes 'record that the work is needed'."
+        },
+        {
+          "type": "order_steps",
+          "prompt": "Order what happens when signup sends the welcome email asynchronously.",
+          "steps": [
+            "User submits signup",
+            "Server creates the account",
+            "Server puts a 'send welcome email' message on the queue",
+            "Server responds — user is done in ~25ms",
+            "A worker picks the message up and calls the email API"
+          ],
+          "why": "The user's request now ends the moment the job is recorded, and the slow part happens on someone else's clock. Note the ordering that matters: the response goes out BEFORE the email is sent, which is precisely the trade — the user gets 25ms, and in exchange the email is a promise rather than a fact."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which of these belong behind a queue? Select all.",
+          "choices": [
+            "Sending a welcome email",
+            "Generating a monthly PDF report",
+            "Checking the password on login",
+            "Encoding an uploaded video"
+          ],
+          "answer": [0, 1, 3],
+          "why": "Emails, reports, and video encoding are slow, the user isn't watching the result, and a few seconds' delay costs nothing. The password check is the opposite on every count: the user is waiting on that exact answer, and deferring it is meaningless because there's nothing to return without it. The test is simply whether the user needs the result to continue."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What have you given up by moving the email to a queue?",
+          "choices": [
+            "Nothing at all",
+            "Certainty at response time: you told the user 'done' when the email is merely scheduled, so if it later fails, they've already been told it worked",
+            "The ability to send email",
+            "Account creation reliability"
+          ],
+          "answer": 1,
+          "why": "Async converts a synchronous fact into a promise — at the moment you respond, the work has not happened, and you're asserting it will. That's fine for a welcome email and unacceptable for 'your payment succeeded', so the question is always what happens if this promise is broken and nobody's watching. Answer it before you defer the work, not during the incident."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Beyond speed, what does the queue give you when the email provider goes down for an hour?",
+          "choices": [
+            "Nothing — the emails are lost",
+            "Signups keep working, and the messages wait in the queue until the provider returns",
+            "The queue sends the emails itself",
+            "Users get an error"
+          ],
+          "answer": 1,
+          "why": "The queue is a buffer between two systems that no longer have to be healthy at the same moment — a dead provider stops emails from being SENT without stopping them from being ACCEPTED. That decoupling is often worth more than the latency win: the failure of a non-essential dependency stops taking down an essential path."
+        }
+      ]
+    },
+    {
+      "id": "mq-2",
+      "title": "Decoupling and buffering",
+      "exercises": [
+        {
+          "type": "match_pairs",
+          "prompt": "Match each part of a queue system.",
+          "pairs": [
+            { "left": "Producer", "right": "Puts messages on the queue" },
+            { "left": "Consumer / worker", "right": "Takes messages off and does the work" },
+            { "left": "The queue", "right": "Durable storage for work not yet done" },
+            { "left": "Acknowledgement", "right": "The worker confirming it finished" }
+          ],
+          "why": "Producers and consumers never speak to each other — they only touch the queue, which is what lets them be deployed, scaled, and broken independently. The acknowledgement is the load-bearing piece: without it the queue can't distinguish 'done' from 'the worker died holding it'."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Black Friday: uploads spike to 10× normal, far beyond what your video encoders can handle. With a queue in front, what happens?",
+          "choices": [
+            "The system falls over",
+            "Uploads are accepted quickly and the queue grows; workers keep chewing through at their own pace, so the backlog absorbs the spike instead of the users feeling it",
+            "Requests are rejected",
+            "The workers speed up automatically"
+          ],
+          "answer": 1,
+          "why": "A queue turns a spike in arrival rate into a spike in queue DEPTH rather than a spike in failures, which is the whole reason to buffer: the users' side stays fast and the backlog just gets longer for a while. That only works if the average rate is sustainable, though — a buffer smooths bursts, and nothing can smooth a permanent excess."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your queue depth has been growing steadily for six hours. What does that mean?",
+          "choices": [
+            "The buffer is working as intended",
+            "Arrivals are outpacing your workers — this isn't a burst being absorbed, it's a deficit compounding, and it will never recover on its own",
+            "The queue is too small",
+            "Messages are being lost"
+          ],
+          "answer": 1,
+          "why": "A queue absorbing a burst rises and then falls; a queue that only rises means arrival rate exceeds service rate, and no amount of waiting fixes that — the gap compounds every second. Depth is therefore your key signal, and its DERIVATIVE is what matters: rising and returning is healthy, monotonically rising means add workers or shed load, now."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "How do you make the backlog drain faster?",
+          "choices": [
+            "Make the queue bigger",
+            "Add more consumers — they pull from the same queue independently, and that's exactly the workload that scales horizontally",
+            "Restart the queue",
+            "Reduce the message size"
+          ],
+          "answer": 1,
+          "why": "Queued work is usually the ideal horizontal case from unit 11: each message is independent, so two workers never coordinate and ten workers do ten times the work. A bigger queue just gives you more room to fall behind — it changes when you notice the problem, not whether you have one."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A worker crashes halfway through processing a message. What should the queue do?",
+          "choices": [
+            "Delete the message — it was delivered",
+            "Give it to another worker, since it was never acknowledged and therefore was never completed",
+            "Retry only if the worker asks",
+            "Log an error and move on"
+          ],
+          "answer": 1,
+          "why": "This is exactly why acknowledgement exists: the queue holds the message as in-flight and only deletes it when a worker confirms success, so a crash means the ack never arrives and the message becomes available again. That in-flight message is state the system must not lose — the same point unit 5 made about work-in-progress — and it's why real queues persist messages to disk rather than holding them in memory."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Does adding a queue make the overall work finish sooner?",
+          "choices": [
+            "Yes — queues are faster",
+            "No — the same work still happens, and the total takes slightly longer with the extra hop. What changed is who waits: the user doesn't",
+            "Yes, because workers are optimized",
+            "Only for small messages"
+          ],
+          "answer": 1,
+          "why": "The encoding still takes its two minutes; you've moved it off the user's clock, not shortened it. This is unit 4's split, sharpened: async improves perceived latency and throughput under bursts while slightly worsening end-to-end latency for the task itself — which is a superb trade exactly when nobody is watching the task."
+        }
+      ]
+    },
+    {
+      "id": "mq-3",
+      "title": "Delivery guarantees",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "A worker finishes the job, then crashes before sending its acknowledgement. What happens to that message?",
+          "choices": [
+            "It's gone — the work was done",
+            "The queue never heard 'done', so it redelivers — and the job runs a second time",
+            "The queue detects the work completed",
+            "It goes to an error log"
+          ],
+          "answer": 1,
+          "why": "The queue can only observe acknowledgements, not outcomes, so 'work done but unacked' and 'worker died before starting' look identical from outside — and it must assume the pessimistic one. That gap is unavoidable rather than a bug in any particular queue: there's no way to make finishing the work and confirming it a single atomic act across two machines."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each delivery guarantee to what it means.",
+          "pairs": [
+            { "left": "At-most-once", "right": "May be lost, never repeated" },
+            { "left": "At-least-once", "right": "Never lost, may be repeated" },
+            { "left": "Exactly-once", "right": "The one everyone wants" },
+            { "left": "The common default", "right": "At-least-once" }
+          ],
+          "why": "You're choosing which failure to accept: ack before working risks losing the job, ack after working risks doing it twice. Almost every real queue defaults to at-least-once because losing work is usually worse than repeating it — which quietly makes duplicate handling your problem."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your queue is at-least-once. Your worker charges a credit card. What must be true?",
+          "choices": [
+            "Nothing — duplicates are rare",
+            "The worker must be idempotent: processing the same message twice must charge the customer once",
+            "The queue must guarantee exactly-once",
+            "Retries must be disabled"
+          ],
+          "answer": 1,
+          "why": "At-least-once means the duplicate isn't a rare accident, it's a documented behaviour that will happen — so a non-idempotent worker on a durable queue is a billing incident waiting for a network blip. The fix is unit 2's idempotency key: record which message ids you've completed and make the second attempt a no-op that returns the first result."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Vendors advertise 'exactly-once delivery'. What's actually going on?",
+          "choices": [
+            "They solved distributed systems",
+            "Delivery can't truly be exactly-once across a network, so what's offered is at-least-once delivery plus deduplication — exactly-once EFFECTS, not exactly-once delivery",
+            "It only works for small messages",
+            "It's a straightforward feature"
+          ],
+          "answer": 1,
+          "why": "The message may genuinely arrive twice; the system just remembers it saw that id and discards the repeat, which is deduplication wearing a better name. That's a real and useful feature, with real limits — the dedup window is finite, and it only covers the queue's own boundary, so a side effect your worker performs on a third party is still yours to make idempotent."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A message fails, gets retried, fails again — forever. It's blocking the queue and filling your logs. What's it called and what's the fix?",
+          "choices": [
+            "A slow message; add workers",
+            "A poison message: after N attempts, move it to a dead-letter queue so it stops consuming capacity and can be inspected",
+            "A duplicate; deduplicate it",
+            "A backlog; scale up"
+          ],
+          "answer": 1,
+          "why": "Some messages can never succeed — malformed payloads, a referenced row that's been deleted — and retrying them forever burns capacity while hiding the failure in noise. A dead-letter queue bounds the damage by giving up after N attempts and setting the message aside intact, which turns an infinite loop into a queue you can actually go and look at."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your worker retries a failed message immediately, in a tight loop. The downstream service is already struggling. What have you built?",
+          "choices": [
+            "A resilient retry system",
+            "A hammer: your retries add load to the exact service that's failing, so the retries are now part of why it can't recover",
+            "Nothing harmful",
+            "A rate limiter"
+          ],
+          "answer": 1,
+          "why": "Immediate retries mean a struggling dependency gets MORE traffic precisely when it needs less, and every retry makes recovery less likely — the classic retry storm. Exponential backoff with jitter is the fix: wait longer after each failure, and randomize so a thousand workers don't retry in perfect unison, which was the 429 lesson from unit 2 now applied on your own side of the wire."
+        }
+      ]
+    },
+    {
+      "id": "mq-4",
+      "title": "The hard parts",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Two messages for the same user: 'update email to A', then 'update email to B'. Your five workers process them in parallel. What can happen?",
+          "choices": [
+            "They always apply in order",
+            "B can land before A, leaving the email as A — the older value wins, permanently",
+            "The queue rejects one",
+            "Both are applied, ending at B"
+          ],
+          "answer": 1,
+          "why": "Parallel workers give you no ordering: two messages in flight at once finish whenever they finish, and 'last write wins' means whichever finishes last, not whichever was sent last. Concurrency bought throughput and spent ordering — and the corruption is silent, since nothing errors and the row just holds a stale value forever."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "You need those two updates to stay in order. What's the standard approach?",
+          "choices": [
+            "Use one worker for everything",
+            "Partition by a key — route all messages for a given user to the same partition, so that user's messages are ordered while different users still process in parallel",
+            "Add timestamps and hope",
+            "Disable retries"
+          ],
+          "answer": 1,
+          "why": "Global ordering means one consumer and no parallelism at all, which throws away the reason you queued the work. Per-key ordering is the useful compromise: order is only guaranteed where you actually need it, and unrelated users remain fully parallel. Note this is unit 15's shard key wearing another hat — you're choosing what must be co-located to stay consistent."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your worker updates the database, then publishes a message. It crashes in between. What's broken?",
+          "choices": [
+            "Nothing — the database is correct",
+            "The database change happened but the message never went out, so every downstream system is permanently unaware — and there's no error anywhere",
+            "The message is queued automatically",
+            "The database rolls back"
+          ],
+          "answer": 1,
+          "why": "A database transaction and a queue publish are two systems, so unit 9's boundary applies: you cannot make both happen atomically by wrapping them in a BEGIN. This is the dual-write problem, and the usual answer is the transactional outbox — write the message into a table inside the same transaction as your data change, then have a separate process read that table and publish. One atomic write, and publishing becomes at-least-once delivery from a durable record."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which are real costs of moving work behind a queue? Select all.",
+          "choices": [
+            "You must handle duplicate processing",
+            "Ordering is no longer free",
+            "Debugging spans two systems and a time gap",
+            "The user's request gets slower"
+          ],
+          "answer": [0, 1, 2],
+          "why": "Duplicates come from at-least-once, ordering is surrendered to parallelism, and failures now happen minutes later in a different process with no user waiting to notice — you have to go looking. The user's request gets FASTER, which is the whole point; you paid for it in complexity that lives entirely on your side."
+        },
+        {
+          "type": "tradeoff_slider",
+          "prompt": "A user clicks 'export my data'. Generating it takes about 90 seconds. Slide toward your design.",
+          "leftLabel": "Synchronous (simple, user waits 90s)",
+          "rightLabel": "Queue it and notify when ready (async, more moving parts)",
+          "answerRange": [60, 100],
+          "why": "Ninety seconds is far past where a request should live: the browser or a proxy will likely time out, a retry starts the whole job again, and one slow export holds a connection and a worker hostage. Queue it, return 'we'll email you', and the work runs where nothing is waiting on it — the extra machinery is worth it the moment the task outlives a reasonable request."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your queue backlog is 4 million messages and workers are at max. Adding workers hits the database's write limit. What now?",
+          "choices": [
+            "Add more workers anyway",
+            "The bottleneck moved downstream — the queue was never the constraint, so you must shed load, batch the writes, or scale the database",
+            "Purge the queue",
+            "Increase the retry interval"
+          ],
+          "answer": 1,
+          "why": "The queue faithfully absorbed everything and handed the problem to the next stage: your real limit is the database's write rate, and unit 4's rule says capacity added anywhere but the bottleneck buys nothing. That's the queue's dark side — it hides a capacity deficit behind a growing number instead of failing loudly, so you discover the true constraint with four million messages of debt already accrued."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What's the honest summary of queues?",
+          "choices": [
+            "They make systems faster and more reliable automatically",
+            "They take work off the user's clock and decouple systems that shouldn't fail together — and charge you in duplicates, lost ordering, delayed failures, and backlogs that hide a deficit",
+            "They're only for very large systems",
+            "They guarantee work is never lost"
+          ],
+          "answer": 1,
+          "why": "A queue converts a synchronous fact into a durable promise, which is exactly what buys the speed and the decoupling — and exactly what creates every cost. The promise can be fulfilled twice, out of order, much later, or pile up unfulfilled, and none of those failures has a user watching to report them. That's the trade: the user stops waiting, and you take on the job of making sure the promise is kept."
+        }
+      ]
+    }
+  ]
+}
