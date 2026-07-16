@@ -46,20 +46,20 @@
           ],
           "answer": 1,
           "why": "COMMIT is the moment your work becomes real and public, all at once. ROLLBACK is the opposite: discard everything since BEGIN, as though it never happened.",
-          "goDeeper": "The load-bearing word is 'atomically.' Other transactions never observe half your work — not for a microsecond. There is no window where the money has left A but not arrived at B, from anyone else's point of view."
+          "goDeeper": "The load-bearing word is 'atomically': at COMMIT every change lands together, so there's no instant where half your writes are permanent and half aren't. Note what this does NOT claim — whether another transaction could peek at your work BEFORE you committed is a separate property entirely. That's isolation, and it's lesson 3."
         },
         {
           "type": "multiple_choice",
-          "prompt": "Mid-transaction, you've done 5 of your 10 writes. Another connection queries those rows right now. What does it see?",
+          "prompt": "You're 5 of 10 writes into a transaction when it hits an error and rolls back. What happens to those 5 writes?",
           "choices": [
-            "The 5 writes you've done so far",
-            "None of them — your work is invisible until you commit",
-            "An error saying the table is busy",
-            "A random mix"
+            "They stay — they already succeeded",
+            "All 5 are undone: the database rewinds to the state at BEGIN",
+            "Only the most recent one is undone",
+            "The database pauses and asks you what to do"
           ],
           "answer": 1,
-          "why": "Atomicity means the outside world sees your transaction as a single indivisible event: the state before, or the state after — never during.",
-          "goDeeper": "'Atomic' comes from the Greek for indivisible, and that's precisely the promise. It's not a statement about speed — it's a statement about the absence of an observable middle. Nobody can catch you halfway."
+          "why": "That's atomicity: the transaction is indivisible, so a failure anywhere undoes everything since BEGIN. You can never be left with a half-finished transfer sitting in the data.",
+          "goDeeper": "Be careful with a related-but-different question: could OTHER transactions have seen those 5 writes before you committed? That is NOT atomicity — that's isolation, and the answer depends on the isolation level you're running. At Read Uncommitted they genuinely could (a 'dirty read'). Atomicity governs what survives failure; isolation governs what others can see. Lesson 3 is entirely about that second question."
         },
         {
           "type": "order_steps",
