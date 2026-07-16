@@ -46,7 +46,7 @@
           ],
           "answer": 1,
           "why": "COMMIT applies your whole transaction as one unit. ROLLBACK is the opposite: discard everything since BEGIN, as though it never happened.",
-          "goDeeper": "The load-bearing word is 'together': at COMMIT every change takes effect as a single unit — there's no instant where half your writes have landed and half haven't. That's atomicity: a claim about all-or-nothing, and nothing else. Its two neighbours are easy to blur with it. DURABILITY also lands at COMMIT — it's the promise that committed work survives a crash (unit 6's write-ahead log) — and sharing that moment is exactly why these two get confused. ISOLATION is a different kind of thing altogether: it isn't something COMMIT does. It's the rule for what other transactions can see WHILE you're still running — and at some levels they can see your uncommitted writes. That's lesson 3."
+          "goDeeper": "The load-bearing word is 'together': at COMMIT every change takes effect as a single unit — there's no instant where half your writes have landed and half haven't. That is all atomicity claims, and it's worth holding it exactly that narrowly. The other ACID letters make their own, quite different promises, and quietly blurring them into atomicity is the most common way people misread what a transaction actually guarantees. Lesson 2 pulls them apart one at a time."
         },
         {
           "type": "multiple_choice",
@@ -59,7 +59,7 @@
           ],
           "answer": 1,
           "why": "That's atomicity: the transaction is indivisible, so a failure anywhere undoes everything since BEGIN. You can never be left with a half-finished transfer sitting in the data.",
-          "goDeeper": "Be careful with a related-but-different question: could OTHER transactions have seen those 5 writes before you committed? That is NOT atomicity — that's isolation, and the answer depends on the isolation level you're running. At Read Uncommitted they genuinely could (a 'dirty read'). Atomicity governs whether you can be left half-done; isolation governs what others can see. Lesson 3 is entirely about that second question."
+          "goDeeper": "Be careful with a related-but-different question: could OTHER transactions have seen those 5 writes before you committed? That is NOT atomicity — it's isolation, and the answer depends on the isolation level you're running (at Read Uncommitted they genuinely could — a 'dirty read'). Atomicity is only about whether you can be left half-done. Lesson 3 takes isolation apart properly."
         },
         {
           "type": "order_steps",
