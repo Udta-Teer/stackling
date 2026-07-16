@@ -37,7 +37,7 @@ GODEEPER_RETIRED_FROM = 1
 
 ALLOWED_FIELDS = {
     "type", "prompt", "choices", "answer", "why", "hint",
-    "pairs", "steps", "slots", "palette",
+    "pairs", "steps", "slots", "palette", "nodes",
     "tolerance", "unit", "leftLabel", "rightLabel", "answerRange",
 }
 
@@ -110,6 +110,12 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
             err(unit_name, lesson_id, "build_diagram needs a '?' slot")
         if e.get("answer") not in (e.get("palette") or []):
             err(unit_name, lesson_id, "build_diagram answer must be in palette")
+    elif t == "spot_bottleneck":
+        nodes = e.get("nodes")
+        if not isinstance(nodes, list) or len(nodes) < 2:
+            err(unit_name, lesson_id, "spot_bottleneck needs a `nodes` list of >=2")
+        elif not isinstance(e.get("answer"), int) or not (0 <= e["answer"] < len(nodes)):
+            err(unit_name, lesson_id, f"spot_bottleneck answer index out of range: {e.get('answer')}")
     elif t == "estimate":
         for k in ("answer", "tolerance", "unit"):
             if k not in e:
