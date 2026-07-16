@@ -155,7 +155,7 @@
           ],
           "answer": 1,
           "why": "You're buying the guarantee that an acknowledged write exists in two places, and paying for it with latency on every write plus a dependency on the follower being alive.",
-          "goDeeper": "This is why fully synchronous replication to ALL followers is rare — one slow or dead follower would halt every write in the system. The usual compromise is semi-synchronous: one follower synchronous so a second copy always exists, the rest asynchronous so they can lag without blocking anyone."
+          "goDeeper": "This is why fully synchronous replication to ALL followers is rare — one slow or dead follower would halt every write in the system. The usual compromise is semi-synchronous: one follower synchronous, so that while it's healthy an acknowledged write has already reached a second machine, with the rest asynchronous so they can lag without blocking anyone. Read that 'while it's healthy' literally: implementations typically fall back to async if the synchronous follower goes away, which is exactly when you'd have wanted it."
         },
         {
           "type": "multiple_choice",
@@ -208,7 +208,7 @@
           ],
           "answer": 1,
           "why": "Two reads, two replicas, two different amounts of lag — so the second read returned an older state than the first. Nothing was deleted; the user just travelled backwards.",
-          "goDeeper": "The usual mitigation is to pin each user to one replica — say by hashing their user id — so their reads keep coming from the same copy. That copy may be stale, but it won't move backwards under them. Note the limit, though: the moment they get re-pinned — the replica dies, or you pull it from rotation for lagging — they can land on a copy that's further behind and jump backwards anyway. Pinning narrows the window; it doesn't close it."
+          "goDeeper": "The usual mitigation is to pin each user to one replica — say by hashing their user id — so that FOR AS LONG AS THE PIN HOLDS, their reads come from one copy that only ever moves forward. That clause is the whole caveat: the pin breaks when the replica dies, or when you pull it from rotation for lagging, and the user gets re-pinned to a copy that may be further behind — jumping them backwards anyway. Pinning narrows the window; it doesn't close it."
         },
         {
           "type": "multiple_choice",

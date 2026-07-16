@@ -296,8 +296,8 @@
             "Once per matching row"
           ],
           "answer": 1,
-          "why": "The index holds email values. The query only wants an email. So the answer is already in the index — the database never fetches the row at all.",
-          "goDeeper": "This is a covering index (an index-only scan), and it's a bigger deal than it sounds: you skip the random read to fetch the row, which is often the expensive half. It's why engineers sometimes add a column to an index they never filter on — purely so the index can answer the whole query alone."
+          "why": "The index holds email values. The query only wants an email. So the answer is already in the index, and the database can skip fetching the row.",
+          "goDeeper": "This is a covering index (an index-only scan), and it's a bigger deal than it sounds: you skip the random read to fetch the row, which is often the expensive half. It's why engineers sometimes add a column to an index purely so it can answer a whole query alone, without ever filtering on that column. One caveat worth carrying: Postgres still consults its visibility map and will fetch the row anyway if the page isn't marked all-visible — so 'index-only' is a best case, not a promise."
         },
         {
           "type": "multiple_choice",
