@@ -42,13 +42,26 @@ Write for this arc within every unit:
 
 ---
 
-### 3.1 ⛔ `goDeeper` is retired (decided 2026-07-16)
+### 3.1 ⛔ `goDeeper` is retired everywhere (decided 2026-07-16)
 
-**Do not emit a `goDeeper` field in new content — omit it entirely (not `null`).** The `why` carries the depth instead.
+**Never emit a `goDeeper` field — omit it entirely (not `null`).** The `why` carries the depth instead. `scripts/validate-content.py` rejects the field in any unit, and the renderer no longer has a box for it.
 
 **Why this changed:** every single stop-time review finding across units 8–11 (~12 of them) landed in a `goDeeper`; not one was in a `why`. The field's shape was the problem: a `why` is anchored — it must justify *this* answer — and that constraint keeps it honest. `goDeeper` was an open-ended aside, which is precisely where the writing drifted into defining neighbouring concepts, stating mitigations as guarantees, and repeating folklore as fact. Cutting the field removes the error surface rather than re-patching it.
 
-*Units 1–11 still contain `goDeeper` fields; the owner is revisiting those. Don't retrofit them unless asked. The prototype renderer simply omits the box when the field is absent, so no renderer change is needed.*
+*All 27 units were rewritten to fold that depth into the `why` (not concatenated — rewritten so each claim justifies its own answer).*
+
+### 3.2 Markdown in content strings
+
+The renderer runs `md()` over **every** displayed string — prompts, choices, `why`, match pairs, steps, diagram nodes and palette, and slider labels. It supports:
+
+| Syntax | Renders as | Use for |
+|---|---|---|
+| `` `code` `` | `<code>` — mono, blue, boxed | anything the learner would type or see in code: `GET /users/42`, `429 Too Many Requests`, `Cache-Control`, `SELECT *`, `COMMIT` |
+| `*emphasis*` | `<em>` — italic, amber | the one word a sentence turns on |
+
+**Mark up code so it looks like code.** A learner should be able to tell at a glance that `useEffect` is an identifier and not prose. HTML is escaped first, so `<script>` in content is safe.
+
+**Don't** mark up bare numbers or ordinary words — `500 servers` is prose, `500 Internal Server Error` is code. Never regex-replace tokens in bulk: `/sec` in "requests/sec" and `/response` in "request/response" look exactly like paths to a pattern and are not.
 
 ## 3. Lesson anatomy (fixed template — don't reinvent per lesson)
 

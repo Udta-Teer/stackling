@@ -173,11 +173,11 @@
             "It doesn't; an engineer has to remove it"
           ],
           "answer": 1,
-          "why": "Dead machines can't announce anything, so the balancer has to keep asking. That's an active health check — probing an endpoint like /health on a schedule. The alternative is passive: watch real traffic and notice failures, which costs nothing extra but only learns by hurting real users first, whereas active spends probes to find out before anyone gets hurt."
+          "why": "Dead machines can't announce anything, so the balancer has to keep asking. That's an active health check — probing an endpoint like `/health` on a schedule. The alternative is passive: watch real traffic and notice failures, which costs nothing extra but only learns by hurting real users first, whereas active spends probes to find out before anyone gets hurt."
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your /health endpoint just returns 200 OK unconditionally. What's the problem?",
+          "prompt": "Your `/health` endpoint just returns `200 OK` unconditionally. What's the problem?",
           "choices": [
             "Nothing — it proves the server is up",
             "It proves the web server can answer, not that the app can do its job — a server with a dead database connection passes happily",

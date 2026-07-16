@@ -256,7 +256,7 @@
           "prompt": "At trip end, you must charge the rider and credit the driver — across your database and an external payments provider. What's the problem?",
           "choices": [
             "It's a simple transaction",
-            "Atomicity stops at your database: your ROLLBACK can't un-charge a card, so you need a saga with compensating actions plus idempotency keys",
+            "Atomicity stops at your database: your `ROLLBACK` can't un-charge a card, so you need a saga with compensating actions plus idempotency keys",
             "The payment provider handles it",
             "It needs two-phase commit"
           ],

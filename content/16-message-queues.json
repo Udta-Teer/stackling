@@ -275,7 +275,7 @@
             "The database rolls back"
           ],
           "answer": 1,
-          "why": "A database transaction and a queue publish are two systems, so unit 9's boundary applies: you cannot make both happen atomically by wrapping them in a BEGIN. This is the dual-write problem, and the usual answer is the transactional outbox — write the message into a table inside the same transaction as your data change, then have a separate process read that table and publish. One atomic write, and publishing becomes at-least-once delivery from a durable record."
+          "why": "A database transaction and a queue publish are two systems, so unit 9's boundary applies: you cannot make both happen atomically by wrapping them in a `BEGIN`. This is the dual-write problem, and the usual answer is the transactional outbox — write the message into a table inside the same transaction as your data change, then have a separate process read that table and publish. One atomic write, and publishing becomes at-least-once delivery from a durable record."
         },
         {
           "type": "multi_select",

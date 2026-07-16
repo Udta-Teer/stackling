@@ -48,9 +48,9 @@
         {
           "type": "multiple_choice",
           "prompt": "Which status code says 'you're over your limit'?",
-          "choices": ["503 Service Unavailable", "429 Too Many Requests", "403 Forbidden", "500 Internal Server Error"],
+          "choices": ["`503 Service Unavailable`", "`429 Too Many Requests`", "`403 Forbidden`", "`500 Internal Server Error`"],
           "answer": 1,
-          "why": "429 is the specific, machine-readable signal that the request was fine but you've sent too many — and it matters that it's distinct from 503, because 429 tells the client the fix is to slow down while 503 says the service itself is unwell. Pair it with a Retry-After header and a well-behaved client knows exactly how long to wait rather than guessing."
+          "why": "429 is the specific, machine-readable signal that the request was fine but you've sent too many — and it matters that it's distinct from 503, because 429 tells the client the fix is to slow down while 503 says the service itself is unwell. Pair it with a `Retry-After` header and a well-behaved client knows exactly how long to wait rather than guessing."
         },
         {
           "type": "multi_select",
@@ -68,7 +68,7 @@
           "type": "multiple_choice",
           "prompt": "Your limit is 100 requests/minute per user. A user hits 101. What should you NOT do?",
           "choices": [
-            "Return 429 with Retry-After",
+            "Return 429 with `Retry-After`",
             "Silently drop the request and leave the client hanging until it times out",
             "Log it for monitoring",
             "Let them through if you have spare capacity"
@@ -243,11 +243,11 @@
             "Traffic halves"
           ],
           "answer": 1,
-          "why": "Rejecting is cheap but not free, and a client that retries the instant it's refused converts your limit into a busy-loop generator — you're spending real capacity manufacturing 429s. That's why Retry-After and backoff matter: the limit only works if the answer changes the client's behaviour, otherwise you've just made refusing people your main workload."
+          "why": "Rejecting is cheap but not free, and a client that retries the instant it's refused converts your limit into a busy-loop generator — you're spending real capacity manufacturing 429s. That's why `Retry-After` and backoff matter: the limit only works if the answer changes the client's behaviour, otherwise you've just made refusing people your main workload."
         },
         {
           "type": "multiple_choice",
-          "prompt": "A thousand clients all get rate-limited at 10:00:00 and all obey 'Retry-After: 60'. What happens at 10:01:00?",
+          "prompt": "A thousand clients all get rate-limited at 10:00:00 and all obey '`Retry-After`: 60'. What happens at 10:01:00?",
           "choices": [
             "Traffic resumes smoothly",
             "All thousand retry in the same instant — a synchronized thundering herd, caused by every client following the rules perfectly",
@@ -261,13 +261,13 @@
           "type": "multi_select",
           "prompt": "Which make a rate limit friendlier to legitimate clients? Select all.",
           "choices": [
-            "Returning Retry-After so they know exactly how long to wait",
+            "Returning `Retry-After` so they know exactly how long to wait",
             "Headers showing limit, remaining, and reset time",
             "Allowing a burst above the sustained rate",
             "Rejecting silently to save bandwidth"
           ],
           "answer": [0, 1, 2],
-          "why": "Retry-After, quota headers, and a burst allowance all let a well-built client self-regulate before it ever gets refused — which is what you actually want, since a client that never trips the limit costs you nothing. Silence does the reverse: it forces clients to discover your limit by hitting it, which means guessing, and guessing means retry storms."
+          "why": "`Retry-After`, quota headers, and a burst allowance all let a well-built client self-regulate before it ever gets refused — which is what you actually want, since a client that never trips the limit costs you nothing. Silence does the reverse: it forces clients to discover your limit by hitting it, which means guessing, and guessing means retry storms."
         },
         {
           "type": "multiple_choice",

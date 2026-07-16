@@ -127,19 +127,19 @@
           "prompt": "How does the edge know how long it may keep a copy?",
           "choices": [
             "It guesses",
-            "Your origin tells it, using cache headers like Cache-Control with a max-age",
+            "Your origin tells it, using cache headers like `Cache-Control` with a max-age",
             "It always keeps things for 24 hours",
             "The user's browser decides"
           ],
           "answer": 1,
-          "why": "The origin sets the policy and the edge obeys it — Cache-Control max-age is you saying how long a copy stays fresh. This is the same mechanism from unit 2 doing a bigger job: the headers you send aren't decoration, they're instructions to every cache between you and the user, and setting them badly is how you end up either with no caching at all or with a mistake pinned in place for a year."
+          "why": "The origin sets the policy and the edge obeys it — `Cache-Control` max-age is you saying how long a copy stays fresh. This is the same mechanism from unit 2 doing a bigger job: the headers you send aren't decoration, they're instructions to every cache between you and the user, and setting them badly is how you end up either with no caching at all or with a mistake pinned in place for a year."
         },
         {
           "type": "multiple_choice",
           "prompt": "You set max-age to 1 year on a file you might need to change. Reckless?",
           "choices": [
             "Yes — you can never update it",
-            "No, provided the filename changes whenever the content does: app.a3f9c1.js is cached forever precisely because a new build produces a new name",
+            "No, provided the filename changes whenever the content does: `app.a3f9c1.js` is cached forever precisely because a new build produces a new name",
             "Yes — a year is always too long",
             "No, because you can always purge"
           ],
@@ -148,7 +148,7 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "Why is the index.html that references those hashed files usually cached for a very short time — or not at all?",
+          "prompt": "Why is the `index.html` that references those hashed files usually cached for a very short time — or not at all?",
           "choices": [
             "HTML is too big to cache",
             "Because it's the one file whose name never changes, so it's the only place that can tell browsers which new hashed files to fetch",
@@ -213,7 +213,7 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your CDN supports 'stale-while-revalidate': serve the cached copy immediately, and refresh it in the background. What are you buying?",
+          "prompt": "Your CDN supports '`stale-while-revalidate`': serve the cached copy immediately, and refresh it in the background. What are you buying?",
           "choices": [
             "Perfect freshness",
             "Speed for the user right now, at the cost of that one response being slightly out of date",
@@ -229,7 +229,7 @@
           "leftLabel": "Very short TTL (fresh, more origin load)",
           "rightLabel": "Long TTL (fast + cheap, can be minutes stale)",
           "answerRange": [30, 70],
-          "why": "Neither extreme fits: no caching hands enormous traffic straight to your origin, and a long TTL means a breaking story sits invisible for an hour. A short TTL of seconds-to-a-minute collapses millions of requests into one origin fetch per interval while keeping the page current enough for news — and stale-while-revalidate makes even that refresh invisible to users."
+          "why": "Neither extreme fits: no caching hands enormous traffic straight to your origin, and a long TTL means a breaking story sits invisible for an hour. A short TTL of seconds-to-a-minute collapses millions of requests into one origin fetch per interval while keeping the page current enough for news — and `stale-while-revalidate` makes even that refresh invisible to users."
         }
       ]
     },
@@ -247,7 +247,7 @@
             "Hit ratio doesn't matter"
           ],
           "answer": 1,
-          "why": "For a static asset workload, mature CDN configurations typically run far higher, so 60% usually means something is defeating the cache — cache-busting query strings, missing headers, or Vary headers fragmenting one file into many variants. The number worth watching is what fraction of ORIGIN load you removed, because that's what the CDN was bought for."
+          "why": "For a static asset workload, mature CDN configurations typically run far higher, so 60% usually means something is defeating the cache — cache-busting query strings, missing headers, or `Vary` headers fragmenting one file into many variants. The number worth watching is what fraction of ORIGIN load you removed, because that's what the CDN was bought for."
         },
         {
           "type": "multiple_choice",
@@ -278,12 +278,12 @@
           "prompt": "Which of these quietly destroy your cache hit ratio? Select all.",
           "choices": [
             "Appending a unique tracking parameter like ?t=1234 to asset URLs",
-            "A Vary header that splits one file into many per-browser variants",
-            "Forgetting Cache-Control, so the CDN won't cache at all",
+            "A `Vary` header that splits one file into many per-browser variants",
+            "Forgetting `Cache-Control`, so the CDN won't cache at all",
             "Serving the same file to every user"
           ],
           "answer": [0, 1, 2],
-          "why": "Unique query strings make every request a distinct URL and therefore a guaranteed miss; an over-broad Vary shatters one cached object into dozens of near-identical copies that each have to be warmed; and no Cache-Control means the CDN often declines to cache at all. Serving everyone the identical file is the opposite — it's precisely the condition that makes caching work."
+          "why": "Unique query strings make every request a distinct URL and therefore a guaranteed miss; an over-broad `Vary` shatters one cached object into dozens of near-identical copies that each have to be warmed; and no `Cache-Control` means the CDN often declines to cache at all. Serving everyone the identical file is the opposite — it's precisely the condition that makes caching work."
         },
         {
           "type": "multiple_choice",

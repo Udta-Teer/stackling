@@ -207,7 +207,7 @@
             "They take turns"
           ],
           "answer": 1,
-          "why": "Identical timeouts make nodes act in unison, which is exactly what causes repeated split votes — the same synchronization trap as unit 17's clients all obeying one Retry-After. Randomizing breaks the symmetry cheaply: someone times out first, requests votes while everyone else is still waiting, and the round resolves."
+          "why": "Identical timeouts make nodes act in unison, which is exactly what causes repeated split votes — the same synchronization trap as unit 17's clients all obeying one `Retry-After`. Randomizing breaks the symmetry cheaply: someone times out first, requests votes while everyone else is still waiting, and the round resolves."
         },
         {
           "type": "multiple_choice",

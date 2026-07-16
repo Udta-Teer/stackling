@@ -24,8 +24,7 @@
             "Add more indexes"
           ],
           "answer": 1,
-          "why": "Reads can be served from any copy. Adding read replicas multiplies your read capacity without changing how writes work at all.",
-          "goDeeper": "This only pays off because reads outnumber writes so heavily — which, happily, is true of most applications. The read:write ratio is the first number to establish before proposing replication: at 100:1 it's transformative, at 1:1 it buys you almost nothing."
+          "why": "Reads can be served from any copy, so adding read replicas multiplies your read capacity without changing how writes work at all. This only pays off because reads outnumber writes so heavily — happily true of most applications — which makes the read:write ratio the first number to establish before proposing replication: at 100:1 it's transformative, at 1:1 it buys you almost nothing."
         },
         {
           "type": "multiple_choice",
@@ -37,8 +36,7 @@
             "Recover data faster from the dead disk"
           ],
           "answer": 1,
-          "why": "A replica is already running and already has (nearly) all the data. Promoting it takes seconds; restoring a backup takes hours.",
-          "goDeeper": "Backups and replicas solve different problems and don't substitute for each other. A replica protects you from a machine dying. A backup protects you from someone running DELETE without a WHERE clause — because a replica would have faithfully replicated that too, instantly."
+          "why": "A replica is already running and already has (nearly) all the data, so promoting it takes seconds while restoring a backup takes hours. Backups and replicas solve different problems and don't substitute for each other: a replica protects you from a machine dying, while a backup protects you from someone running `DELETE` without a `WHERE` clause — because a replica would have faithfully replicated that too, instantly."
         },
         {
           "type": "multi_select",
@@ -50,16 +48,14 @@
             "Serving users from a geographically closer copy"
           ],
           "answer": [0, 1, 3],
-          "why": "Reads, survival, and locality — yes. Write capacity — no: every write still has to be applied on every copy, so copies never reduce the write load.",
-          "goDeeper": "That asymmetry is the most important fact about replication, and it's the reason sharding exists as a separate idea. If your bottleneck is writes, adding replicas makes things slightly worse, not better — you've added machines that all have to do every write, and none that do fewer."
+          "why": "Reads, survival, and locality — yes. Write capacity — no: every write still has to be applied on every copy, so copies never reduce the write load. That asymmetry is the most important fact about replication and the reason sharding exists as a separate idea: if your bottleneck is writes, adding replicas makes things slightly worse, because you've added machines that all have to do every write and none that do fewer."
         },
         {
           "type": "fill_blank",
           "prompt": "Replication scales ______; it does nothing for write capacity.",
           "choices": ["reads", "writes", "storage", "backups"],
           "answer": 0,
-          "why": "Any copy can answer a read. Every copy must perform every write.",
-          "goDeeper": null
+          "why": "Any copy can answer a read. Every copy must perform every write."
         },
         {
           "type": "multiple_choice",
@@ -71,8 +67,7 @@
             "Slower reads"
           ],
           "answer": 1,
-          "why": "One copy can't disagree with itself. Two can drift apart — and now you must decide what happens when a reader lands on the copy that's behind.",
-          "goDeeper": "This is unit 5's rule — every copy costs you a consistency question — arriving at industrial scale. Everything difficult in the rest of this unit is that one bill being itemized."
+          "why": "One copy can't disagree with itself; two can drift apart, and now you must decide what happens when a reader lands on the copy that's behind. This is unit 5's rule — every copy costs you a consistency question — arriving at industrial scale, and everything difficult in the rest of this unit is that one bill being itemized."
         },
         {
           "type": "multiple_choice",
@@ -84,8 +79,7 @@
             "When users are spread across regions"
           ],
           "answer": 1,
-          "why": "Replication addresses read volume and machine failure. It doesn't reduce write load, and it doesn't make the data smaller — every copy holds the whole dataset.",
-          "goDeeper": "Both of those limits point at the same successor idea: splitting the data across machines rather than duplicating it. That's sharding, and it's the other half of the scaling story."
+          "why": "Replication addresses read volume and machine failure — it doesn't reduce write load, and it doesn't make the data smaller, since every copy holds the whole dataset. Both of those limits point at the same successor idea: splitting the data across machines rather than duplicating it. That's sharding, and it's the other half of the scaling story."
         }
       ]
     },
@@ -103,8 +97,7 @@
             "The copies would run out of disk"
           ],
           "answer": 1,
-          "why": "Two writers, one row, two different values — and nothing to arbitrate between them. Someone has to be the authority.",
-          "goDeeper": "Which is why the standard design nominates exactly one copy to accept writes: the leader. Single-leader replication is the default in Postgres, MySQL, and most systems precisely because it dodges write conflicts by construction — with one writer, there is nothing to conflict."
+          "why": "Two writers, one row, two different values — and nothing to arbitrate between them, so someone has to be the authority. Which is why the standard design nominates exactly one copy to accept writes: the leader. Single-leader replication is the default in Postgres, MySQL, and most systems precisely because it dodges write conflicts by construction — with one writer, there is nothing to conflict."
         },
         {
           "type": "match_pairs",
@@ -115,8 +108,7 @@
             { "left": "Replication log", "right": "The stream of changes the leader ships" },
             { "left": "Failover", "right": "Promoting a follower when the leader dies" }
           ],
-          "why": "One writer, many readers, a stream of changes between them, and a plan for when the writer dies.",
-          "goDeeper": "Notice the shape: the leader is a single point of failure for WRITES, but not for reads. That asymmetry drives everything in lesson 4 — losing the leader is an emergency, losing a follower is a Tuesday."
+          "why": "One writer, many readers, a stream of changes between them, and a plan for when the writer dies. Notice the shape: the leader is a single point of failure for WRITES but not for reads, and that asymmetry drives everything in lesson 4 — losing the leader is an emergency, losing a follower is a Tuesday."
         },
         {
           "type": "multiple_choice",
@@ -128,8 +120,7 @@
             "It queries the leader constantly"
           ],
           "answer": 1,
-          "why": "The leader sends an ordered stream of changes; the follower replays them in that exact order, arriving at the same state.",
-          "goDeeper": "That's the write-ahead log from unit 6, doing a second job. It exists for crash recovery — but an ordered record of every change turns out to be exactly what you'd want to ship to another machine. Replication rides on a log the database already had to write anyway."
+          "why": "The leader sends an ordered stream of changes and the follower replays them in that exact order, arriving at the same state. That's the write-ahead log from unit 6 doing a second job: it exists for crash recovery, but an ordered record of every change turns out to be exactly what you'd want to ship to another machine — so replication rides on a log the database already had to write anyway."
         },
         {
           "type": "order_steps",
@@ -141,8 +132,7 @@
             "Followers stream the log and apply the change",
             "Followers can now serve the new data"
           ],
-          "why": "Under asynchronous replication the leader answers the client before the followers have caught up — the client's write is done while the copies are still catching up.",
-          "goDeeper": "Look closely at step 3 landing before step 4. That ordering is the entire source of the next two lessons: it's why followers can be stale, and why a leader dying at exactly that moment can lose a write it already called successful."
+          "why": "Under asynchronous replication the leader answers the client before the followers have caught up — the client's write is done while the copies are still catching up. Look closely at step 3 landing before step 4: that ordering is the entire source of the next two lessons, because it's why followers can be stale, and why a leader dying at exactly that moment can lose a write it already called successful."
         },
         {
           "type": "multiple_choice",
@@ -154,8 +144,7 @@
             "It buys nothing; it's a legacy option"
           ],
           "answer": 1,
-          "why": "You're buying the guarantee that an acknowledged write exists in two places, and paying for it with latency on every write plus a dependency on the follower being alive.",
-          "goDeeper": "This is why fully synchronous replication to ALL followers is rare — one slow or dead follower would halt every write in the system. The usual compromise is semi-synchronous: one follower synchronous, so that while it's healthy an acknowledged write has already reached a second machine, with the rest asynchronous so they can lag without blocking anyone. Read that 'while it's healthy' literally: implementations typically fall back to async if the synchronous follower goes away, which is exactly when you'd have wanted it."
+          "why": "You're buying the guarantee that an acknowledged write exists in two places, and paying with latency on every write plus a dependency on the follower being alive. This is why fully synchronous replication to ALL followers is rare — one slow or dead follower would halt every write. The usual compromise is semi-synchronous: one follower synchronous, so that *while it's healthy* an acknowledged write has already reached a second machine, with the rest asynchronous. Read that 'while it's healthy' literally — implementations typically fall back to async if the synchronous follower goes away, which is exactly when you'd have wanted it."
         },
         {
           "type": "multiple_choice",
@@ -167,8 +156,7 @@
             "It's the only design that exists"
           ],
           "answer": 1,
-          "why": "It trades write scalability — which most apps don't need — for the elimination of an entire category of problem. That's usually a superb deal.",
-          "goDeeper": "Keep this pattern in view: a huge amount of system design is buying simplicity with a constraint you can afford. One writer is a real limit, and it's also why you never have to answer 'which of these two conflicting values is correct?'"
+          "why": "It trades write scalability — which most apps don't need — for the elimination of an entire category of problem, which is usually a superb deal. Keep this pattern in view: a huge amount of system design is buying simplicity with a constraint you can afford. One writer is a real limit, and it's also why you never have to answer 'which of these two conflicting values is correct?'"
         }
       ]
     },
@@ -186,16 +174,14 @@
             "A blank page"
           ],
           "answer": 1,
-          "why": "The follower is behind, so it answers with the state from before their write. The user's own change seems not to have saved.",
-          "goDeeper": "This is the most common replication bug there is, and it's maddening because it only reproduces under load — when lag is large enough to notice. The usual mitigation is read-your-writes routing: for a short window after a user writes, send THAT user's reads to the leader. Hold it as a mitigation, not a guarantee — it works while the leader stays the leader. If a failover lands inside that window, an async setup may have lost the write outright, and no routing rule can show someone a write that no longer exists (lesson 4)."
+          "why": "The follower is behind, so it answers with the state from before their write and the user's own change seems not to have saved. This is the most common replication bug there is, and it's maddening because it only reproduces under load — when lag is large enough to notice. The usual mitigation is read-your-writes routing: for a short window after a user writes, send THAT user's reads to the leader. Hold it as a mitigation rather than a guarantee — it works while the leader stays the leader, and if a failover lands inside that window an async setup may have lost the write outright, and no routing rule can show someone a write that no longer exists (lesson 4)."
         },
         {
           "type": "fill_blank",
           "prompt": "The delay between a write landing on the leader and appearing on a follower is called replication ______.",
           "choices": ["lag", "latency", "drift", "skew"],
           "answer": 0,
-          "why": "Replication lag is the size of the window in which followers are answering with the past.",
-          "goDeeper": null
+          "why": "Replication lag is the size of the window in which followers are answering with the past."
         },
         {
           "type": "multiple_choice",
@@ -207,8 +193,7 @@
             "Their session expired"
           ],
           "answer": 1,
-          "why": "Two reads, two replicas, two different amounts of lag — so the second read returned an older state than the first. Nothing was deleted; the user just travelled backwards.",
-          "goDeeper": "The usual mitigation is to pin each user to one replica — say by hashing their user id — so that FOR AS LONG AS THE PIN HOLDS, their reads come from one copy that only ever moves forward. That clause is the whole caveat: the pin breaks when the replica dies, or when you pull it from rotation for lagging, and the user gets re-pinned to a copy that may be further behind — jumping them backwards anyway. Pinning narrows the window; it doesn't close it."
+          "why": "Two reads, two replicas, two different amounts of lag — so the second read returned an older state than the first. Nothing was deleted; the user just travelled backwards. The usual mitigation is to pin each user to one replica (say by hashing their user id) so that *for as long as the pin holds*, their reads come from one copy that only ever moves forward. That clause is the whole caveat: the pin breaks when the replica dies, or when you pull it from rotation for lagging, and the user gets re-pinned to a copy that may be further behind — jumping them backwards anyway. Pinning narrows the window; it doesn't close it."
         },
         {
           "type": "multiple_choice",
@@ -220,8 +205,7 @@
             "When there are few writes"
           ],
           "answer": 1,
-          "why": "Lag grows when the leader produces changes faster than followers can apply them. Peak write traffic is precisely when that happens.",
-          "goDeeper": "That's the cruel part: your staleness window is widest exactly when the most users are looking. A system that looks perfectly in sync in testing can be seconds behind during a spike — which is also when a support ticket becomes ten thousand support tickets."
+          "why": "Lag grows when the leader produces changes faster than followers can apply them, and peak write traffic is precisely when that happens. That's the cruel part: your staleness window is widest exactly when the most users are looking, so a system that looks perfectly in sync in testing can be seconds behind during a spike — which is also when a support ticket becomes ten thousand support tickets."
         },
         {
           "type": "multi_select",
@@ -233,8 +217,7 @@
             "Add more followers"
           ],
           "answer": [0, 1, 2],
-          "why": "Routing, pinning, and monitoring all attack the problem. Adding followers doesn't: each new follower must apply the very same stream of writes, so it lags too — and it adds load to the leader that's shipping to it.",
-          "goDeeper": "That last point catches people out. 'We're stale, add replicas' is the wrong reflex — you've added more copies of the staleness, not less of it. Lag is a function of write throughput versus apply speed, and more followers changes neither."
+          "why": "Routing, pinning, and monitoring all attack the problem; adding followers doesn't, because each new follower must apply the very same stream of writes, so it lags too — and it adds load to the leader that's shipping to it. That last point catches people out: 'we're stale, add replicas' is the wrong reflex, since you've added more copies of the staleness rather than less of it. Lag is a function of write throughput versus apply speed, and more followers changes neither."
         },
         {
           "type": "multiple_choice",
@@ -246,8 +229,7 @@
             "An error if it's out of date"
           ],
           "answer": 1,
-          "why": "A follower always gives you a real, valid state of the database — just not necessarily the latest one. It's a photograph, not a live feed.",
-          "goDeeper": "That distinction matters: a stale read isn't corrupt or wrong, it's late. Which means the design question is never 'is this allowed to be wrong?' but 'how old is too old for this screen?' — a question the product usually answers better than the engineer."
+          "why": "A follower always gives you a real, valid state of the database — just not necessarily the latest one. It's a photograph, not a live feed. That distinction matters: a stale read isn't corrupt or wrong, it's late — which means the design question is never 'is this allowed to be wrong?' but 'how old is too old for this screen?', a question the product usually answers better than the engineer."
         }
       ]
     },
@@ -265,8 +247,7 @@
             "Only reads in flight"
           ],
           "answer": 1,
-          "why": "Asynchronous means the leader said 'done' before followers had the change. If it dies in that window, those acknowledged writes die with it.",
-          "goDeeper": "This is the under-appreciated asterisk in most setups: surviving a crash OF that machine is not the same as surviving the LOSS of that machine. Async replication is fast because it doesn't wait — and 'doesn't wait' is exactly what you're relying on not to matter at the worst possible moment."
+          "why": "Asynchronous means the leader said 'done' before followers had the change, so if it dies in that window those acknowledged writes die with it. This is the under-appreciated asterisk in most setups: surviving a crash OF that machine is not the same as surviving the LOSS of that machine. Async replication is fast because it doesn't wait — and 'doesn't wait' is exactly what you're relying on not to matter at the worst possible moment."
         },
         {
           "type": "multiple_choice",
@@ -278,8 +259,7 @@
             "The database refuses all writes"
           ],
           "answer": 1,
-          "why": "Two nodes both convinced they're in charge, both taking writes. Now you have two divergent versions of the truth and no principled way to merge them.",
-          "goDeeper": "This is why failover systems use fencing — forcibly locking the old leader out (sometimes by literally cutting its power) before promoting anyone. The reason it's necessary is uncomfortable: from the outside you genuinely cannot distinguish 'dead' from 'slow.' You can only pick a timeout and accept being wrong sometimes."
+          "why": "Two nodes both convinced they're in charge, both taking writes — now you have two divergent versions of the truth and no principled way to merge them. This is why failover systems use fencing: forcibly locking the old leader out (sometimes by literally cutting its power) before promoting anyone. The reason it's necessary is uncomfortable — from the outside you genuinely cannot distinguish 'dead' from 'slow', so you can only pick a timeout and accept being wrong sometimes."
         },
         {
           "type": "multiple_choice",
@@ -291,8 +271,7 @@
             "It doesn't matter"
           ],
           "answer": 2,
-          "why": "There's no setting that's right in both directions, because the question 'is it dead or just slow?' has no answer from outside. You're picking which way you'd rather be wrong.",
-          "goDeeper": "Get comfortable with this shape — it recurs constantly in distributed systems. When a decision is genuinely undecidable, engineering stops being about finding the right answer and starts being about choosing your failure mode deliberately, rather than discovering it during an incident."
+          "why": "There's no setting that's right in both directions, because the question 'is it dead or just slow?' has no answer from outside — you're picking which way you'd rather be wrong. Get comfortable with this shape, because it recurs constantly in distributed systems: when a decision is genuinely undecidable, engineering stops being about finding the right answer and starts being about choosing your failure mode deliberately, rather than discovering it during an incident."
         },
         {
           "type": "tradeoff_slider",
@@ -300,8 +279,7 @@
           "leftLabel": "Synchronous (no lost writes, slower)",
           "rightLabel": "Asynchronous (fast, may lose acked writes)",
           "answerRange": [0, 35],
-          "why": "If losing an acknowledged write is unacceptable, the write has to exist on a second machine before you say 'done.' That's what synchronous means, and there's no way to have the guarantee without the wait.",
-          "goDeeper": "Notice you didn't get to have both. Either the write waits for a second machine or it doesn't — that's networks and physics, not a setting someone forgot to optimize. Anyone promising you both is selling you an async system with a confident voice."
+          "why": "If losing an acknowledged write is unacceptable, the write has to exist on a second machine before you say 'done' — that's what synchronous means, and there's no way to have the guarantee without the wait. Notice you didn't get to have both: either the write waits for a second machine or it doesn't, and that's networks and physics rather than a setting someone forgot to optimize. Anyone promising you both is selling you an async system with a confident voice."
         },
         {
           "type": "multiple_choice",
@@ -313,8 +291,7 @@
             "Only one datacenter can hold data"
           ],
           "answer": 1,
-          "why": "Multi-leader buys write availability and local latency in each region, and pays for it with conflicts — the exact problem single-leader was designed to avoid.",
-          "goDeeper": "Which is why multi-leader stays rare for a single source of truth, and shows up where conflicts are naturally rare or genuinely resolvable: data partitioned per region, or collaborative editing where merging two edits is a solved problem rather than a coin flip."
+          "why": "Multi-leader buys write availability and local latency in each region, and pays for it with conflicts — the exact problem single-leader was designed to avoid. Which is why multi-leader stays rare for a single source of truth, and shows up where conflicts are naturally rare or genuinely resolvable: data partitioned per region, or collaborative editing where merging two edits is a solved problem rather than a coin flip."
         },
         {
           "type": "multiple_choice",
@@ -326,8 +303,7 @@
             "The users' browsers are caching"
           ],
           "answer": 1,
-          "why": "Peak write load widens the lag window, so a read right after a write is likely to hit a follower that hasn't applied it yet. Nothing is lost — the follower is just answering from the past.",
-          "goDeeper": "The 'only during peak hours' detail is the tell, and it's worth learning to hear. A bug that appears only under load is usually a timing window that's always been there, finally grown wide enough to be visible."
+          "why": "Peak write load widens the lag window, so a read right after a write is likely to hit a follower that hasn't applied it yet — nothing is lost, the follower is just answering from the past. The 'only during peak hours' detail is the tell, and it's worth learning to hear: a bug that appears only under load is usually a timing window that's always been there, finally grown wide enough to be visible."
         },
         {
           "type": "multiple_choice",
@@ -339,8 +315,7 @@
             "Always replicate synchronously to everything"
           ],
           "answer": 1,
-          "why": "Real benefits, real bill. Each cost is a direct consequence of the copy existing at all — not a defect you can engineer away.",
-          "goDeeper": "Unit 5 said every copy costs you a consistency question. Replication is that bill, itemized: lag is the question while the copy is catching up, failover is the question at the worst possible moment, and split brain is the question with two confident answers."
+          "why": "Real benefits, real bill — and each cost is a direct consequence of the copy existing at all rather than a defect you can engineer away. Unit 5 said every copy costs you a consistency question; replication is that bill, itemized: lag is the question while the copy is catching up, failover is the question at the worst possible moment, and split brain is the question with two confident answers."
         }
       ]
     }

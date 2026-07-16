@@ -63,7 +63,7 @@
           "prompt": "What should happen when a request is rejected?",
           "choices": [
             "Drop the connection",
-            "Return 429 with Retry-After, plus headers showing the limit, what's remaining, and when it resets — so clients can self-regulate instead of discovering the limit by hitting it",
+            "Return 429 with `Retry-After`, plus headers showing the limit, what's remaining, and when it resets — so clients can self-regulate instead of discovering the limit by hitting it",
             "Return 503",
             "Queue it until capacity frees up"
           ],
@@ -110,11 +110,11 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your code does: GET count, check it's under the limit, INCR, allow. What's the bug?",
+          "prompt": "Your code does: GET count, check it's under the limit, `INCR`, allow. What's the bug?",
           "choices": [
             "GET is too slow",
             "It's check-then-act: two concurrent requests both read 99, both decide they're fine, and both increment — you allowed 101",
-            "INCR isn't durable",
+            "`INCR` isn't durable",
             "Nothing"
           ],
           "answer": 1,
@@ -274,7 +274,7 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "10,000 clients get limited at once and all obey Retry-After: 60. What have you built?",
+          "prompt": "10,000 clients get limited at once and all obey `Retry-After`: 60. What have you built?",
           "choices": [
             "A well-behaved system",
             "A synchronized stampede: every client returns at the same instant because you told them all the same number — obedience produced the spike",

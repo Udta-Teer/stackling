@@ -259,7 +259,7 @@
             "The router handles it"
           ],
           "answer": 1,
-          "why": "Unit 9's boundary is exactly the shard: BEGIN/COMMIT protects one machine's data and knows nothing about the other shard, so atomicity across them needs the machinery you hoped to avoid — a coordinator that can block, or compensating actions and eventual consistency. This is why people shard so that transactions stay within a shard: put things that change together on the same machine, and the hard problem never arises."
+          "why": "Unit 9's boundary is exactly the shard: `BEGIN/COMMIT` protects one machine's data and knows nothing about the other shard, so atomicity across them needs the machinery you hoped to avoid — a coordinator that can block, or compensating actions and eventual consistency. This is why people shard so that transactions stay within a shard: put things that change together on the same machine, and the hard problem never arises."
         },
         {
           "type": "multi_select",

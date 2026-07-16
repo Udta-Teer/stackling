@@ -234,7 +234,7 @@
       "exercises": [
         {
           "type": "multiple_choice",
-          "prompt": "A user wants the custom alias /launch. How does that interact with your generated keys?",
+          "prompt": "A user wants the custom alias `/launch`. How does that interact with your generated keys?",
           "choices": [
             "Keep them in separate systems",
             "They share one namespace, so a custom alias can collide with a generated one — you need a uniqueness constraint over both, and generated keys ideally shouldn't land on nice words",
@@ -242,7 +242,7 @@
             "Generate the custom alias by hashing it"
           ],
           "answer": 1,
-          "why": "Both are just keys in the same map, so /launch is only free if nothing generated it first — and a unique constraint in the database is the only enforcement that can't be raced (unit 6). Real systems often generate from a reduced alphabet or reserve a prefix space, so generated codes and human-chosen words rarely compete for the same string."
+          "why": "Both are just keys in the same map, so `/launch` is only free if nothing generated it first — and a unique constraint in the database is the only enforcement that can't be raced (unit 6). Real systems often generate from a reduced alphabet or reserve a prefix space, so generated codes and human-chosen words rarely compete for the same string."
         },
         {
           "type": "multiple_choice",

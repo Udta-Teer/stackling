@@ -28,7 +28,7 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "Simplest workaround: the client polls GET /messages every 2 seconds. What's wrong with it?",
+          "prompt": "Simplest workaround: the client polls `GET /messages` every 2 seconds. What's wrong with it?",
           "choices": [
             "It's too complicated",
             "It's both too slow and too expensive: messages are up to 2 seconds late, and you pay a request per client per interval whether anything happened or not",

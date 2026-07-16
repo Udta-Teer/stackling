@@ -105,7 +105,7 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your service returns 200 OK for every request, including ones where the internal work failed. What did that cost you?",
+          "prompt": "Your service returns `200 OK` for every request, including ones where the internal work failed. What did that cost you?",
           "choices": [
             "Nothing — the errors are in the logs",
             "Your error rate metric reads 0% during a real outage, so monitoring, alerting, and every retry policy all believe you're healthy",

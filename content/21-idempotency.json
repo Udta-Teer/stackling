@@ -91,10 +91,10 @@
           "type": "match_pairs",
           "prompt": "Match each operation to whether repeating it is safe.",
           "pairs": [
-            { "left": "GET /users/42", "right": "Safe — reads change nothing" },
-            { "left": "DELETE /users/42", "right": "Safe — still deleted the second time" },
+            { "left": "`GET /users/42`", "right": "Safe — reads change nothing" },
+            { "left": "`DELETE /users/42`", "right": "Safe — still deleted the second time" },
             { "left": "PUT balance = 100", "right": "Safe — the value is absolute" },
-            { "left": "POST /payments", "right": "Not safe — creates something new each time" }
+            { "left": "`POST /payments`", "right": "Not safe — creates something new each time" }
           ],
           "why": "The pattern is that operations naming a final state are repeatable, while operations describing an increment or a creation are not. This is unit 2's methods with the reasoning made explicit: GET, PUT, and DELETE are idempotent by their semantics, and POST is the one that isn't."
         },
@@ -112,7 +112,7 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "Is DELETE /users/42 returning 404 on the second call a problem?",
+          "prompt": "Is `DELETE /users/42` returning 404 on the second call a problem?",
           "choices": [
             "Yes — it should return 200 every time",
             "No — the end state is identical (the user is gone), which is what idempotency means; but a retrying client may read 404 as failure, so returning 204 for both is kinder",
@@ -124,7 +124,7 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your endpoint is POST /orders. How could you make it naturally idempotent without any extra bookkeeping?",
+          "prompt": "Your endpoint is `POST /orders`. How could you make it naturally idempotent without any extra bookkeeping?",
           "choices": [
             "You can't — POST is never idempotent",
             "Let the client supply the order's id, so a repeat is a create-if-absent on a known key rather than a new row each time",
@@ -139,7 +139,7 @@
           "prompt": "Which are naturally idempotent as written? Select all.",
           "choices": [
             "UPDATE users SET email='x' WHERE id=42",
-            "UPDATE counters SET n = n + 1 WHERE id=42",
+            "`UPDATE counters SET n = n + 1` WHERE id=42",
             "INSERT ... ON CONFLICT DO NOTHING",
             "DELETE FROM sessions WHERE id='abc'"
           ],
@@ -166,7 +166,7 @@
       "exercises": [
         {
           "type": "multiple_choice",
-          "prompt": "POST /payments genuinely creates a charge. How do you make retrying it safe?",
+          "prompt": "`POST /payments` genuinely creates a charge. How do you make retrying it safe?",
           "choices": [
             "Check whether a similar payment exists recently",
             "The client generates a unique key per intended payment and sends it; the server records that key with its result and returns the original result if the key reappears",
@@ -280,7 +280,7 @@
         },
         {
           "type": "multiple_choice",
-          "prompt": "Why does Stripe accept an Idempotency-Key header from you?",
+          "prompt": "Why does Stripe accept an `Idempotency-Key` header from you?",
           "choices": [
             "For their own analytics",
             "Because they know your retries are unavoidable, so they let you name the intent and guarantee that one key charges once — pushing the guarantee to where the side effect actually happens",

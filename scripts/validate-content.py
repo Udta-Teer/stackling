@@ -30,15 +30,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONTENT_GLOB = os.path.join(ROOT, "content", "*.json")
 PROTOTYPE = os.path.join(ROOT, "prototype", "lesson.html")
 
-# goDeeper was retired from this unit onward. See CONTENT_MASTER.md 3.1.
-# Units below this keep theirs; the owner is revisiting them separately.
-GODEEPER_RETIRED_FROM = 12
+# goDeeper is retired everywhere. See CONTENT_MASTER.md 3.1.
+# It was removed from units 1-11 and never written for 12+; the `why` carries
+# the depth. Nothing should reintroduce the field.
+GODEEPER_RETIRED_FROM = 1
 
 ALLOWED_FIELDS = {
     "type", "prompt", "choices", "answer", "why", "hint",
     "pairs", "steps", "slots", "palette",
     "tolerance", "unit", "leftLabel", "rightLabel", "answerRange",
-    "goDeeper",  # legacy only; separately rejected for units >= GODEEPER_RETIRED_FROM
 }
 
 KNOWN_TYPES = {
