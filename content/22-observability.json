@@ -1,0 +1,321 @@
+{
+  "unitId": "observability",
+  "tier": 3,
+  "title": "Observability",
+  "subtitle": "You can't fix what you can't see — and you can't see what you didn't instrument",
+  "objectives": [
+    "Distinguish logs, metrics, and traces by the question each one answers",
+    "Explain why averages and dashboards hide the failures that matter",
+    "Reason about cardinality, sampling, and what they cost you",
+    "Alert on symptoms users feel rather than causes you guessed"
+  ],
+  "lessons": [
+    {
+      "id": "obs-1",
+      "title": "Three different questions",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Your service is slow. Your CPU graph looks fine. What does that actually tell you?",
+          "choices": [
+            "The service isn't slow",
+            "Only that CPU isn't the constraint — you're waiting on something you haven't instrumented, and you can't see it",
+            "The problem is the database",
+            "The metric is broken"
+          ],
+          "answer": 1,
+          "why": "A healthy graph tells you what ISN'T wrong, which is progress and not an answer — the slowness lives in whatever you never measured, whether that's a lock, a dependency, or a queue. This is the whole premise of observability: your system is only as debuggable as your instrumentation, and unmeasured things are invisible rather than absent."
+        },
+        {
+          "type": "match_pairs",
+          "prompt": "Match each signal to the question it answers.",
+          "pairs": [
+            { "left": "Metrics", "right": "Is something wrong, and how much?" },
+            { "left": "Logs", "right": "What exactly happened in this one case?" },
+            { "left": "Traces", "right": "Where did the time go across services?" },
+            { "left": "All three together", "right": "Alert, then investigate, then locate" }
+          ],
+          "why": "They aren't three formats of the same thing, they're three different questions — metrics are cheap aggregates that tell you something changed, logs are expensive detail about individual events, and traces show one request's journey across services. The workflow is the point: a metric wakes you, a trace narrows it to a service, a log tells you what that service actually did."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why can't you just log everything and skip metrics?",
+          "choices": [
+            "Logs are less accurate",
+            "Logs cost roughly per event, so at high traffic the volume and bill explode — and answering 'what's my error rate?' means scanning them, while a metric already knows",
+            "Logs can't record errors",
+            "Metrics are more detailed"
+          ],
+          "answer": 1,
+          "why": "A metric is a pre-aggregated number that costs about the same whether you serve ten requests or ten million, whereas logs scale linearly with traffic in both storage and money. So they trade off exactly opposite ways: metrics are cheap and lose the detail, logs keep everything and get expensive precisely when traffic is high — which is when you need them."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "A request passes through 6 microservices and takes 3 seconds. Which signal finds the slow one?",
+          "choices": [
+            "Logs from each service",
+            "A trace — one request id followed across all six, showing how long each span took",
+            "CPU metrics",
+            "The load balancer's access log"
+          ],
+          "answer": 1,
+          "why": "Each service's own logs show it was fine, because each service WAS fine — the time is in the gaps and the waiting, which nobody sees locally. A trace stitches the request together with one id so you can look at the whole journey at once, which is the only view where 'service D waited 2.8s on service E' is visible."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why does distributed tracing require every service to cooperate?",
+          "choices": [
+            "For security",
+            "Because the trace id must be passed along in every call — one service that drops it breaks the chain, and everything downstream becomes invisible",
+            "To reduce overhead",
+            "Because traces are stored locally"
+          ],
+          "answer": 1,
+          "why": "A trace is only a chain of spans sharing an id, so propagation is the whole mechanism — a service that receives the id and doesn't forward it silently orphans everything it calls. That's why tracing tends to be all-or-nothing infrastructure: partial adoption produces traces that end abruptly at exactly the boundary you were trying to see across."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What's the actual difference between 'monitoring' and 'observability'?",
+          "choices": [
+            "They're the same thing",
+            "Monitoring answers questions you thought of in advance; observability is having enough signal to answer questions you didn't",
+            "Observability is just monitoring with more dashboards",
+            "Monitoring is for infrastructure, observability for apps"
+          ],
+          "answer": 1,
+          "why": "A dashboard shows the failures you predicted, which are the ones you've usually already fixed — real incidents are the ones nobody anticipated, so the question is whether your data can answer something you're inventing at 3am. That's the practical test: can you ask a new question of yesterday's data without shipping code first?"
+        }
+      ]
+    },
+    {
+      "id": "obs-2",
+      "title": "What the dashboard hides",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "Your dashboard shows average latency: a healthy 90ms. Users are complaining. What are you missing?",
+          "choices": [
+            "Nothing — check their connection",
+            "The average is hiding the tail: p99 could be 6 seconds and the mean would barely move",
+            "The dashboard is broken",
+            "You need more replicas"
+          ],
+          "answer": 1,
+          "why": "Averages compress a distribution into one number and lose exactly the part that hurts — this is unit 4's lesson, now as an instrumentation failure rather than a reasoning one. Nobody experiences your average; they experience one request. A dashboard showing only means is a dashboard that structurally cannot show you an outage that affects 1% of traffic."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your service returns 200 OK for every request, including ones where the internal work failed. What did that cost you?",
+          "choices": [
+            "Nothing — the errors are in the logs",
+            "Your error rate metric reads 0% during a real outage, so monitoring, alerting, and every retry policy all believe you're healthy",
+            "Slightly less accurate metrics",
+            "Only a logging problem"
+          ],
+          "answer": 1,
+          "why": "Unit 3 warned that lying with status codes breaks caches and clients; here it also blinds your own instrumentation, because the error rate is computed from what you reported rather than what happened. Honest signals are load-bearing infrastructure — everything downstream, including the human deciding whether to page someone, is reasoning from numbers you generated."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which make an incident harder to diagnose? Select all.",
+          "choices": [
+            "Only recording averages, not percentiles",
+            "Logs without a request id to correlate them",
+            "Reporting 200 for failed operations",
+            "Recording p50, p95, and p99"
+          ],
+          "answer": [0, 1, 2],
+          "why": "Averages hide the tail, uncorrelated logs can't be assembled into a story, and dishonest status codes corrupt every derived signal. Percentiles are the fix rather than a problem — and the request id is the humblest and most valuable item on the list, because logs you can't join are a pile of sentences rather than an account of what happened."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What are the four 'golden signals' worth measuring on any service?",
+          "choices": [
+            "CPU, memory, disk, network",
+            "Latency, traffic, errors, and saturation — how slow, how much, how broken, how full",
+            "Uptime, downtime, deploys, rollbacks",
+            "Requests, users, revenue, cost"
+          ],
+          "answer": 1,
+          "why": "Those four describe the service as its users experience it, whereas CPU and memory describe the machine — and unit 4 showed a machine can look fine while queueing destroys the tail. Saturation is the one people skip and the one that predicts: it's how close you are to the cliff, which is the difference between noticing at 70% and discovering at 100%."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why is saturation the signal that warns you EARLY?",
+          "choices": [
+            "It's measured more often",
+            "Because latency and errors only degrade once you're near the limit, while saturation is rising the whole way there — it tells you you're heading for the cliff before you're on it",
+            "It's easier to alert on",
+            "It's more accurate"
+          ],
+          "answer": 1,
+          "why": "Unit 4's queueing curve is flat and then vertical, so latency stays fine at 60% and 70% and then explodes — by the time latency tells you, you're already over. Saturation moves smoothly and gives you the warning that the outcome metrics can't, which is why 'we're at 78% of connection pool' is worth an alert and 'latency is up' is worth a page."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Your metrics say the service is healthy. Users say it's broken. Who's right?",
+          "choices": [
+            "The metrics — they're objective",
+            "The users, always — if they're suffering and your graphs are green, your instrumentation is measuring the wrong thing",
+            "It depends on how many users",
+            "Neither; check the logs"
+          ],
+          "answer": 1,
+          "why": "Metrics are a model of reality and users ARE reality, so a disagreement is a defect in the model rather than in the customers. Treat the gap as the most valuable signal you'll get all quarter: it names precisely which question your instrumentation can't answer, and closing it is worth more than any dashboard you'd have built otherwise."
+        }
+      ]
+    },
+    {
+      "id": "obs-3",
+      "title": "What it costs",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "You add user_id as a label on your latency metric. You have 10 million users. What just happened?",
+          "choices": [
+            "Better visibility per user",
+            "A cardinality explosion: your metric system now stores a separate time series per user, which can be orders of magnitude more expensive than the service it monitors",
+            "Nothing — labels are cheap",
+            "The metric becomes more accurate"
+          ],
+          "answer": 1,
+          "why": "A metric's cost scales with the number of distinct label combinations, so a high-cardinality label like user_id multiplies one series into millions — teams have genuinely taken down their monitoring, or their budget, with a single well-intentioned label. The rule is that metrics want low-cardinality dimensions like endpoint or status; per-user detail belongs in logs or traces, which are built for it."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "So where does high-cardinality detail like user_id belong?",
+          "choices": [
+            "Nowhere — don't record it",
+            "In logs and traces, which are per-event by nature and priced accordingly — you look them up when investigating rather than aggregating them continuously",
+            "In a separate metrics system",
+            "In the database"
+          ],
+          "answer": 1,
+          "why": "The split follows from how each is stored: metrics pre-aggregate, so every dimension multiplies the series count, while logs and traces record events you query on demand and never pay for combinations you don't ask about. That's the division of labour — metrics tell you 1% of requests are slow, traces tell you which ones, logs tell you what happened inside them."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Tracing every request at high volume is too expensive. You sample 1%. What did you lose?",
+          "choices": [
+            "Nothing meaningful",
+            "The rare event — a 1-in-10,000 failure is now almost certainly not in your sample, which is precisely the request you needed",
+            "Only some latency data",
+            "The ability to alert"
+          ],
+          "answer": 1,
+          "why": "Uniform sampling keeps a representative picture of the typical and systematically discards the exceptional, so it's optimized against the thing you actually investigate. Tail-based sampling inverts it: buffer the trace, and keep it if it was slow or errored — you keep 100% of the interesting traces and 0.1% of the boring ones, which is the same information for a fraction of the bill."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which are real costs of observability? Select all.",
+          "choices": [
+            "Storage and ingest bills that can rival the service's own cost",
+            "Instrumentation overhead in the request path",
+            "Engineer time maintaining dashboards and alerts nobody reads",
+            "Slower database queries"
+          ],
+          "answer": [0, 1, 2],
+          "why": "The bill, the overhead, and the maintenance are all real, and the third is the one nobody budgets for — dashboards rot, alerts accumulate, and a wall of graphs nobody trusts is worse than none because it looks like coverage. Observability doesn't slow your queries; it's an operating cost you pay for the ability to understand your own system."
+        },
+        {
+          "type": "tradeoff_slider",
+          "prompt": "You're deciding log retention for a service handling a billion requests a day. Slide toward your policy.",
+          "leftLabel": "Log everything, keep 90 days",
+          "rightLabel": "Sample + structured events, keep 7 days hot",
+          "answerRange": [55, 100],
+          "why": "At a billion requests a day, full logs for 90 days is a bill that can exceed the service's own infrastructure, spent mostly on lines nobody will ever read. Keeping a short hot window plus retained samples and structured events covers the investigations you actually run — most incidents are debugged with data from the last few hours — while compliance data, which is a genuinely different requirement, goes to cheap cold storage."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why are structured logs worth more than free-text ones?",
+          "choices": [
+            "They're smaller",
+            "Because they're queryable: 'all errors for user 42 on checkout in the last hour' is a filter over fields, not a regex over prose",
+            "They're easier to read",
+            "They compress better"
+          ],
+          "answer": 1,
+          "why": "A log line's value is realized when you search it under pressure, and free text forces you to write regexes against sentences that different engineers phrased differently. Structured events with consistent fields turn logs into a queryable dataset — which is what makes answering a question you didn't anticipate possible at all, and that was the definition of observability."
+        }
+      ]
+    },
+    {
+      "id": "obs-4",
+      "title": "Alerting without going mad",
+      "exercises": [
+        {
+          "type": "multiple_choice",
+          "prompt": "You alert on 'CPU above 80%'. It fires at 2am. The service is serving users perfectly. What did you do wrong?",
+          "choices": [
+            "The threshold was too low",
+            "You alerted on a cause rather than a symptom — high CPU isn't a problem unless users feel it, so you woke someone for a number",
+            "You should alert at 90%",
+            "CPU shouldn't be monitored"
+          ],
+          "answer": 1,
+          "why": "CPU is a possible cause of problems, not a problem, so alerting on it pages you for every busy-but-fine moment — and each false page teaches the on-call that alerts are noise. Alert on what users experience: latency, errors, and failed requests. If CPU is high and nobody is suffering, the correct response is genuinely nothing."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What's the test for whether something deserves to page a human at 3am?",
+          "choices": [
+            "Whether it's unusual",
+            "Whether a human must act NOW to stop users being harmed — if it can wait until morning, it's a ticket, not a page",
+            "Whether it's in the runbook",
+            "Whether it happened before"
+          ],
+          "answer": 1,
+          "why": "A page is an interrupt on someone's life, and it's only justified by urgent, actionable harm — everything else is a ticket or a dashboard. The failure mode is alerting on anything interesting: the on-call learns to ignore the pager, and the one real alert arrives among fifty that weren't. Alert fatigue isn't a personal weakness, it's what any rational human does with a noisy signal."
+        },
+        {
+          "type": "multi_select",
+          "prompt": "Which are good pages? Select all.",
+          "choices": [
+            "Error rate above 5% for 5 minutes",
+            "p99 latency above the SLO for 10 minutes",
+            "Disk will be full in 4 hours",
+            "A single request returned 500"
+          ],
+          "answer": [0, 1, 2],
+          "why": "Sustained errors and sustained latency are users being harmed right now, and imminent disk exhaustion is urgent and actionable with a deadline — all three need a human tonight. One 500 is noise: at any real traffic level, individual errors happen constantly and they're what error-rate metrics are for. Pages need a duration, or you're paging on jitter."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "Why do good alerts have a duration — '5% errors for 5 minutes' rather than '5% errors'?",
+          "choices": [
+            "To reduce alerting costs",
+            "Because a momentary spike is normal and self-correcting: requiring it to persist filters out the noise that would otherwise page you constantly",
+            "Because metrics are delayed",
+            "To give the system time to fix itself"
+          ],
+          "answer": 1,
+          "why": "Any metric sampled finely enough crosses any threshold sometimes — a deploy, a GC pause, one bad client — and paging on the instant means paging on jitter. The duration encodes what you actually meant: not 'errors touched 5%' but 'errors are STAYING at 5%', which is a real condition rather than a blip that resolved before anyone opened a laptop."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "One database goes down, and 40 alerts fire across 12 services. What's the problem?",
+          "choices": [
+            "Not enough alerts",
+            "Every service alerted on its own symptom, so the on-call must reconstruct one root cause from 40 messages — alerting on causes at the source would have said it once",
+            "The database needs monitoring",
+            "The alerts are too slow"
+          ],
+          "answer": 1,
+          "why": "Forty alerts is one incident wearing forty costumes, and the human's first ten minutes go to realising that instead of fixing anything. This is the honest counterweight to 'alert on symptoms': symptoms are right for detection, and when one dependency fails everything downstream is a symptom — so you also want dependency-aware grouping, so the page says 'the database is down' rather than reading out its consequences."
+        },
+        {
+          "type": "multiple_choice",
+          "prompt": "What's the honest summary of observability?",
+          "choices": [
+            "More dashboards and more alerts mean more reliability",
+            "It's the ability to answer questions you didn't anticipate — metrics to know something's wrong, traces to find where, logs to see what — bought with real money and real engineer time, and ruined by dishonest signals and noisy alerts",
+            "It's a monitoring tool you install",
+            "It's only needed for microservices"
+          ],
+          "answer": 1,
+          "why": "Observability isn't a product you buy but a property you build, and the whole unit came down to two things: your system is only as visible as you instrumented it, and every signal you emit dishonestly — a 200 on a failure, an average hiding a tail — corrupts every decision made downstream of it, including yours at 3am."
+        }
+      ]
+    }
+  ]
+}

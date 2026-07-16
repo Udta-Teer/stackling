@@ -161,9 +161,9 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 17 | Rate limiting | ✅ done | `content/17-rate-limiting.json` |
 | 18 | CAP theorem | ✅ done | `content/18-cap-theorem.json` |
 | 19 | Consistency models | ✅ done | `content/19-consistency-models.json` |
-| 20 | Consensus & leader election | ⬜ | — |
-| 21 | Idempotency | ⬜ | — |
-| 22 | Observability | ⬜ | — |
+| 20 | Consensus & leader election | ✅ done | `content/20-consensus.json` |
+| 21 | Idempotency | ✅ done | `content/21-idempotency.json` |
+| 22 | Observability | ✅ done | `content/22-observability.json` |
 | 23 | Design a URL shortener | ⬜ | — |
 | 24 | Design a news feed | ⬜ | — |
 | 25 | Design a chat app | ⬜ | — |
