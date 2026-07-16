@@ -24,16 +24,14 @@
             "It reads the weather company's database directly"
           ],
           "answer": 1,
-          "why": "An API (Application Programming Interface) is a defined way for one program to ask another for data or actions. The weather app asks; a weather service answers.",
-          "goDeeper": "You use dozens of APIs a day without noticing. Every app showing a map, taking a payment, or offering 'Sign in with Google' is calling someone else's API behind the scenes."
+          "why": "An API (Application Programming Interface) is a defined way for one program to ask another for data or actions — the weather app asks, a weather service answers. You use dozens of APIs a day without noticing: every app showing a map, taking a payment, or offering 'Sign in with Google' is calling someone else's API behind the scenes."
         },
         {
           "type": "fill_blank",
           "prompt": "An API is essentially a ______ between two programs: ask me this way, and I'll answer that way.",
           "choices": ["contract", "database", "cable", "password"],
           "answer": 0,
-          "why": "An API is a contract. It defines what you can ask, how to ask it, and what you'll get back.",
-          "goDeeper": "The contract IS the product. The moment other people build on it, changing it breaks them — which is why API design decisions haunt you for years."
+          "why": "An API is a contract: it defines what you can ask, how to ask it, and what you'll get back. The contract IS the product — the moment other people build on it, changing it breaks them, which is why API design decisions haunt you for years."
         },
         {
           "type": "multiple_choice",
@@ -45,8 +43,7 @@
             "There's no real reason — it's just tradition"
           ],
           "answer": 1,
-          "why": "The API is a boundary: it exposes what you may do and hides how it's done. That freedom to change internals without breaking callers is the entire point.",
-          "goDeeper": "This is encapsulation at system scale. If clients touched the database directly, the provider could never change their schema, add authentication, or throttle abuse. The API is both the contract and the control point — it's where you enforce auth, limits, and validation."
+          "why": "The API is a boundary: it exposes what you may do and hides how it's done, and that freedom to change internals without breaking callers is the entire point. It's encapsulation at system scale — if clients touched the database directly, the provider could never change their schema, add authentication, or throttle abuse. The API is both the contract and the control point where you enforce auth, limits, and validation."
         },
         {
           "type": "match_pairs",
@@ -57,21 +54,19 @@
             { "left": "API key", "right": "Proves who is calling" },
             { "left": "Documentation", "right": "The contract, written down" }
           ],
-          "why": "An endpoint is where you ask, JSON is the shape of the answer, the key says who you are, and the docs are the contract made readable.",
-          "goDeeper": "Undocumented APIs get used wrong and then can never be changed, because nobody knows who depends on what. Docs aren't a nicety — they're how the contract stays enforceable."
+          "why": "An endpoint is where you ask, JSON is the shape of the answer, the key says who you are, and the docs are the contract made readable. Undocumented APIs get used wrong and then can never be changed, because nobody knows who depends on what — docs aren't a nicety, they're how the contract stays enforceable."
         },
         {
           "type": "order_steps",
           "prompt": "Order what happens in one API call.",
           "steps": [
-            "App calls GET /v1/weather?city=Pune",
+            "App calls `GET /v1/weather?city=Pune`",
             "Server checks the API key and validates the request",
             "Server fetches the data it needs",
             "Server returns JSON",
             "App renders the forecast"
           ],
-          "why": "Ask at an endpoint → get authenticated and validated → the work happens → JSON comes back → the screen updates.",
-          "goDeeper": "Notice auth and validation happen before any real work. Rejecting a bad or unauthorized request cheaply — before it touches your database — is a load-shedding tactic you'll reuse constantly."
+          "why": "Ask at an endpoint → get authenticated and validated → the work happens → JSON comes back → the screen updates. Notice auth and validation happen *before* any real work: rejecting a bad or unauthorized request cheaply, before it touches your database, is a load-shedding tactic you'll reuse constantly."
         },
         {
           "type": "multiple_choice",
@@ -83,8 +78,7 @@
             "It's much older and more established"
           ],
           "answer": 1,
-          "why": "JSON is readable by humans and parses straight into objects/dicts/maps in nearly every language. Low friction beat XML's ceremony.",
-          "goDeeper": "But JSON is text, so it's easy — not efficient. High-performance internal APIs often use binary formats like Protocol Buffers: far smaller and faster to parse, at the cost of being unreadable to humans. You'll meet that tradeoff in lesson 4."
+          "why": "JSON is readable by humans and parses straight into objects, dicts, or maps in nearly every language — low friction beat XML's ceremony. But JSON is text, so it's easy rather than efficient: high-performance internal APIs often use binary formats like Protocol Buffers, which are far smaller and faster to parse at the cost of being unreadable to humans."
         }
       ]
     },
@@ -95,48 +89,44 @@
         {
           "type": "multiple_choice",
           "prompt": "Which URL is the better-designed way to fetch user 42?",
-          "choices": ["/getUser?id=42", "/users/42", "/api/doGetUserData/42", "/user/get/42"],
+          "choices": ["`/getUser?id=42`", "`/users/42`", "`/api/doGetUserData/42`", "`/user/get/42`"],
           "answer": 1,
-          "why": "REST models nouns (resources), not verbs. The HTTP method already says what you're doing — GET /users/42 reads it. Putting 'get' in the URL duplicates what GET already told us.",
-          "goDeeper": "The rule of thumb: URLs are nouns, methods are verbs. If your URL contains a verb, you're probably reinventing HTTP."
+          "why": "REST models nouns (resources), not verbs — the HTTP method already says what you're doing, so `GET /users/42` reads it and putting 'get' in the URL duplicates what `GET` already told us. The rule of thumb: URLs are nouns, methods are verbs. If your URL contains a verb, you're probably reinventing HTTP."
         },
         {
           "type": "match_pairs",
           "prompt": "Match each request to what it should do.",
           "pairs": [
-            { "left": "GET /users", "right": "List users" },
-            { "left": "POST /users", "right": "Create a user" },
-            { "left": "GET /users/42", "right": "Fetch one user" },
-            { "left": "DELETE /users/42", "right": "Delete that user" }
+            { "left": "`GET /users`", "right": "List users" },
+            { "left": "`POST /users`", "right": "Create a user" },
+            { "left": "`GET /users/42`", "right": "Fetch one user" },
+            { "left": "`DELETE /users/42`", "right": "Delete that user" }
           ],
-          "why": "One resource, four operations — separated purely by the HTTP method. That's REST in a nutshell.",
-          "goDeeper": "This is why REST scales as a mental model: a small fixed set of verbs applied to unlimited nouns. Learn the pattern once, and you can guess any well-designed REST API."
+          "why": "One resource, four operations, separated purely by the HTTP method — that's REST in a nutshell. It's why REST scales as a mental model: a small fixed set of verbs applied to unlimited nouns, so learn the pattern once and you can guess any well-designed REST API."
         },
         {
           "type": "multiple_choice",
           "prompt": "You want to list the orders belonging to user 42. Which is the RESTful design?",
           "choices": [
-            "/getOrdersForUser?user=42",
-            "/users/42/orders",
-            "/orders/user/42/list",
-            "/fetchOrders?u=42"
+            "`/getOrdersForUser?user=42`",
+            "`/users/42/orders`",
+            "`/orders/user/42/list`",
+            "`/fetchOrders?u=42`"
           ],
           "answer": 1,
-          "why": "Nesting expresses the relationship: the orders that belong to user 42. It reads like the data model.",
-          "goDeeper": "But don't over-nest. /users/42/orders/7/items/3/reviews is a maintenance nightmare and couples your URLs to a rigid hierarchy. Two levels is a good ceiling — past that, expose the resource at its own top-level path and link by id."
+          "why": "Nesting expresses the relationship — the orders that belong to user 42 — and it reads like the data model. But don't over-nest: `/users/42/orders/7/items/3/reviews` is a maintenance nightmare that couples your URLs to a rigid hierarchy. Two levels is a good ceiling; past that, expose the resource at its own top-level path and link by id."
         },
         {
           "type": "multi_select",
           "prompt": "Which of these are good REST practices? Select all.",
           "choices": [
-            "Use plural nouns for collections (/users)",
-            "Put the action verb in the URL (/createUser)",
+            "Use plural nouns for collections (`/users`)",
+            "Put the action verb in the URL (`/createUser`)",
             "Use HTTP methods to express the action",
             "Return accurate HTTP status codes"
           ],
           "answer": [0, 2, 3],
-          "why": "Plural nouns, methods-as-verbs, and honest status codes are the core conventions. Verbs in URLs are the anti-pattern — they duplicate the method.",
-          "goDeeper": "Conventions matter more than cleverness here. A predictable API is one a stranger can guess without reading docs — and guessability is a real feature."
+          "why": "Plural nouns, methods-as-verbs, and honest status codes are the core conventions; verbs in URLs are the anti-pattern because they duplicate the method. Conventions matter more than cleverness here — a predictable API is one a stranger can guess without reading docs, and guessability is a real feature."
         },
         {
           "type": "multiple_choice",
@@ -144,20 +134,18 @@
           "choices": [
             "Nothing in particular",
             "Each request must carry everything needed to serve it — the server remembers nothing from prior calls",
-            "Every request must be a GET",
+            "Every request must be a `GET`",
             "Requests must stay under 1KB"
           ],
           "answer": 1,
-          "why": "Statelessness means each request stands alone: it carries its own auth and parameters, and the server holds no memory of your last call.",
-          "goDeeper": "This is the same property from the HTTP unit, and it's why you can drop a REST API behind a load balancer with 500 interchangeable servers. Statelessness isn't a REST nicety — it's what makes REST scale."
+          "why": "Statelessness means each request stands alone: it carries its own auth and parameters, and the server holds no memory of your last call. It's the same property from unit 2, and it's why you can drop a REST API behind a load balancer with 500 interchangeable servers — statelessness isn't a REST nicety, it's what makes REST scale."
         },
         {
           "type": "fill_blank",
           "prompt": "In REST, URLs name ______, and HTTP methods express the action.",
           "choices": ["resources", "functions", "servers", "errors"],
           "answer": 0,
-          "why": "Resources (nouns) live at URLs; methods (verbs) act on them. Separating the two is the whole design.",
-          "goDeeper": null
+          "why": "Resources (nouns) live at URLs; methods (verbs) act on them. Separating the two is the whole design."
         }
       ]
     },
@@ -167,7 +155,7 @@
       "exercises": [
         {
           "type": "multiple_choice",
-          "prompt": "GET /users tries to return all 50 million users in one response. What breaks?",
+          "prompt": "`GET /users` tries to return all 50 million users in one response. What breaks?",
           "choices": [
             "Nothing — it's just a big response",
             "Almost everything: a huge payload, a brutal database query, timeouts, and memory blowups on both ends",
@@ -175,8 +163,7 @@
             "Only DNS"
           ],
           "answer": 1,
-          "why": "Unbounded collections are a production landmine. The query is slow, the payload is enormous, the request times out, and both server and client can run out of memory.",
-          "goDeeper": "This is a classic incident shape: the endpoint was fine with 100 rows in dev and fell over at 10M in production. Rule: never expose an endpoint whose response size grows with your data. Bound everything."
+          "why": "Unbounded collections are a production landmine — the query is slow, the payload enormous, the request times out, and both server and client can run out of memory. This is a classic incident shape: the endpoint was fine with 100 rows in dev and fell over at 10M in production. Rule: never expose an endpoint whose response size grows with your data."
         },
         {
           "type": "multiple_choice",
@@ -188,12 +175,11 @@
             "Only allow admins to call it"
           ],
           "answer": 1,
-          "why": "Pagination bounds the work per request: a fixed-size page, plus a pointer to get the next one. Cost per call stays predictable no matter how big the dataset grows.",
-          "goDeeper": "Always enforce a maximum page size on the server. If a client can send ?limit=1000000, you haven't actually bounded anything — you've just asked nicely."
+          "why": "Pagination bounds the work per request: a fixed-size page plus a pointer to get the next one, so cost per call stays predictable no matter how big the dataset grows. Always enforce a maximum page size on the server — if a client can send `?limit=1000000`, you haven't actually bounded anything, you've just asked nicely."
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your feed paginates with ?offset=1000000&limit=20. Two real problems appear at scale. Which describes them?",
+          "prompt": "Your feed paginates with `?offset=1000000&limit=20`. Two real problems appear at scale. Which describes them?",
           "choices": [
             "Offset pagination is always faster but uses more memory",
             "Deep offsets get slow (the database must walk past every skipped row), and new inserts shift rows so users see duplicates or miss items",
@@ -201,21 +187,19 @@
             "There are no problems — offset is the standard"
           ],
           "answer": 1,
-          "why": "OFFSET isn't free: to skip 1,000,000 rows the database generally has to traverse them, so deep pages get progressively slower. Worse, if rows are inserted while you're paging, everything shifts — you re-see items or skip them entirely.",
-          "goDeeper": "The fix is cursor (keyset) pagination: instead of 'skip a million,' you say 'give me 20 items after id=X.' The database jumps straight there using an index, so page 50,000 costs the same as page 1 — and inserts don't shift your position. This is why every large feed (Twitter, Slack, Stripe) hands you an opaque cursor instead of a page number."
+          "why": "`OFFSET` isn't free: to skip 1,000,000 rows the database generally has to traverse them, so deep pages get progressively slower — and if rows are inserted while you're paging, everything shifts and you re-see items or skip them entirely. The fix is cursor (keyset) pagination: instead of 'skip a million', you say 'give me 20 items after `id=X`'. The database jumps straight there using an index, so page 50,000 costs the same as page 1 — which is why every large feed hands you an opaque cursor instead of a page number."
         },
         {
           "type": "multiple_choice",
           "prompt": "You need to change what a field means in your public API. Third-party apps depend on it. What do you do?",
           "choices": [
             "Change it — clients will adapt",
-            "Version the API (/v2) or add a new field, while keeping the old behavior working",
+            "Version the API (`/v2`) or add a new field, while keeping the old behavior working",
             "Delete the endpoint and start over",
             "Change it, but email everyone first"
           ],
           "answer": 1,
-          "why": "Once strangers depend on your contract, mutating it breaks their software with no warning. You add alongside — a new field or a new version — and migrate people over time.",
-          "goDeeper": "The governing rule: you can add, you can't take away. Additive changes (a new optional field) are safe because old clients ignore what they don't know about. That asymmetry drives almost every real API evolution strategy."
+          "why": "Once strangers depend on your contract, mutating it breaks their software with no warning — so you add alongside (a new field or version) and migrate people over time. The governing rule: you can add, you can't take away. Additive changes are safe because old clients ignore what they don't know about, and that asymmetry drives almost every real API evolution strategy."
         },
         {
           "type": "multi_select",
@@ -227,21 +211,19 @@
             "Changing a field's type from string to number"
           ],
           "answer": [1, 2, 3],
-          "why": "Adding an optional field is safe — old clients simply ignore it. Removing, renaming, or retyping a field breaks anyone parsing it, instantly and silently.",
-          "goDeeper": "This is why the 'expand, migrate, contract' pattern exists: first ADD the new field (expand), then move clients over (migrate), and only remove the old one much later once nobody reads it (contract). The contract step is the one teams forget to ever finish."
+          "why": "Adding an optional field is safe — old clients simply ignore it — while removing, renaming, or retyping breaks anyone parsing it, instantly and silently. This is why the *expand, migrate, contract* pattern exists: first ADD the new field, then move clients over, and only remove the old one much later once nobody reads it. The contract step is the one teams forget to ever finish."
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your API returns 200 OK, with {\"error\": \"user not found\"} in the body. Why is that a bad idea?",
+          "prompt": "Your API returns `200 OK`, with `{\"error\": \"user not found\"}` in the body. Why is that a bad idea?",
           "choices": [
             "It isn't — the error is right there in the body",
-            "It lies: caches, monitoring, retries, and client error handling all key off the status code, so a 200 hides the failure",
+            "It lies: caches, monitoring, retries, and client error handling all key off the status code, so a `200` hides the failure",
             "JSON can't represent errors",
             "It's slower to parse"
           ],
           "answer": 1,
-          "why": "The status code is the machine-readable verdict. Saying 200 means 'success,' so caches may store it, dashboards show healthy, and clients take the success path — while the request actually failed.",
-          "goDeeper": "Do both: return the honest status (404) AND a consistent error body like {code, message}. Consistency matters as much as correctness — if every endpoint shapes errors differently, clients must write custom handling for each one."
+          "why": "The status code is the machine-readable verdict: saying `200` means success, so caches may store it, dashboards show healthy, and clients take the success path — while the request actually failed. Do both: return the honest status (`404`) AND a consistent error body like `{code, message}`. Consistency matters as much as correctness, because if every endpoint shapes errors differently, clients must write custom handling for each one."
         }
       ]
     },
@@ -251,15 +233,14 @@
       "exercises": [
         {
           "type": "multiple_choice",
-          "prompt": "A mobile screen shows 20 posts, each with its author's name. The app calls GET /posts, then GET /users/{id} for each post. How many requests is that?",
+          "prompt": "A mobile screen shows 20 posts, each with its author's name. The app calls `GET /posts`, then `GET /users/{id}` for each post. How many requests is that?",
           "choices": ["1", "2", "21", "20"],
           "answer": 2,
-          "why": "One request for the list, plus one per post = 21. This is the N+1 problem, and it's everywhere.",
-          "goDeeper": "On a mobile network with ~100ms round-trips, 21 sequential calls is over two seconds of pure waiting — before rendering anything. Chattiness is the number one killer of mobile API performance. The fix: let the server do the joining and return posts WITH their authors in one response."
+          "why": "One request for the list, plus one per post = 21. This is the N+1 problem, and on a mobile network with ~100ms round trips it's over two seconds of pure waiting before anything renders. Chattiness is the number one killer of mobile API performance, and the fix is to let the server do the joining and return posts *with* their authors in one response."
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your /users endpoint returns a 40-field object, but the mobile list screen only needs name and avatar. What's the problem called?",
+          "prompt": "Your `/users` endpoint returns a 40-field object, but the mobile list screen only needs name and avatar. What's the problem called?",
           "choices": [
             "Under-fetching",
             "Over-fetching — you're burning bandwidth and battery shipping fields nobody uses",
@@ -267,8 +248,7 @@
             "Sharding"
           ],
           "answer": 1,
-          "why": "Over-fetching means the response carries far more than the caller needs. On mobile that's wasted bandwidth, slower parsing, and real battery cost.",
-          "goDeeper": "REST endpoints have fixed shapes, so the same endpoint is simultaneously too big for one screen and too small for another (forcing extra calls — under-fetching). That exact tension is precisely why GraphQL was invented."
+          "why": "Over-fetching means the response carries far more than the caller needs — on mobile that's wasted bandwidth, slower parsing, and real battery cost. REST endpoints have fixed shapes, so the same endpoint is simultaneously too big for one screen and too small for another (forcing extra calls — under-fetching). That exact tension is precisely why GraphQL was invented."
         },
         {
           "type": "match_pairs",
@@ -278,8 +258,7 @@
             { "left": "GraphQL", "right": "Client asks for exactly the fields it needs" },
             { "left": "gRPC", "right": "Fast binary protocol for service-to-service calls" }
           ],
-          "why": "REST is the simple, cacheable default; GraphQL solves over/under-fetching by letting clients specify the shape; gRPC trades human-readability for speed between your own services.",
-          "goDeeper": "None is 'best' — they're answers to different questions. REST for public APIs, GraphQL when different clients need wildly different slices of data, gRPC for internal microservice hops where nobody's reading the payload and latency is the whole game."
+          "why": "REST is the simple, cacheable default; GraphQL solves over/under-fetching by letting clients specify the shape; gRPC trades human-readability for speed between your own services. None is 'best' — they're answers to different questions: REST for public APIs, GraphQL when different clients need wildly different slices of data, gRPC for internal hops where nobody's reading the payload and latency is the whole game."
         },
         {
           "type": "tradeoff_slider",
@@ -287,8 +266,7 @@
           "leftLabel": "REST (simple, cacheable)",
           "rightLabel": "GraphQL (flexible queries)",
           "answerRange": [0, 40],
-          "why": "For a public API consumed by strangers, REST usually wins: trivial to learn, works with HTTP caching and CDNs, and easy to rate-limit per endpoint. GraphQL's flexibility becomes a liability — arbitrary nested queries are hard to cache, hard to rate-limit, and easy to weaponize into an expensive query.",
-          "goDeeper": "GitHub famously offers both, and the split is instructive: GraphQL shines for FIRST-party clients you control (your own mobile app), where flexibility pays for itself. The more you trust and know the caller, the more GraphQL's tradeoffs make sense."
+          "why": "For a public API consumed by strangers, REST usually wins: trivial to learn, works with HTTP caching and CDNs, and easy to rate-limit per endpoint. GraphQL's flexibility becomes a liability — arbitrary nested queries are hard to cache, hard to rate-limit, and easy to weaponize into an expensive query. GitHub famously offers both, and the split is instructive: GraphQL shines for FIRST-party clients you control, where flexibility pays for itself."
         },
         {
           "type": "multi_select",
@@ -300,8 +278,7 @@
             "Letting clients request unlimited nested data"
           ],
           "answer": [0, 1, 2],
-          "why": "Limits, bounded pages, and a versioned contract are your seatbelts. Unlimited nested queries are the opposite — they hand callers a way to make you do unbounded work.",
-          "goDeeper": "An API is a promise made to strangers. Every unbounded thing you expose will eventually be abused — usually by accident, via someone's runaway retry loop, long before any malice shows up."
+          "why": "Limits, bounded pages, and a versioned contract are your seatbelts; unlimited nested queries are the opposite — they hand callers a way to make you do unbounded work. An API is a promise made to strangers, and every unbounded thing you expose will eventually be abused, usually by accident via someone's runaway retry loop long before any malice shows up."
         },
         {
           "type": "build_diagram",
@@ -309,8 +286,7 @@
           "slots": ["Mobile App", "?", "[ Posts svc, Users svc ]"],
           "palette": ["API Gateway / BFF", "Another database", "A second mobile app"],
           "answer": "API Gateway / BFF",
-          "why": "A gateway (or Backend-for-Frontend) sits in front, makes the many internal calls server-side, and returns one response shaped for that screen — turning 21 phone round-trips into 1.",
-          "goDeeper": "The internal calls still happen — but over a fast datacenter network (sub-millisecond) instead of a phone's 100ms hops. This is the BFF pattern: a thin server-side layer shaped for one specific client. It's how you get GraphQL-like tailoring while keeping plain REST services underneath."
+          "why": "A gateway (or Backend-for-Frontend) sits in front, makes the many internal calls server-side, and returns one response shaped for that screen — turning 21 phone round trips into 1. The internal calls still happen, but over a fast datacenter network instead of a phone's 100ms hops. That's the BFF pattern: a thin server-side layer shaped for one specific client, giving you GraphQL-like tailoring while keeping plain REST services underneath."
         },
         {
           "type": "multiple_choice",
@@ -322,8 +298,7 @@
             "Migrate every client to GraphQL immediately"
           ],
           "answer": 1,
-          "why": "You can't mutate a contract that strangers depend on — slimming fields or reshaping responses is a breaking change no matter how much better the new shape is. You add alongside: a versioned endpoint or a BFF tailored for mobile, and migrate people gradually.",
-          "goDeeper": "This is the whole unit in one decision. An API is a contract, the contract outlives your opinions about it, and evolving it without breaking anyone is the actual senior skill. Add, migrate, and only then contract — that sequence is the difference between an API that grows and one that fossilizes."
+          "why": "You can't mutate a contract that strangers depend on — slimming fields or reshaping responses is a breaking change no matter how much better the new shape is. You add alongside: a versioned endpoint or a BFF tailored for mobile, and migrate gradually. This is the whole unit in one decision: an API is a contract, the contract outlives your opinions about it, and evolving it without breaking anyone is the actual senior skill."
         }
       ]
     }

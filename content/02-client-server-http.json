@@ -24,28 +24,25 @@
             "The app store pushed it"
           ],
           "answer": 1,
-          "why": "This is the client–server model: your phone (the client) sends a request, and a server sends back a response. Your phone stores almost none of the data — it just knows how to ask.",
-          "goDeeper": "One server answers millions of clients. That asymmetry — few servers, many clients — is the shape of almost every system you'll design."
+          "why": "This is the client–server model: your phone (the client) sends a request, and a server sends back a response. Your phone stores almost none of the data — it just knows how to ask. One server answers millions of clients, and that asymmetry — few servers, many clients — is the shape of almost every system you'll design."
         },
         {
           "type": "fill_blank",
           "prompt": "The machine that asks is the ______; the machine that answers is the server.",
           "choices": ["client", "router", "cache", "proxy"],
           "answer": 0,
-          "why": "Client = asks, server = answers. They're roles, not fixed machines.",
-          "goDeeper": "A 'server' can itself be a 'client' of another server — your API server calling Stripe's payments API is a client in that conversation. The roles nest."
+          "why": "Client = asks, server = answers. They're roles rather than fixed machines: a 'server' is itself a 'client' of another server whenever it calls one, so your API server calling a payments API is a client in that conversation. The roles nest."
         },
         {
           "type": "match_pairs",
           "prompt": "Match each part of an HTTP request to its job.",
           "pairs": [
-            { "left": "Method", "right": "What you want to do (GET, POST)" },
-            { "left": "Path", "right": "Which resource (/users/42)" },
+            { "left": "Method", "right": "What you want to do (`GET`, `POST`)" },
+            { "left": "Path", "right": "Which resource (`/users/42`)" },
             { "left": "Headers", "right": "Metadata about the request" },
             { "left": "Body", "right": "The data you're sending" }
           ],
-          "why": "Every request is: a method (the verb), a path (the noun), headers (context), and an optional body (the payload).",
-          "goDeeper": "A GET usually has no body — it just names what it wants. A POST carries its data in the body. HTTP is plain text under the hood; you could type a request by hand."
+          "why": "Every request is: a method (the verb), a path (the noun), headers (context), and an optional body (the payload). A `GET` usually has no body — it just names what it wants — while a `POST` carries its data in the body. HTTP is plain text under the hood, so you could type a request by hand."
         },
         {
           "type": "order_steps",
@@ -57,8 +54,7 @@
             "Server builds a response",
             "Client receives and renders it"
           ],
-          "why": "Ask, travel, process, answer, render — the loop behind every screen you've ever loaded.",
-          "goDeeper": "The 'travel' step includes the network round-trips you met in Unit 1. On HTTPS, a TLS handshake happens first to encrypt everything."
+          "why": "Ask, travel, process, answer, render — the loop behind every screen you've ever loaded. The 'travel' step includes the network round trips from unit 1, and on HTTPS a TLS handshake happens first to encrypt everything."
         },
         {
           "type": "multiple_choice",
@@ -66,12 +62,11 @@
           "choices": [
             "Yes — servers always remember",
             "No — each HTTP request is independent (stateless)",
-            "Only if both are GET requests",
+            "Only if both are `GET` requests",
             "Only if they're within one second"
           ],
           "answer": 1,
-          "why": "HTTP is stateless: by default each request stands entirely on its own. The server doesn't inherently remember the last one.",
-          "goDeeper": "So how does 'staying logged in' work? The client re-sends proof — a cookie or token — on every single request. State lives with the client or in a shared store, NOT in one server's memory. Hold onto this: it's the secret to scaling, and the boss lesson of this unit."
+          "why": "HTTP is stateless: by default each request stands entirely on its own, and the server doesn't inherently remember the last one. So how does staying logged in work? The client re-sends proof — a cookie or token — on every single request. State lives with the client or in a shared store, *not* in one server's memory, and that fact is this unit's boss lesson."
         },
         {
           "type": "multiple_choice",
@@ -83,8 +78,7 @@
             "A type of physical cable"
           ],
           "answer": 1,
-          "why": "HTTP is the agreed language of the web: a stateless protocol where clients make requests and servers return responses.",
-          "goDeeper": null
+          "why": "HTTP is the agreed language of the web: a stateless protocol where clients make requests and servers return responses."
         }
       ]
     },
@@ -95,64 +89,58 @@
         {
           "type": "multiple_choice",
           "prompt": "You want to fetch a user's profile without changing anything. Which method?",
-          "choices": ["GET", "POST", "DELETE", "PUT"],
+          "choices": ["`GET`", "`POST`", "`DELETE`", "`PUT`"],
           "answer": 0,
-          "why": "GET reads data and shouldn't change anything on the server. It's the default 'just show me' verb.",
-          "goDeeper": "GET is 'safe' — search-engine crawlers and browser prefetchers fire GETs freely. So never hide a state-changing action (like /delete?id=42) behind a GET, or a crawler could wipe your data just by following links. This has actually happened to real companies."
+          "why": "`GET` reads data and shouldn't change anything on the server — it's the default 'just show me' verb. Because `GET` is *safe*, crawlers and browser prefetchers fire them freely, which is why you must never hide a state-changing action (like `/delete?id=42`) behind a `GET`. A crawler following links could wipe your data, and this has genuinely happened to real companies."
         },
         {
           "type": "match_pairs",
           "prompt": "Match each method to its intent.",
           "pairs": [
-            { "left": "GET", "right": "Read a resource" },
-            { "left": "POST", "right": "Create a new resource" },
-            { "left": "PUT", "right": "Replace a resource" },
-            { "left": "DELETE", "right": "Remove a resource" }
+            { "left": "`GET`", "right": "Read a resource" },
+            { "left": "`POST`", "right": "Create a new resource" },
+            { "left": "`PUT`", "right": "Replace a resource" },
+            { "left": "`DELETE`", "right": "Remove a resource" }
           ],
-          "why": "GET reads, POST creates, PUT replaces, DELETE removes. The method tells the server your intent.",
-          "goDeeper": "PUT replaces the whole resource; PATCH updates just part of it. Choosing precisely is what makes an API predictable."
+          "why": "`GET` reads, `POST` creates, `PUT` replaces, `DELETE` removes — the method tells the server your intent. `PUT` replaces the whole resource while `PATCH` updates just part of it, and choosing precisely is what makes an API predictable."
         },
         {
           "type": "multi_select",
           "prompt": "Which of these methods are expected to change state on the server? Select all.",
-          "choices": ["GET", "POST", "PUT", "DELETE"],
+          "choices": ["`GET`", "`POST`", "`PUT`", "`DELETE`"],
           "answer": [1, 2, 3],
-          "why": "POST, PUT, and DELETE modify server state. GET (and HEAD, OPTIONS) are 'safe' — they only read.",
-          "goDeeper": "Because GET is safe, it's cacheable and retryable with zero risk. That single property is why the web can cache so aggressively."
+          "why": "`POST`, `PUT`, and `DELETE` modify server state, while `GET` (and `HEAD`, `OPTIONS`) are *safe* — they only read. Because `GET` is safe, it's cacheable and retryable with zero risk, and that single property is why the web can cache so aggressively."
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your DELETE /users/42 request times out and you don't know if it worked. Is it safe to just send it again?",
+          "prompt": "Your `DELETE /users/42` request times out and you don't know if it worked. Is it safe to just send it again?",
           "choices": [
             "Yes — deleting twice leaves the same result as deleting once",
             "No — you might delete two different users",
-            "No — DELETE can never be retried",
-            "Only if you switch to GET first"
+            "No — `DELETE` can never be retried",
+            "Only if you switch to `GET` first"
           ],
           "answer": 0,
-          "why": "DELETE is idempotent: DELETE /users/42 twice still leaves user 42 gone. Same end state, so retrying is safe.",
-          "goDeeper": "Idempotent = doing it again lands you in the same state. GET, PUT, and DELETE are idempotent; POST is not. This is the backbone of reliable distributed systems, because networks fail mid-request constantly and retries are unavoidable."
+          "why": "`DELETE` is *idempotent*: `DELETE /users/42` twice still leaves user 42 gone, so the end state is the same and retrying is safe. Idempotent means doing it again lands you in the same state — `GET`, `PUT`, and `DELETE` qualify; `POST` doesn't. This is the backbone of reliable distributed systems, because networks fail mid-request constantly and retries are unavoidable."
         },
         {
           "type": "multiple_choice",
-          "prompt": "A POST /payments request times out. You don't know if the charge went through. Retrying blindly risks charging the customer twice. What's the fix?",
+          "prompt": "A `POST /payments` request times out. You don't know if the charge went through. Retrying blindly risks charging the customer twice. What's the fix?",
           "choices": [
             "Just retry — it's probably fine",
             "Send an idempotency key so the server recognizes the retry and doesn't repeat the charge",
             "Never retry payments, ever",
-            "Change it to a GET request"
+            "Change it to a `GET` request"
           ],
           "answer": 1,
-          "why": "An idempotency key is a unique id the client attaches to the request. If the server sees the same key twice, it returns the original result instead of charging again — making an unsafe POST safe to retry.",
-          "goDeeper": "This is exactly how Stripe works: you send an 'Idempotency-Key' header, and Stripe dedupes retries. Any system with money or side effects needs this pattern."
+          "why": "An idempotency key is a unique id the client attaches to the request: if the server sees the same key twice, it returns the original result instead of charging again — making an unsafe `POST` safe to retry. This is exactly how Stripe works, via an `Idempotency-Key` header, and any system with money or side effects needs the pattern."
         },
         {
           "type": "fill_blank",
           "prompt": "An operation is ______ if performing it many times has the same effect as performing it once.",
           "choices": ["idempotent", "stateless", "asynchronous", "encrypted"],
           "answer": 0,
-          "why": "Idempotent operations are safe to retry — critical, because in a distributed system retries are not optional.",
-          "goDeeper": null
+          "why": "Idempotent operations are safe to retry — critical, because in a distributed system retries are not optional."
         }
       ]
     },
@@ -162,43 +150,39 @@
       "exercises": [
         {
           "type": "multiple_choice",
-          "prompt": "A server replies with 200. At a glance, what does that number tell you?",
+          "prompt": "A server replies with `200`. At a glance, what does that number tell you?",
           "choices": ["The response size", "The request succeeded", "The user's id", "The latency in ms"],
           "answer": 1,
-          "why": "Status codes are the server's one-glance verdict on your request. 200 = OK, it worked.",
-          "goDeeper": "The first digit is everything: 2xx success, 3xx redirect, 4xx you (the client) messed up, 5xx I (the server) messed up. Learn the classes and you can read any code you've never seen."
+          "why": "Status codes are the server's one-glance verdict on your request: `200` = OK, it worked. The first digit is everything — `2xx` success, `3xx` redirect, `4xx` you (the client) messed up, `5xx` I (the server) messed up. Learn the classes and you can read any code you've never seen."
         },
         {
           "type": "match_pairs",
           "prompt": "Match each status code to its meaning.",
           "pairs": [
-            { "left": "200 OK", "right": "Success" },
-            { "left": "301 Moved Permanently", "right": "Redirect to a new URL" },
-            { "left": "404 Not Found", "right": "That resource doesn't exist" },
-            { "left": "500 Internal Server Error", "right": "The server broke" }
+            { "left": "`200 OK`", "right": "Success" },
+            { "left": "`301 Moved Permanently`", "right": "Redirect to a new URL" },
+            { "left": "`404 Not Found`", "right": "That resource doesn't exist" },
+            { "left": "`500 Internal Server Error`", "right": "The server broke" }
           ],
-          "why": "One code from each class: 2xx worked, 3xx go elsewhere, 4xx your request was wrong, 5xx the server failed.",
-          "goDeeper": "Two you'll use constantly: 201 Created (a POST made something new) and 204 No Content (success, but nothing to return — perfect for a DELETE)."
+          "why": "One code from each class: `2xx` worked, `3xx` go elsewhere, `4xx` your request was wrong, `5xx` the server failed. Two more you'll use constantly: `201 Created` (a `POST` made something new) and `204 No Content` (success, nothing to return — perfect for a `DELETE`)."
         },
         {
           "type": "multi_select",
           "prompt": "Which of these are CLIENT errors (the caller's fault)? Select all.",
-          "choices": ["400 Bad Request", "401 Unauthorized", "404 Not Found", "503 Service Unavailable"],
+          "choices": ["`400 Bad Request`", "`401 Unauthorized`", "`404 Not Found`", "`503 Service Unavailable`"],
           "answer": [0, 1, 2],
-          "why": "4xx codes blame the request; 5xx codes blame the server. 503 is a server-side 'I can't handle this right now.'",
-          "goDeeper": "Don't confuse 401 and 403. 401 Unauthorized really means 'I don't know who you are' (not authenticated). 403 Forbidden means 'I know who you are, and you're not allowed' (authenticated but no permission)."
+          "why": "`4xx` codes blame the request; `5xx` codes blame the server, and `503` is a server-side 'I can't handle this right now'. Don't confuse `401` and `403`: `401 Unauthorized` really means *I don't know who you are* (not authenticated), while `403 Forbidden` means *I know who you are, and you're not allowed*."
         },
         {
           "type": "multiple_choice",
           "prompt": "Your service is getting hammered with more traffic than it can handle. Which status code politely tells clients to slow down?",
-          "choices": ["404 Not Found", "429 Too Many Requests", "200 OK", "301 Moved Permanently"],
+          "choices": ["`404 Not Found`", "`429 Too Many Requests`", "`200 OK`", "`301 Moved Permanently`"],
           "answer": 1,
-          "why": "429 Too Many Requests is the rate-limiting signal. Well-behaved clients back off when they see it, often honoring a 'Retry-After' header the server sends.",
-          "goDeeper": "Pair 429 with exponential backoff on the client (wait 1s, then 2s, then 4s...). Without backoff, clients retry instantly in unison and create a 'thundering herd' that keeps the service down."
+          "why": "`429 Too Many Requests` is the rate-limiting signal, and well-behaved clients back off when they see it — often honouring a `Retry-After` header you send. Pair it with exponential backoff on the client (wait 1s, then 2s, then 4s), because without backoff clients retry instantly in unison and create a thundering herd that keeps the service down."
         },
         {
           "type": "multiple_choice",
-          "prompt": "Your app sits behind a load balancer. Users start seeing 502 and 504 errors. Where is the problem most likely?",
+          "prompt": "Your app sits behind a load balancer. Users start seeing `502` and `504` errors. Where is the problem most likely?",
           "choices": [
             "In the users' browsers",
             "Downstream of the load balancer — the app servers are failing or too slow",
@@ -206,16 +190,14 @@
             "In the users' wifi"
           ],
           "answer": 1,
-          "why": "502 Bad Gateway means the load balancer got a broken response from the app behind it; 504 Gateway Timeout means the app didn't respond in time. Both point downstream — the app or database, not the balancer or the client.",
-          "goDeeper": "This is why status codes are gold during an incident: 502/504 → look at the app tier; 503 → the service is shedding load; 500 → an unhandled crash in your code. The code tells you which layer to open first."
+          "why": "`502 Bad Gateway` means the load balancer got a broken response from the app behind it; `504 Gateway Timeout` means the app didn't respond in time. Both point downstream — the app or database, not the balancer or the client. This is why status codes are gold during an incident: `502`/`504` → look at the app tier, `503` → the service is shedding load, `500` → an unhandled crash in your code."
         },
         {
           "type": "multiple_choice",
-          "prompt": "A user requests GET /orders/99999, but no such order exists. What should the server return?",
-          "choices": ["200 OK with an empty body", "404 Not Found", "500 Internal Server Error", "403 Forbidden"],
+          "prompt": "A user requests `GET /orders/99999`, but no such order exists. What should the server return?",
+          "choices": ["`200 OK` with an empty body", "`404 Not Found`", "`500 Internal Server Error`", "`403 Forbidden`"],
           "answer": 1,
-          "why": "The resource genuinely doesn't exist and the client's request was well-formed — that's a textbook 404. Returning 200 for a missing resource lies to the client and breaks caching and error handling.",
-          "goDeeper": "Returning the honest code matters: monitoring, retries, and caches all make decisions based on it. A 500 here would page an engineer for a non-bug; a 200 would hide a real 'not found.'"
+          "why": "The resource genuinely doesn't exist and the client's request was well-formed — a textbook `404`. Returning `200` for a missing resource lies to the client and breaks caching and error handling. The honest code matters because monitoring, retries, and caches all make decisions from it: a `500` here would page an engineer for a non-bug, and a `200` would hide a real 'not found'."
         }
       ]
     },
@@ -233,8 +215,7 @@
             "The load balancer copies your data to every server"
           ],
           "answer": 1,
-          "why": "Because each request carries everything needed to serve it (like an auth token), any interchangeable server can handle any request. Statelessness is what makes horizontal scaling possible.",
-          "goDeeper": "The moment a server stores your session in its own local memory, servers stop being interchangeable — now the load balancer must pin you to that one machine ('sticky sessions'), and if it dies, your session dies with it."
+          "why": "Because each request carries everything needed to serve it (like an auth token), any interchangeable server can handle it — statelessness is what makes horizontal scaling possible. The moment a server stores your session in its own local memory, servers stop being interchangeable: now the load balancer must pin you to that one machine, and if it dies, your session dies with it."
         },
         {
           "type": "multiple_choice",
@@ -246,8 +227,7 @@
             "In DNS"
           ],
           "answer": 1,
-          "why": "State moves out of the server: either the client carries it (a token sent on every request) or it lives in a shared store all servers can read. Never in one server's local RAM.",
-          "goDeeper": "Two common patterns: a self-contained token (JWT) the client carries, or a session id the client carries that servers look up in a shared cache (Redis). Both keep the servers stateless and interchangeable."
+          "why": "State moves out of the server: either the client carries it (a token sent on every request) or it lives in a shared store all servers can read — never in one server's local RAM. The two common patterns are a self-contained token (JWT) the client carries, or a session id the client carries that servers look up in a shared cache. Both keep the servers stateless and interchangeable."
         },
         {
           "type": "build_diagram",
@@ -255,8 +235,7 @@
           "slots": ["App Server 1", "App Server 2", "?"],
           "palette": ["Shared Cache (Redis)", "A bigger CPU", "A second load balancer"],
           "answer": "Shared Cache (Redis)",
-          "why": "A shared store that every app server reads from keeps sessions out of local memory, so the servers stay stateless and interchangeable.",
-          "goDeeper": "This is the standard fix for 'randomly logged out' bugs: move session state to a shared cache, and it no longer matters which server you land on."
+          "why": "A shared store that every app server reads from keeps sessions out of local memory, so the servers stay stateless and interchangeable. This is the standard fix for 'randomly logged out' bugs: move session state to a shared cache and it stops mattering which server you land on."
         },
         {
           "type": "multi_select",
@@ -268,21 +247,19 @@
             "HTTP/3 over QUIC: avoids TCP-level head-of-line blocking"
           ],
           "answer": [0, 1, 3],
-          "why": "Reusing connections (keep-alive) and multiplexing (HTTP/2, HTTP/3) amortize the handshake cost across many requests. Opening a fresh connection each time is the problem, not a fix.",
-          "goDeeper": "HTTP/1.1 could only handle one request at a time per connection — a slow response blocked everything behind it (head-of-line blocking). HTTP/2 multiplexes many requests over one connection; HTTP/3 moves to QUIC over UDP to fix blocking that still happened at the TCP layer."
+          "why": "Reusing connections (keep-alive) and multiplexing (HTTP/2, HTTP/3) amortize the handshake cost across many requests; opening a fresh connection each time is the problem, not a fix. HTTP/1.1 could only handle one request at a time per connection — a slow response blocked everything behind it (head-of-line blocking). HTTP/2 multiplexes many over one connection, and HTTP/3 moves to QUIC over UDP to fix blocking that still happened at the TCP layer."
         },
         {
           "type": "multiple_choice",
           "prompt": "Your API serves a user avatar that rarely changes. How do you avoid re-sending the same bytes on every request?",
           "choices": [
             "You can't — you must resend it each time",
-            "Use Cache-Control + an ETag: the client asks 'still current?' and the server can reply 304 Not Modified with no body",
+            "Use `Cache-Control` + an `ETag`: the client asks 'still current?' and the server can reply `304 Not Modified` with no body",
             "Make the image smaller each time",
-            "Serve it over POST"
+            "Serve it over `POST`"
           ],
           "answer": 1,
-          "why": "With an ETag (a fingerprint of the content), the client sends 'I have version X — changed?' and the server can answer 304 Not Modified with an empty body. Same-bytes are never re-sent.",
-          "goDeeper": "304 responses are a huge part of why repeat page loads feel instant — the browser revalidates cheaply and skips the download entirely."
+          "why": "With an `ETag` (a fingerprint of the content), the client sends 'I have version X — changed?' and the server can answer `304 Not Modified` with an empty body, so the same bytes are never re-sent. Those `304` responses are a huge part of why repeat page loads feel instant — the browser revalidates cheaply and skips the download entirely."
         },
         {
           "type": "tradeoff_slider",
@@ -290,8 +267,7 @@
           "leftLabel": "JWT (scales, hard to revoke)",
           "rightLabel": "Redis sessions (revocable, central)",
           "answerRange": [55, 100],
-          "why": "For high-security, instant revocation usually wins — if a token is stolen, you must be able to kill it NOW. A central session store gives you that, at the cost of a lookup per request. JWTs trade that away for statelessness.",
-          "goDeeper": "Many real systems combine both: short-lived JWTs (minutes) plus a revocation check, getting most of JWT's scale while limiting how long a stolen token stays valid."
+          "why": "For high-security, instant revocation usually wins — if a token is stolen you must be able to kill it NOW, and a central session store gives you that at the cost of a lookup per request. Many real systems combine both: short-lived JWTs (minutes) plus a revocation check, getting most of JWT's scale while limiting how long a stolen token stays valid."
         },
         {
           "type": "multiple_choice",
@@ -303,8 +279,7 @@
             "The users' tokens expired — shorten the timeout"
           ],
           "answer": 1,
-          "why": "Under load the balancer spreads you across many servers; whenever you land on one that doesn't hold your in-memory session, you appear logged out. Making the servers stateless — sessions in a shared store — fixes it permanently.",
-          "goDeeper": "The band-aid is 'sticky sessions' (pin each user to one server), but that undermines load balancing and fails when a server dies. Stateless servers + a shared session store is the scalable cure — and it ties this whole unit together: stateless HTTP is what lets systems grow."
+          "why": "Under load the balancer spreads you across many servers, and whenever you land on one that doesn't hold your in-memory session you appear logged out — making the servers stateless fixes it permanently. The band-aid is sticky sessions (pin each user to one server), but that undermines load balancing and fails when a server dies. Stateless servers plus a shared session store is the scalable cure, and it's why stateless HTTP is what lets systems grow."
         }
       ]
     }
