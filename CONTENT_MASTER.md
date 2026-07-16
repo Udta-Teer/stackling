@@ -34,11 +34,21 @@ Write for this arc within every unit:
 3. **Numbers people can feel.** Use the "latency numbers every engineer should know," data sizes, request rates. Numbers make it real.
 4. **War stories.** Sprinkle real incidents (the 2016 Dyn DNS outage, Twitter's fail whale, an S3 typo taking down half the web). These are the "Go deeper" candy.
 5. **Short sentences. Warm, a little witty. Never smug.**
-6. **Every exercise ends with a one-line `why`.** This is where learning locks in — treat it as the most important sentence in the lesson.
+6. **Every exercise ends with a `why` — and the `why` carries all the depth.** This is where learning locks in; treat it as the most important text in the lesson. It must explain *why this specific answer is correct*, and deliver the mechanism, the tradeoff, the failure mode, or the real number in service of that. **Do not write `goDeeper` (see §3.1 — the field is retired from unit 12 onward).**
+6b. **Attach conditions in-clause, never as a trailing caveat.** Write "X holds *while* Z", not "X holds." followed by "(but Z)". A claim and its limit belong in the same sentence, or the claim will be remembered without the limit.
+6c. **Don't define a neighbouring concept.** Name it and point to its unit. Every unit owns its own definitions.
 7. **No unexplained acronym, ever.** First use: spell it out, then abbreviate.
 8. **Respect the reader's time.** If a sentence doesn't teach or delight, cut it.
 
 ---
+
+### 3.1 ⛔ `goDeeper` is retired (decided 2026-07-16)
+
+**Do not emit a `goDeeper` field in new content — omit it entirely (not `null`).** The `why` carries the depth instead.
+
+**Why this changed:** every single stop-time review finding across units 8–11 (~12 of them) landed in a `goDeeper`; not one was in a `why`. The field's shape was the problem: a `why` is anchored — it must justify *this* answer — and that constraint keeps it honest. `goDeeper` was an open-ended aside, which is precisely where the writing drifted into defining neighbouring concepts, stating mitigations as guarantees, and repeating folklore as fact. Cutting the field removes the error surface rather than re-patching it.
+
+*Units 1–11 still contain `goDeeper` fields; the owner is revisiting those. Don't retrofit them unless asked. The prototype renderer simply omits the box when the field is absent, so no renderer change is needed.*
 
 ## 3. Lesson anatomy (fixed template — don't reinvent per lesson)
 
@@ -143,7 +153,7 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 9 | Transactions & ACID | ✅ done | `content/09-transactions-and-acid.json` |
 | 10 | Replication | ✅ done | `content/10-replication.json` |
 | 11 | Scaling: vertical vs horizontal | ✅ done | `content/11-scaling-vertical-vs-horizontal.json` |
-| 12 | Load balancing | ⬜ | — |
+| 12 | Load balancing | ✅ done | `content/12-load-balancing.json` |
 | 13 | Caching | ⬜ | — |
 | 14 | CDNs | ⬜ | — |
 | 15 | Sharding / partitioning | ⬜ | — |
@@ -185,7 +195,7 @@ See `content/01-how-the-internet-works.json` for a worked example. Every unit fi
 }
 ```
 
-Per-exercise required fields: `type`, `prompt`, the type-specific answer fields, and **`why`** (always). Optional: `goDeeper` (the mid-level nugget string), `hint`.
+Per-exercise required fields: `type`, `prompt`, the type-specific answer fields, and **`why`** (always — and it carries the depth, see §3.1). Optional: `hint`. **`goDeeper` is retired — do not add it** (it survives in units 1–11 only).
 
 ---
 
