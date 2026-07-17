@@ -531,7 +531,7 @@ function renderFieldTask(){
     `<div class="ft-do">${md(t.do)}</div>`+
     (t.alt?`<p class="ft-alt">${md(t.alt)}</p>`:'')+
     `<p class="ft-notice">${md(t.notice)}</p>`+
-    `<button class="ft-skip">skip — it's optional</button>`;
+    `<button class="ft-skip">skip</button>`;
   el.querySelector('.ft-skip').onclick=()=>el.remove();
   host.appendChild(el);
 }
