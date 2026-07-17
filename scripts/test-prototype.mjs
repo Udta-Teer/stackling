@@ -248,6 +248,36 @@ is(!cls.some(c => /\bk-/.test(c)), 'no node carries a kind colour — the odd on
 const uniq = new Set(cls.map(c => c.replace(/\s*sel\s*/, '').trim()));
 is(uniq.size === 1, `all nodes look identical until you read the numbers (${uniq.size} distinct style)`);
 
+// GRADE IT. The original version of this block stopped at the line above — it
+// asserted how the nodes LOOKED and never pressed Check, so it stayed green
+// while every spot_bottleneck threw a TypeError on grading and shipped broken.
+// Appearance-only coverage on a graded type is not coverage.
+const errsBefore = errors.length;
+await page.locator('#stage .vn').nth(2).click();     // Postgres = the answer
+is(!(await page.locator('#action').isDisabled()), 'Check enables once a node is tapped');
+await page.locator('#action').click();
+await page.waitForTimeout(200);
+is(errors.length === errsBefore, `Check does not throw${errors.length > errsBefore ? ': ' + errors[errsBefore] : ''}`);
+is((await page.locator('.feedback').count()) === 1, 'feedback renders (the `why` reaches the learner)');
+is((await page.locator('.feedback').getAttribute('class')).includes('ok'), 'tapping the constraint grades correct');
+is((await page.locator('#stage .vn').nth(2).getAttribute('class')).includes('ok'), 'the answer node greens');
+is((await page.locator('#action').textContent()).trim() !== 'Check', 'the button advances instead of staying stuck');
+
+console.log('\n── a wrong bottleneck marks both nodes ──');
+await jumpTo('cp5-2-4');
+await page.locator('#stage .vn').nth(0).click();     // Drivers = wrong
+await page.locator('#action').click();
+await page.waitForTimeout(200);
+is((await page.locator('.feedback').getAttribute('class')).includes('bad'), 'a wrong tap grades wrong');
+is((await page.locator('#stage .vn').nth(0).getAttribute('class')).includes('bad'), 'your wrong choice marks red');
+is((await page.locator('#stage .vn').nth(2).getAttribute('class')).includes('ok'), 'and the correct one still greens');
+
+console.log('\n── check() cannot be re-entered ──');
+await jumpTo('cache-1-1');
+await page.locator('#stage .choice').first().click();
+await page.evaluate(() => { check(); check(); check(); });   // simulate the stuck-button storm
+is(await page.evaluate(() => total) === 1, `three check() calls count as one attempt (total = ${await page.evaluate(() => total)})`);
+
 
 console.log('\n── match_pairs must reveal the correct pairing when you get it wrong ──');
 await jumpTo('csh-1-3');
@@ -319,6 +349,53 @@ is(/take it back/.test(await page.locator('.vhint').textContent()),
 await page.locator('.vn[data-id="h1"]').click(); await page.waitForTimeout(100);
 is(/drag a component/.test(await page.locator('.vhint').textContent()),
    'and reverts once the slots are empty again');
+
+
+console.log('\n── EVERY graded type must survive Check (the net that was missing) ──');
+// spot_bottleneck shipped throwing on every grade because the suite only ever
+// asserted how it LOOKED. One broken type slipping through is a bug; a suite
+// that can't notice is the actual defect. This walks every type in the course,
+// answers one instance CORRECTLY by setting state directly, and presses Check.
+// Any branch of check() that throws, or fails to produce feedback, fails here.
+const typeReport = await page.evaluate(async () => {
+  const seen = {}, out = [];
+  for (let u = 0; u < COURSE.length; u++)
+    for (let l = 0; l < COURSE[u].lessons.length; l++)
+      for (let e = 0; e < COURSE[u].lessons[l].exercises.length; e++) {
+        const t = COURSE[u].lessons[l].exercises[e].type;
+        if (!seen[t]) seen[t] = [u, l, e];
+      }
+  for (const [t, [u, l, e]] of Object.entries(seen)) {
+    if (t === 'concept') { out.push([t, 'ok', 'not graded']); continue; }
+    try {
+      uidx = u; UNIT = COURSE[u]; bootUnits(); boot(); startLesson(l); idx = e; render();
+      const x = lesson.exercises[e];
+      // Set the CORRECT answer directly — this exercises check(), not the widgets.
+      if (t === 'multiple_choice' || t === 'fill_blank' || t === 'estimate' || t === 'spot_bottleneck') current = x.answer;
+      else if (t === 'multi_select') current = new Set(x.answer);
+      else if (t === 'order_steps') current = x.steps.map((s, i) => ({ s, i }));
+      else if (t === 'build_diagram') current = { ...x.answer };
+      else if (t === 'tradeoff_slider' || t === 'simulate') current = Math.round((x.answerRange[0] + x.answerRange[1]) / 2);
+      else if (t === 'match_pairs') {
+        const rights = current.rights;
+        const map = {};
+        x.pairs.forEach((p, i) => { map[i] = rights.indexOf(p.right); });
+        current = { pending: null, map, rights };
+      }
+      check();
+      const fed = document.querySelector('#feedback').className;
+      out.push([t, /feedback/.test(fed) ? 'ok' : 'no-feedback', fed || '(empty)']);
+    } catch (err) { out.push([t, 'THREW', String(err).split('\n')[0]]); }
+  }
+  return out;
+});
+for (const [t, status, detail] of typeReport) {
+  is(status === 'ok', `${t.padEnd(16)} survives Check${status === 'ok' ? '' : ' → ' + status + ': ' + detail}`);
+}
+is(typeReport.length === 11, `all 11 exercise types covered (found ${typeReport.length})`);
+// and correct answers must actually grade as correct, not merely not-throw
+const graded = await page.evaluate(() => document.querySelector('#feedback').className);
+is(/ok/.test(graded), 'the last correct answer graded as correct, not just silent');
 
 console.log('\n── legacy types still work ──');
 await jumpTo('hiw-1-1');

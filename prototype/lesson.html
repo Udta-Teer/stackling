@@ -78,7 +78,6 @@
      pair can be broken. Distinct from .used, which is a spent component. */
   .chip.paired{opacity:.5;border-color:var(--blue);border-style:dashed;}
   .chip.paired:hover{opacity:.85;background:rgba(76,176,255,.08);}
-  .bank{min-height:56px;padding:8px;border:2px dashed var(--line);border-radius:12px;display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;margin-bottom:16px;}
   /* order list */
   .order{display:flex;flex-direction:column;gap:10px;}
   .order .row{display:flex;align-items:center;gap:10px;padding:14px;border:2px solid var(--line);border-bottom-width:4px;border-radius:12px;background:var(--card);font-weight:700;}
@@ -164,18 +163,6 @@
     font-family:var(--mono);font-size:12px;color:var(--muted);text-align:center;min-width:104px;}
   .simbar .m b{display:block;font-family:var(--disp);font-size:17px;font-weight:800;color:var(--ink);margin-top:2px;}
   .simbar .m.good b{color:var(--green);} .simbar .m.bad b{color:var(--red);}
-  /* diagram slots */
-  .diagram{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:18px;}
-  .node{padding:14px 16px;border-radius:12px;font-weight:800;border:2px solid var(--line);background:var(--card);}
-  .node.fixed{background:rgba(28,176,246,.12);border-color:var(--blue);}
-  .node.pick{cursor:pointer;font-weight:600;transition:.08s;}
-  .node.pick:hover{border-color:var(--blue);}
-  .node.pick.sel{border-color:var(--blue);background:rgba(76,176,255,.12);}
-  .node.pick.ok{border-color:var(--green);background:var(--green-soft);}
-  .node.pick.bad{border-color:var(--red);background:var(--red-soft);}
-  .slot{min-width:90px;text-align:center;padding:14px 12px;border:2px dashed var(--muted);border-radius:12px;font-weight:800;color:var(--muted);}
-  .slot.filled{border-style:solid;border-color:var(--green);color:var(--ink);background:var(--green-soft);}
-  .arrow{color:var(--muted);font-size:20px;font-weight:900;}
   /* estimate */
   .est{display:flex;align-items:center;gap:10px;}
   .est input{font-size:22px;font-weight:800;padding:12px;width:130px;border:2px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);}
@@ -717,8 +704,14 @@ function bottleneck(){
        CAPACITIES and find the smallest, and colour was answering it for them:
        in cp5-2-4 the lone `db` node was the one blue box among grey servers, and
        it was also the graded answer. The odd one out reads as the answer before
-       you've looked at a single number. Uniform boxes, numbers do the work. */
-    el.className='vn pick';
+       you've looked at a single number. Uniform boxes, numbers do the work.
+
+       Remove only the kind classes rather than overwriting className: rebuilding
+       the whole list by hand silently drops anything else renderViz sets, and
+       having to keep two places in sync by hand is exactly what left check()
+       querying a class the renderer had stopped emitting. */
+    [...el.classList].filter(c=>c.startsWith('k-')).forEach(c=>el.classList.remove(c));
+    el.classList.add('pick');
     el.onclick=()=>{ if(checked)return; current=i;
       ids.forEach(x=>els[x].classList.remove('sel')); el.classList.add('sel'); enable(); };
   });
@@ -902,6 +895,13 @@ function slider(){
 
 /* ---- checking ---- */
 function check(){
+  /* Re-entry guard. `checked=true; total++` used to run before any of the
+     type-specific work below, so when a renderer branch threw, showFeedback()
+     never ran, #action stayed bound to check(), and every further click
+     incremented `total` again while `correct` never moved — quietly wrecking
+     the accuracy score on the completion screen. The branch bug is fixed, but
+     the guard is what stops the NEXT one from corrupting state on the way out. */
+  if(checked) return;
   checked=true; total++;
   let ok=false;
   const body=$('body');
@@ -934,12 +934,21 @@ function check(){
       return `<div class="mrow ${good?'ok':'bad'}">`+
              `<div class="mpair"><span class="ml">${md(p.left)}</span>`+
              `<span class="marr">→</span><span class="mr">${md(p.right)}</span></div>`+
-             (good?'':`<div class="myours">you paired it with ${md(chose||'nothing')}</div>`)+
+             // md() formats CONTENT; 'nothing' is interface copy and must not
+             // go through it. (Unreachable today — Check is disabled until every
+             // left is paired — so this is belt-and-braces, not a live branch.)
+             (good?'':`<div class="myours">you paired it with ${chose?md(chose):'nothing'}</div>`)+
              `</div>`;
     }).join('');
   } else if(ex.type==='spot_bottleneck'){
+    /* `.vn.pick`, not `.node.pick`. bottleneck() was rewritten onto renderViz,
+       which emits `vn` — this selector was left behind pointing at the retired
+       class, matched nothing, and `nodes[ex.answer]` threw on every Check. All
+       four spot_bottleneck exercises were unplayable and shipped that way. The
+       dead `.node` CSS is now deleted too, so a dangling selector like this one
+       can't look plausible to the next reader. */
     ok=current===ex.answer;
-    const nodes=body.querySelectorAll('.node.pick');
+    const nodes=body.querySelectorAll('.vn.pick');
     nodes[ex.answer].classList.add('ok');
     if(!ok&&current!=null) nodes[current].classList.add('bad');
   } else if(ex.type==='build_diagram'){
