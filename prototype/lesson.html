@@ -54,6 +54,11 @@
   .choice.ok{border-color:var(--green);background:var(--green-soft);}
   .choice.bad{border-color:var(--red);background:var(--red-soft);}
   .choice .k{width:26px;height:26px;flex:none;border:2px solid var(--line);border-radius:7px;display:grid;place-items:center;font-size:13px;color:var(--muted);}
+  /* The option text must be ONE flex item. Without this wrapper, md() output
+     (text + <code> + text) makes every fragment its own flex item — each gapped
+     12px apart and squeezed into a narrow column, so any option containing a
+     code span shattered into pieces. */
+  .choice .txt{flex:1;min-width:0;line-height:1.45;}
   .choice.sel .k{border-color:var(--blue);color:var(--blue);}
   /* generic tiles / chips */
   .chips{display:flex;flex-wrap:wrap;gap:10px;}
@@ -316,7 +321,7 @@ function boot(){
   const lp=$('lessonpick'); lp.innerHTML='';
   UNIT.lessons.forEach((l,i)=>{
     const b=document.createElement('button'); b.className='choice';
-    b.innerHTML=`<span class="k">${i+1}</span> ${l.title}`;
+    b.innerHTML=`<span class="k">${i+1}</span><span class="txt">${md(l.title)}</span>`;
     b.onclick=()=>startLesson(i); lp.appendChild(b);
   });
 }
@@ -345,7 +350,7 @@ function mc(){
   const w=$('body'); const c=document.createElement('div'); c.className='choices';
   opts.forEach((t,i)=>{
     const b=document.createElement('button'); b.className='choice';
-    b.innerHTML=`<span class="k">${String.fromCharCode(65+i)}</span> ${md(t)}`;
+    b.innerHTML=`<span class="k">${String.fromCharCode(65+i)}</span><span class="txt">${md(t)}</span>`;
     b.onclick=()=>{ if(checked)return; current=i; [...c.children].forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); enable(); };
     c.appendChild(b);
   });
@@ -356,7 +361,7 @@ function ms(){
   current=new Set(); const w=$('body'); const c=document.createElement('div'); c.className='choices';
   ex.choices.forEach((t,i)=>{
     const b=document.createElement('button'); b.className='choice';
-    b.innerHTML=`<span class="k">${String.fromCharCode(65+i)}</span> ${md(t)}`;
+    b.innerHTML=`<span class="k">${String.fromCharCode(65+i)}</span><span class="txt">${md(t)}</span>`;
     b.onclick=()=>{ if(checked)return; if(current.has(i)){current.delete(i);b.classList.remove('sel');}else{current.add(i);b.classList.add('sel');} $('action').disabled=current.size===0; };
     c.appendChild(b);
   });
