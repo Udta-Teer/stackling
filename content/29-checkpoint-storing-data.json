@@ -1,0 +1,339 @@
+{
+  "unitId": "checkpoint-storing-data",
+  "tier": 1,
+  "title": "Checkpoint: Storing Data",
+  "subtitle": "Mixing units 6–10 — the promises a database makes, and the ones it quietly doesn't",
+  "objectives": [
+    "Recall storage fundamentals cold, without the cue of knowing which unit a question came from",
+    "Connect indexes, transactions and replication into one story about a single write",
+    "Diagnose a concurrency bug that no single unit's material spells out for you"
+  ],
+  "lessons": [
+    {
+      "id": "cp2-1",
+      "title": "Mixed recall",
+      "exercises": [
+        {
+          "id": "cp2-1-1",
+          "type": "multiple_choice",
+          "prompt": "You add an index to speed up a slow `SELECT`. Your `INSERT`s get slower. Why?",
+          "choices": [
+            "The index locks the table on every write",
+            "Every `INSERT` must now write the row *and* update the index — a second structure to keep sorted",
+            "Indexes force a full table scan on write",
+            "It doesn't — that's a coincidence"
+          ],
+          "answer": 1,
+          "why": "An index is a second copy of some columns, kept in order. Every write to the table is now a write to the table *and* a write to each index on it, sometimes splitting a B-tree page to make room. That's the bill for the read speedup, and it's why 'add an index' isn't free and 'add twelve indexes' is a write-throughput problem you built on purpose. The rule of thumb worth carrying: indexes make reads faster and writes slower, so index the columns you filter on, not the columns you have.",
+          "hint": "What else has to stay correct when a row appears?"
+        },
+        {
+          "id": "cp2-1-2",
+          "type": "fill_blank",
+          "prompt": "Before touching the real data, the database appends a record of what it's about to do to a sequential ______ and forces *that* to disk.",
+          "choices": [
+            "write-ahead log",
+            "index",
+            "replica",
+            "cache"
+          ],
+          "answer": 0,
+          "why": "The write-ahead log is how durability gets to be fast. A random write to a data page scattered somewhere on disk is expensive; an append to the end of one sequential file is cheap. So the database makes the cheap durable write first, acknowledges you, and updates the real pages at its leisure — and if the power dies in between, it replays the log on startup. Notice that this same log is what replication ships to followers in Postgres: one mechanism, two jobs.",
+          "hint": "It's how a crash doesn't cost you an acknowledged write."
+        },
+        {
+          "id": "cp2-1-3",
+          "type": "multi_select",
+          "prompt": "Your signup endpoint creates duplicate accounts under load. Which of these actually fix it? Select all.",
+          "choices": [
+            "A `UNIQUE` constraint on `email`",
+            "`SELECT` to check the email is free, then `INSERT` if nothing came back",
+            "Wrapping that check-then-insert in a transaction at Read Committed",
+            "Running that check-then-insert at Serializable isolation"
+          ],
+          "answer": [
+            0,
+            3
+          ],
+          "why": "This is check-then-act, and a transaction alone doesn't save you. At Read Committed two requests can both run the `SELECT`, both see nothing, and both `INSERT` — neither ever saw the other's uncommitted row, so nothing conflicted and you have two accounts. Serializable *does* catch it: Postgres takes a predicate lock on what you searched for, spots the read-write conflict, and aborts one transaction with a serialization error you must retry. The `UNIQUE` constraint is the cheaper answer, and the better one — it turns a race you have to reason about into an error the database hands you. Note it's an index doing that work, which is why 'indexes are just optimization' isn't quite true.",
+          "hint": "Two requests, both looking before they leap, at exactly the same moment."
+        },
+        {
+          "id": "cp2-1-4",
+          "type": "multiple_choice",
+          "prompt": "Your code runs the same `SELECT` twice inside one transaction and assumes it gets the same rows back. On Postgres, which isolation level are you assuming — and which do you get by default?",
+          "choices": [
+            "Assuming Repeatable Read; you get Repeatable Read by default",
+            "Assuming Repeatable Read; but Postgres defaults to Read Committed, where each *statement* takes a fresh snapshot",
+            "Assuming Serializable; you get Serializable by default",
+            "Assuming Read Uncommitted; you get Read Uncommitted by default"
+          ],
+          "answer": 1,
+          "why": "Postgres defaults to Read Committed, and at that level every *statement* gets its own snapshot — so the same `SELECT`, run twice in one transaction, can legitimately return different rows if someone committed in between. That's a non-repeatable read, and it's the default. Repeatable Read gives you one snapshot for the whole transaction. The transferable lesson isn't the level names, it's the gap: your code carries an assumption, the database ships a default, and almost nobody checks whether the two agree. MySQL's InnoDB defaults to Repeatable Read, so the same code changes behaviour when you change engine.",
+          "hint": "The default is weaker than the thing you're assuming."
+        },
+        {
+          "id": "cp2-1-5",
+          "type": "match_pairs",
+          "prompt": "Match each replication term to what it means.",
+          "pairs": [
+            {
+              "left": "Synchronous replication",
+              "right": "The leader waits for a follower before acknowledging"
+            },
+            {
+              "left": "Asynchronous replication",
+              "right": "The leader acknowledges immediately; followers catch up after"
+            },
+            {
+              "left": "Replication lag",
+              "right": "How far behind the leader a follower currently is"
+            },
+            {
+              "left": "Failover",
+              "right": "Promoting a follower when the leader is gone"
+            }
+          ],
+          "why": "The whole of replication is one trade, made twice. Synchronous means an acknowledged write is already on two machines, so failover loses nothing — and every write now pays the round trip to the follower, plus you're down if the follower is. Asynchronous means writes stay fast and a failover can lose whatever hadn't shipped yet. Lag is the visible size of that gap, and failover is the moment it stops being theoretical: promote a follower that's 200ms behind and 200ms of acknowledged writes are simply gone.",
+          "hint": "Two of these are settings, one is a measurement, one is an event."
+        },
+        {
+          "id": "cp2-1-6",
+          "type": "multiple_choice",
+          "prompt": "A read replica is 200ms behind. A user saves their profile, and the page reloads immediately. What can they see?",
+          "choices": [
+            "Their new profile — the write already committed",
+            "Possibly their OLD profile, because the reload can land on a replica that hasn't applied the change yet",
+            "An error",
+            "The replica blocks the read until it catches up"
+          ],
+          "answer": 1,
+          "why": "This is read-your-writes, and it's the first place replication stops being an ops detail and becomes a bug your users report. The write is committed and durable on the leader — nothing is broken — but the read went somewhere that hasn't heard about it yet, so the user watches their own change vanish. It's a nasty class of bug precisely because it's invisible in testing, where there's no lag. The usual fixes: send a user's reads to the leader for a few seconds after they write, or track the write position and require the replica to have reached it.",
+          "hint": "Committed on the leader is not the same as visible where you're reading."
+        }
+      ]
+    },
+    {
+      "id": "cp2-2",
+      "title": "Connecting the units",
+      "exercises": [
+        {
+          "id": "cp2-2-1",
+          "type": "build_diagram",
+          "prompt": "Wire a leader–follower setup: writes must land in one place, and that place ships its log onward.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App Servers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "h1"
+              },
+              {
+                "from": "h1",
+                "to": "h2"
+              }
+            ]
+          },
+          "palette": [
+            "Leader",
+            "Follower",
+            "Cache",
+            "Load Balancer"
+          ],
+          "answer": {
+            "h1": "Leader",
+            "h2": "Follower"
+          },
+          "why": "Every write goes to exactly one leader — that's what makes the ordering unambiguous and the conflicts impossible. The leader then streams its write-ahead log to followers, which replay it. Reads can come from either, and *that* is the whole bargain: you got read capacity, and you paid for it with a window where a follower's answer is out of date. Notice the shape is one-directional. The moment you let writes into both boxes you've invented multi-leader replication and inherited conflict resolution, which is a genuinely harder problem than the one you were trying to solve.",
+          "hint": "Which box can never be wrong about the order of writes?"
+        },
+        {
+          "id": "cp2-2-2",
+          "type": "simulate",
+          "prompt": "Your leader tops out at 5,000 req/s. Read traffic is 30,000 req/s. Drag reads onto replicas until the leader survives — using the *smallest* share you can.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "app",
+                "label": "App Servers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "router",
+                "label": "Read Router",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "leader",
+                "label": "Leader",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "replicas",
+                "label": "Replicas",
+                "sub": "stale by ~200ms",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "app",
+                "to": "router"
+              },
+              {
+                "from": "router",
+                "to": "leader"
+              },
+              {
+                "from": "router",
+                "to": "replicas",
+                "dash": true
+              }
+            ]
+          },
+          "sim": {
+            "input": 30000,
+            "inputLabel": "Read traffic",
+            "chain": [
+              "router",
+              "leader"
+            ],
+            "capacity": {
+              "router": 100000,
+              "leader": 5000
+            },
+            "watch": "leader",
+            "watchLabel": "Hitting the leader",
+            "absorb": {
+              "node": "router",
+              "label": "Share of reads sent to replicas",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            84,
+            88
+          ],
+          "why": "84% and the leader lives: 30,000 × 16% = 4,800. Now read what you actually just did. You didn't buy read capacity — you bought read capacity *in exchange for correctness*, and the slider told you the exchange rate. At 84% you have decided that roughly five out of every six reads in your product may be served from a copy that is 200ms out of date, and you have decided it globally, for every read, whether or not that read could tolerate it. That's the real skill: notice that a capacity dial and a consistency dial are the same dial, and that the interesting engineering is choosing *which* reads go left — a stale product listing is fine, a stale bank balance is a support ticket.",
+          "hint": "The leader's limit is fixed. The only free variable is what fraction never reaches it."
+        },
+        {
+          "id": "cp2-2-3",
+          "type": "multiple_choice",
+          "prompt": "Your code does: `BEGIN` · `SELECT balance` (100) · your app computes `100 - 10` · `UPDATE balance = 90` · `COMMIT`. Two of these run at once at Read Committed. What happens?",
+          "choices": [
+            "The database serializes them; the balance ends at 80",
+            "Lost update: both read 100, both write 90, and one withdrawal silently vanishes",
+            "One transaction gets a deadlock error",
+            "Read Committed prevents this"
+          ],
+          "answer": 1,
+          "why": "Both transactions read 100 before either wrote, both computed 90, both wrote 90. The balance ends at 90 after two withdrawals of 10, and no error was raised anywhere — the money is just gone. This is a lost update, and it happens because the *decision* was made in your application, outside the database's view. Read Committed doesn't stop it: neither transaction ever read uncommitted data or re-read a changed row, so nothing it protects against occurred. Three real fixes, in increasing order of cost: do the arithmetic in the database (`UPDATE ... SET balance = balance - 10`, atomic), take the row lock up front (`SELECT ... FOR UPDATE`), or move to Repeatable Read, where Postgres aborts the second `UPDATE` with a serialization failure you have to retry.",
+          "hint": "Where does the subtraction actually happen?"
+        },
+        {
+          "id": "cp2-2-4",
+          "type": "spot_bottleneck",
+          "prompt": "Every write in your system takes this path. Where's the ceiling?",
+          "viz": {
+            "nodes": [
+              {
+                "id": "n0",
+                "label": "Load Balancer",
+                "sub": "80k rps",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "n1",
+                "label": "App Servers",
+                "sub": "25k rps",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "n2",
+                "label": "Leader",
+                "sub": "5k writes/s",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "n3",
+                "label": "Followers",
+                "sub": "replay 5k/s",
+                "col": 3,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "n0",
+                "to": "n1"
+              },
+              {
+                "from": "n1",
+                "to": "n2"
+              },
+              {
+                "from": "n2",
+                "to": "n3"
+              }
+            ]
+          },
+          "answer": 2,
+          "why": "A chain's throughput is its slowest link, and here that's the leader at 5,000 writes/s — everything upstream can deliver far more than it can take. What makes this worth its own question is the box next to it: the followers replay at 5,000/s too, so they are exactly keeping up and have no headroom. Push the leader to its limit and the followers are at theirs, so any hiccup — a vacuum, a slow disk, a burst — and lag starts growing and doesn't shrink back. Write capacity and replication lag are not independent numbers, which is why 'the leader can take 5k' is a more fragile claim than it looks.",
+          "hint": "Adding app servers can't help you past a number further down."
+        },
+        {
+          "id": "cp2-2-5",
+          "type": "estimate",
+          "prompt": "A table has 1 billion rows. Its B-tree index has a fanout of about 500 (each node points at ~500 children). Roughly how many levels deep is the tree?",
+          "answer": 4,
+          "tolerance": 1,
+          "unit": "levels",
+          "why": "500³ = 125 million, which isn't enough; 500⁴ = 62.5 billion, which is plenty. So four levels covers a billion rows, and a lookup is about four page reads — most of which are cached, because the upper levels are tiny and get hit constantly. This is the number that should recalibrate you: growing from a million rows to a billion — a *thousandfold* — took the index from three levels to four. Depth grows logarithmically, so 'the table got huge, lookups must be slow now' is almost always wrong, and the real reason your query got slow is that it stopped using the index at all.",
+          "hint": "How many times do you multiply 500 by itself before you pass a billion?"
+        },
+        {
+          "id": "cp2-2-6",
+          "type": "multiple_choice",
+          "prompt": "You arrived at this tier believing a database 'just works'. What has it actually shown you?",
+          "choices": [
+            "Databases are unreliable and you should avoid them",
+            "A database is a stack of promises you *configure* — durability, isolation, freshness — and every default trades one of them for speed",
+            "You should always use the strongest setting available",
+            "NoSQL avoids all of this"
+          ],
+          "answer": 1,
+          "why": "Every hard thing in this tier was a dial someone had already set for you. Isolation defaults to Read Committed, so your check-then-insert races. Durability can be relaxed until an acknowledged write is a lie. Replication defaults to asynchronous, so your own writes can vanish from your own screen. None of those are bugs — they're deliberate trades of correctness for speed, chosen by people who couldn't know your product. Option 3 is the tempting wrong answer: turning everything to maximum means synchronous commits, Serializable retries and leader-only reads, which is a correct system nobody can afford to run. The skill isn't picking the strongest setting, it's knowing which promise you just sold and what you got for it.",
+          "hint": "Every default in this tier was someone choosing speed on your behalf."
+        }
+      ]
+    }
+  ]
+}

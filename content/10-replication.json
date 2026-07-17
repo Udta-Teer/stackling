@@ -264,7 +264,7 @@
             1,
             2
           ],
-          "why": "Routing, pinning, and monitoring all attack the problem; adding followers doesn't, because each new follower must apply the very same stream of writes, so it lags too — and it adds load to the leader that's shipping to it. That last point catches people out: 'we're stale, add replicas' is the wrong reflex, since you've added more copies of the staleness rather than less of it. Lag is a function of write throughput versus apply speed, and more followers changes neither."
+          "why": "Routing, pinning, and monitoring all attack the problem; adding followers doesn't, because each new follower must apply the very same stream of writes, so it lags too — and it adds load to the leader that's shipping to it. That last point catches people out: 'we're stale, add replicas' is the wrong reflex, since you've added more copies of the staleness rather than less of it. Lag is mostly a function of write throughput versus apply speed, and more followers usually changes neither. The exception is worth knowing: if replicas lag because read traffic is starving them of CPU, spreading that load across more of them can cut lag — but then your problem was replica load, not replication itself."
         },
         {
           "id": "rep-3-6",

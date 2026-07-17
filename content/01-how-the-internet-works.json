@@ -91,7 +91,7 @@
             "Your ISP pre-computes the full path"
           ],
           "answer": 1,
-          "why": "The internet is decentralized: each router makes a local decision — *who gets me closer?* — and no single machine is in charge. That's precisely why it's so resilient. Knock out a router and traffic simply routes around it, which was a design goal from its Cold-War-era origins rather than a happy accident."
+          "why": "The internet is decentralized: each router makes a local decision — *who gets me closer?* — and no single machine is in charge. That's precisely why it's so resilient; knock out a router and traffic routes around it. Worth killing a myth attached to this, because you will hear it repeated: ARPANET was not built to survive a nuclear war. Its own directors said so — it was built to share a handful of very expensive research computers. The survivability motive belongs to Paul Baran's separate RAND work on distributed networks, which did feed the design. The resilience is real; the origin story usually told about it isn't."
         }
       ]
     },
@@ -249,11 +249,11 @@
         {
           "id": "hiw-3-4",
           "type": "estimate",
-          "prompt": "Light travels fast, but not instantly. A round trip from New York to a server in London and back is roughly how many milliseconds — at the physical minimum?",
+          "prompt": "Light travels fast, but not instantly. A round trip from New York to a server in London and back takes roughly how many milliseconds in practice?",
           "answer": 70,
           "tolerance": 30,
           "unit": "ms",
-          "why": "Even at the speed of light through fibre, a New York–London round trip takes roughly 70ms. Physics sets a floor on latency that no amount of engineering can beat — which is why companies put servers *close to users* rather than trying to make the trip faster. You can't outrun light, so you shorten the distance."
+          "why": "New York to London is about 5,570 km, so there and back is ~11,140 km. Light in fibre travels at roughly two-thirds of its vacuum speed — about 200,000 km/s — which puts the floor near 56ms. Real cables don't run in straight lines and every switch adds a little, so what you actually measure is ~70-80ms. Physics sets a floor no amount of engineering beats: you can't outrun light, so you shorten the distance instead. That is the entire reason companies put servers close to users rather than trying to make the trip faster."
         },
         {
           "id": "hiw-3-5",
@@ -285,7 +285,7 @@
             "Both equally"
           ],
           "answer": 1,
-          "why": "TCP (Transmission Control Protocol) guarantees delivery and order — it re-sends lost packets and reassembles them correctly, which is what you want for data you can't afford to lose. It manages that with acknowledgements: the receiver confirms each chunk, and anything unconfirmed gets re-sent, so reliability costs you extra round trips."
+          "why": "TCP (Transmission Control Protocol) guarantees delivery and order — it re-sends lost packets and reassembles them correctly, which is what you want for data you can't afford to lose. It manages that with acknowledgements and a sliding window: the receiver confirms what arrived, but the sender keeps many segments in flight instead of waiting for each one — which is exactly why TCP can be both reliable and fast. So reliability doesn't cost you a round trip per chunk; it costs you the handshake before you start, and a re-send whenever something is genuinely lost."
         },
         {
           "id": "hiw-4-2",
@@ -322,7 +322,7 @@
               "right": "UDP"
             }
           ],
-          "why": "TCP for anything that must arrive complete and correct; UDP for small or real-time traffic where speed beats perfection. DNS traditionally uses UDP because a lookup is tiny — if it's lost, just ask again — while modern DNS-over-HTTPS uses TCP for privacy."
+          "why": "TCP for anything that must arrive complete and correct; UDP for small or real-time traffic where speed beats perfection. DNS traditionally uses UDP because a lookup is tiny — if it's lost, just ask again — while encrypted DNS wraps the lookup in TLS so your network can't read it — DNS-over-HTTPS rides TCP, DNS-over-QUIC is back on UDP. The privacy comes from the encryption, not from the transport."
         },
         {
           "id": "hiw-4-4",

@@ -202,8 +202,34 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 25 | Design a chat app | ✅ done | `content/25-design-chat-app.json` |
 | 26 | Design a rate limiter | ✅ done | `content/26-design-rate-limiter.json` |
 | 27 | Design a ride-sharing backend | ✅ done | `content/27-design-ride-sharing.json` |
+| 28 | Checkpoint: Foundations (units 1–5) | ✅ done | `content/28-checkpoint-foundations.json` |
+| 29 | Checkpoint: Storing Data (units 6–10) | ✅ done | `content/29-checkpoint-storing-data.json` |
+| 30 | Checkpoint: Serving Scale (units 11–17) | ✅ done | `content/30-checkpoint-serving-scale.json` |
+| 31 | Checkpoint: Hard Truths (units 18–22) | ✅ done | `content/31-checkpoint-hard-truths.json` |
+| 32 | Checkpoint: Design Challenges (units 23–27) | ✅ done | `content/32-checkpoint-design-challenges.json` |
 
 **Authoring order = the table order.** Do not jump ahead. Finish a concept (all lessons + `why` lines + a review pass) and mark it ✅ before starting the next.
+
+### 6.1 Teaching cards — the open gap (as of 2026-07-17)
+
+The course tests before it teaches. `concept` cards exist (type, renderer, validator cap, §7) but are **piloted on unit 13 only**. Every other unit still opens by asking a question about a thing it never explained.
+
+| | |
+|---|---|
+| Concept cards | **2**, both in unit 13 |
+| Lessons with no teaching beat | **112 of 114** |
+
+**The next content job is a concept card at the head of every lesson that introduces something new** — the same order as §6, one unit at a time. Rules that make it work rather than become goDeeper 2.0:
+
+- **The cap is the feature.** 360 chars for `body`, 220 for `note`, validator-enforced. `goDeeper` died because an unbounded prose field invites rambling; this is the same shape, so it gets a wall.
+- **A claim, not a topic.** "A cache is a bet you'll be asked the same question twice", never "Caching".
+- **Point of need, not front-loading.** A card goes immediately before the exercises that need it. Duolingo's Tips page is the most-skipped surface in that app; a wall of text at the door is not teaching.
+- **Carry a `viz` where the idea has a shape.** Most system design ideas do. Prose-only is the exception, not the default.
+- **Max 3 per lesson**, and a lesson of only concept cards is rejected — it's a slide deck.
+
+### 6.2 Review status
+
+Units 1–27 have all had an adversarial review pass. Units 1–11 were reviewed on 2026-07-17 (23 fixes landed, then 6 more to repair defects those fixes introduced — the reviewer caught `txn-2-5` still contradicting the `txn-2-4` fix, which is the fix-two-of-three pattern to watch for). **Units 28–32 (the checkpoints) have NOT been adversarially reviewed.** They were authored on 2026-07-17 and only self-checked plus arithmetic-verified. Every unit that only I have reviewed has later turned out to contain errors, so treat that as a known debt, not a clean bill.
 
 ---
 

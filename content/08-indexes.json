@@ -86,7 +86,7 @@
             "Indexes must be backed up separately or data is lost"
           ],
           "answer": 0,
-          "why": "Indexes are pure optimization: rebuildable, droppable, and safe to experiment with, since no data lives only in an index. Operationally that's liberating — you can tune performance by adding and removing indexes without risking data — and it's also exactly why teams add too many of them. They feel free. The next lesson is about the bill."
+          "why": "No data lives only in an index, so you can drop one and rebuild it without losing a byte. One caveat to carry, though: a `UNIQUE` index isn't pure optimization, because it also enforces a rule — drop it and you lose no data but you do lose the guarantee, which is how a duplicate-signup race gets back in. Postgres will simply refuse if a constraint depends on it. Operationally that's liberating — you can tune performance by adding and removing indexes without risking data — and it's also exactly why teams add too many of them. They feel free. The next lesson is about the bill."
         }
       ]
     },
@@ -287,7 +287,7 @@
             "It makes the query fail"
           ],
           "answer": 1,
-          "why": "An index earns its keep by NARROWING, and matching 95% of the table narrows nothing — so you pay the write cost for essentially no read benefit. Rule of thumb: index high-cardinality columns (many distinct values — `email`, `user_id`), because indexing a boolean is usually cargo cult. But note the subtlety: the SAME column can be worth indexing for the opposite query, since `WHERE is_active = false` matches only 1% of rows and is highly selective. Selectivity is a property of the QUERY, not just the column — and if that rare case is all you ever query, a partial index (one defined with its own `WHERE` clause so it physically contains only those 1% of rows) is smaller still."
+          "why": "An index earns its keep by NARROWING, and matching 95% of the table narrows nothing — so you pay the write cost for essentially no read benefit. Rule of thumb: index high-cardinality columns (many distinct values — `email`, `user_id`), because indexing a boolean is usually cargo cult. But note the subtlety: the SAME column can be worth indexing for the opposite query, since `WHERE is_active = false` matches only 5% of rows and is highly selective. Selectivity is a property of the QUERY, not just the column — and if that rare case is all you ever query, a partial index (one defined with its own `WHERE` clause so it physically contains only those 5% of rows) is smaller still."
         },
         {
           "id": "idx-4-2",

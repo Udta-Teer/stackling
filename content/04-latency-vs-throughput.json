@@ -67,7 +67,7 @@
         {
           "id": "lat-1-4",
           "type": "multi_select",
-          "prompt": "Which of these actually reduce LATENCY for a single request? Select all.",
+          "prompt": "Your servers have plenty of headroom — nothing is queueing. Which of these actually reduce LATENCY for a single request? Select all.",
           "choices": [
             "Caching the result so the work is already done",
             "Adding more servers",
@@ -79,7 +79,7 @@
             2,
             3
           ],
-          "why": "Latency falls when you shorten the work or the distance: cache it, move closer, make the query faster. Adding servers adds capacity to run more requests at once — it doesn't make any single request's work finish sooner. Internalize this split and you'll diagnose faster than most engineers: latency problems are solved by doing less work or travelling less distance, throughput problems by adding parallel capacity, and reaching for the wrong lever is the classic wasted quarter."
+          "why": "Latency falls when you shorten the work or the distance: cache it, move closer, make the query faster. Adding servers adds capacity to run more requests at once — it doesn't make any single request's work finish sooner. That depends on the condition in the prompt, though: if the servers *were* saturated and requests were queueing, adding capacity would cut latency outright, because then you'd be removing waiting rather than work. Internalize this split and you'll diagnose faster than most engineers: latency problems are solved by doing less work or travelling less distance, throughput problems by adding parallel capacity, and reaching for the wrong lever is the classic wasted quarter."
         },
         {
           "id": "lat-1-5",
@@ -149,7 +149,7 @@
           "answer": 500,
           "tolerance": 400,
           "unit": "µs",
-          "why": "A same-datacenter round trip is on the order of 500 microseconds — about half a millisecond. Fast by human standards, enormously slow by CPU standards: it's already ~5,000× slower than a RAM read, and you haven't even left the building. Leaving the building costs another ~300×, landing around 150ms."
+          "why": "A same-datacenter round trip is on the order of 500 microseconds — about half a millisecond. Fast by human standards, enormously slow by CPU standards: it's already ~5,000× slower than a RAM read, and you haven't even left the building. Going California-to-Europe costs another ~300×, landing around 150ms."
         },
         {
           "id": "lat-2-4",
@@ -169,11 +169,11 @@
               "right": "~100 microseconds"
             },
             {
-              "left": "Cross-continent round trip",
+              "left": "California ↔ Europe round trip",
               "right": "~150 milliseconds"
             }
           ],
-          "why": "The ladder: 1 ns → 100 ns → 100 µs → 150 ms. From cache to a cross-continent hop is roughly 100 million times slower. Worth noticing: an SSD read (~100 µs) is FASTER than a same-datacenter network round trip (~500 µs) — reading from your own disk can beat asking a neighbouring server, which inverts a lot of people's intuitions about 'just put it in another service'."
+          "why": "The ladder: 1 ns → 100 ns → 100 µs → 150 ms. From an L1 hit to a California-Europe hop is roughly 100 million times slower. Note the ladder needs a *named route*, not a vague 'far away': New York to London is also intercontinental and only ~70ms, because it's barely half the distance. Worth noticing: an SSD read (~100 µs) is FASTER than a same-datacenter network round trip (~500 µs) — reading from your own disk can beat asking a neighbouring server, which inverts a lot of people's intuitions about 'just put it in another service'."
         },
         {
           "id": "lat-2-5",
@@ -218,7 +218,7 @@
             "Averages can't be wrong"
           ],
           "answer": 1,
-          "why": "Averages smear outliers away: if 95% of requests take 50ms and 5% take 2 seconds, the average still looks fine while 1 in 20 users has a terrible time. Average latency is arguably the most misleading metric in all of systems — nobody experiences the average, everybody experiences one specific request, and the unhappy ones are living in your tail."
+          "why": "Averages smear outliers away. Make it concrete: 99% of requests at 50ms and 1% at 5 seconds averages to 99.5ms — precisely the 'healthy' 100ms on the dashboard — while one user in a hundred sits and waits five seconds. Average latency is arguably the most misleading metric in all of systems — nobody experiences the average, everybody experiences one specific request, and the unhappy ones are living in your tail."
         },
         {
           "id": "lat-3-2",

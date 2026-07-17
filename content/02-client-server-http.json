@@ -62,7 +62,7 @@
               "right": "The data you're sending"
             }
           ],
-          "why": "Every request is: a method (the verb), a path (the noun), headers (context), and an optional body (the payload). A `GET` usually has no body — it just names what it wants — while a `POST` carries its data in the body. HTTP is plain text under the hood, so you could type a request by hand."
+          "why": "Every request is: a method (the verb), a path (the noun), headers (context), and an optional body (the payload). A `GET` usually has no body — it just names what it wants — while a `POST` carries its data in the body. HTTP/1.1 is plain text under the hood, so you could type a request by hand; HTTP/2 and HTTP/3 pack those same four parts into binary frames instead, which you couldn't. The anatomy doesn't change — only the encoding does."
         },
         {
           "id": "csh-1-4",
@@ -400,7 +400,7 @@
             1,
             3
           ],
-          "why": "Reusing connections (keep-alive) and multiplexing (HTTP/2, HTTP/3) amortize the handshake cost across many requests; opening a fresh connection each time is the problem, not a fix. HTTP/1.1 could only handle one request at a time per connection — a slow response blocked everything behind it (head-of-line blocking). HTTP/2 multiplexes many over one connection, and HTTP/3 moves to QUIC over UDP to fix blocking that still happened at the TCP layer."
+          "why": "Reusing connections (keep-alive) and multiplexing (HTTP/2, HTTP/3) amortize the handshake cost across many requests; opening a fresh connection each time is the problem, not a fix. In practice HTTP/1.1 handles one request at a time per connection — the spec does define pipelining, but responses still have to come back in order, so browsers disable it — and a slow response blocked everything queued behind it (head-of-line blocking). HTTP/2 multiplexes many over one connection, and HTTP/3 moves to QUIC over UDP to fix blocking that still happened at the TCP layer."
         },
         {
           "id": "csh-4-5",

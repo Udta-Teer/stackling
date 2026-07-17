@@ -1,0 +1,365 @@
+{
+  "unitId": "checkpoint-serving-scale",
+  "tier": 2,
+  "title": "Checkpoint: Serving Scale",
+  "subtitle": "Mixing units 11–17 — every technique here buys capacity by selling something else",
+  "objectives": [
+    "Recall the scaling toolkit cold, without knowing which unit a question came from",
+    "See that load balancing, caching, CDNs, sharding and queues are the same trade in different clothes",
+    "Diagnose a scaled system where the bottleneck moved rather than disappeared"
+  ],
+  "lessons": [
+    {
+      "id": "cp3-1",
+      "title": "Mixed recall",
+      "exercises": [
+        {
+          "id": "cp3-1-1",
+          "type": "multiple_choice",
+          "prompt": "You put three app servers behind a load balancer. Users start getting logged out at random. What did you forget?",
+          "choices": [
+            "The load balancer needs a bigger machine",
+            "Session state lives in one server's memory, so a request routed elsewhere doesn't recognise the user",
+            "Three is an unlucky number of servers",
+            "You need a second load balancer"
+          ],
+          "answer": 1,
+          "why": "This is the tax on horizontal scaling, and it catches everyone once. Any state kept in a single server's memory turns that server into the only one who can serve you — so the moment the load balancer sends you to a peer, your session doesn't exist. Two ways out, and they're not equal: sticky sessions pin you to the server that has your data, which works until that server dies and takes your session with it, and quietly undoes the load balancing you were trying to do. Moving the session into shared storage — Redis, a signed cookie — makes every server interchangeable, which is what 'stateless' actually means and why it's the precondition for everything else in this tier.",
+          "hint": "What does server 1 know that server 2 doesn't?"
+        },
+        {
+          "id": "cp3-1-2",
+          "type": "multi_select",
+          "prompt": "Which of these genuinely raise your cache HIT RATE? Select all.",
+          "choices": [
+            "A longer `TTL`",
+            "More cache memory, so fewer items get evicted",
+            "A faster cache server",
+            "Normalising cache keys, so `/products?a=1&b=2` and `/products?b=2&a=1` share one entry"
+          ],
+          "answer": [
+            0,
+            1,
+            3
+          ],
+          "why": "Hit rate is about how often the answer is *there*, which is decided by how long you keep things and how many you can hold. A longer `TTL` keeps entries alive to be hit again — and buys staleness with the same move. More memory means less eviction. Key normalisation is the sleeper: two spellings of the same question are two entries, each half as likely to be hit, and this is a genuinely common bug — you can find caches in production running at half the hit rate they should because a query-string order or a trailing slash forked every key in two. A faster cache server makes hits *cheaper*, not more frequent; it's the one that improves latency without touching the rate.",
+          "hint": "Three of these change whether the answer is there. One changes how fast you get it."
+        },
+        {
+          "id": "cp3-1-3",
+          "type": "multiple_choice",
+          "prompt": "You shard users across 16 databases by `user_id`. Product asks for 'every order placed today, across all users'. What does that query cost now?",
+          "choices": [
+            "The same as before — the shard router handles it",
+            "A scatter-gather: all 16 shards are queried, and you wait for the slowest one",
+            "It's impossible once you shard",
+            "One shard, because dates aren't sharded"
+          ],
+          "answer": 1,
+          "why": "Sharding makes queries that name the shard key fast and everything else expensive. This query doesn't mention `user_id`, so there's no way to know where the answer lives except to ask all 16 and merge — and your latency becomes the *slowest* of 16, not the average. That's the part people miss: with a 99th-percentile latency on each shard, hitting 16 of them means you're now getting a p99-ish experience on roughly 15% of these queries, because 1 − 0.99¹⁶ ≈ 0.15. Fanning out doesn't average tails, it collects them. This is why choosing the shard key is the decision that outlives every other one you make here: it silently sorts your future queries into 'fast' and 'a report you run at 3am'.",
+          "hint": "The query doesn't mention the shard key. So which shard has the answer?"
+        },
+        {
+          "id": "cp3-1-4",
+          "type": "match_pairs",
+          "prompt": "Match each load balancing strategy to what it actually does.",
+          "pairs": [
+            {
+              "left": "Round robin",
+              "right": "Next server in the list, every time"
+            },
+            {
+              "left": "Least connections",
+              "right": "Whoever is currently handling the fewest"
+            },
+            {
+              "left": "Consistent hashing",
+              "right": "Same key lands on the same server, and adding one moves few keys"
+            },
+            {
+              "left": "Health checks",
+              "right": "Stop sending traffic to a server that stopped answering"
+            }
+          ],
+          "why": "Round robin assumes every request costs the same, which is false the moment one endpoint is a report and another is a health ping. Least connections adapts to that automatically and is the better default more often than people think. Consistent hashing is the one worth really understanding, because it's the same idea that makes sharding and distributed caches possible: with plain `hash % N`, changing N remaps almost every key at once — which empties your entire cache the moment you add a node. Health checks are the unglamorous one that decides whether your outage lasts seconds or hours.",
+          "hint": "One of these is about *stability* when the server count changes."
+        },
+        {
+          "id": "cp3-1-5",
+          "type": "multiple_choice",
+          "prompt": "A user in Tokyo requests an image. The CDN edge in Tokyo doesn't have it. What does that miss actually cost?",
+          "choices": [
+            "The full original price — same as having no CDN at all",
+            "Less than no CDN: the user's TLS handshake still terminates in Tokyo, and the edge usually has a warm connection to the origin",
+            "Nothing — the CDN generates it",
+            "The request fails"
+          ],
+          "answer": 1,
+          "why": "A miss isn't a bypass. The expensive part of a cold request is the handshake — several round trips to establish TCP and TLS — and those still happen against the Tokyo edge, milliseconds away, not against your origin in Virginia. The edge then fetches over a connection it already has open and often keeps warm, over network paths it has optimised. So the miss costs you one origin fetch, not the round trips a naive user would have paid. This is why CDNs help even for content that's never cached twice, and why 'our hit rate is low so the CDN isn't earning its keep' is usually the wrong conclusion.",
+          "hint": "What's slow about a first connection — and where does that part now happen?"
+        },
+        {
+          "id": "cp3-1-6",
+          "type": "fill_blank",
+          "prompt": "A queue lets a slow consumer fall behind a fast producer without dropping work. The visible symptom of that is a growing queue ______.",
+          "choices": [
+            "depth",
+            "latency",
+            "throughput",
+            "partition"
+          ],
+          "answer": 0,
+          "why": "Queue depth is the number that tells you the truth, and it's the one people forget to alarm on. A queue converts an availability problem into a latency problem: instead of the producer failing when the consumer can't keep up, work piles up and gets done late. That's usually the trade you want — but only if the pile is temporary. If producers are permanently faster than consumers, depth grows without bound, and eventually you're not running late, you're running out of disk. So the useful alert isn't 'the queue is deep', it's 'the queue is deeper than it was an hour ago and the trend doesn't turn around'.",
+          "hint": "It's a count, not a duration."
+        }
+      ]
+    },
+    {
+      "id": "cp3-2",
+      "title": "Connecting the units",
+      "exercises": [
+        {
+          "id": "cp3-2-1",
+          "type": "build_diagram",
+          "prompt": "Build the read path for a scaled web app: spread the traffic, then check for a saved answer, then fall back to the source of truth.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "s1",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "s2",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "h2",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 4,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1"
+              },
+              {
+                "from": "h1",
+                "to": "s1"
+              },
+              {
+                "from": "h1",
+                "to": "s2"
+              },
+              {
+                "from": "s1",
+                "to": "h2"
+              },
+              {
+                "from": "s2",
+                "to": "h2"
+              },
+              {
+                "from": "h2",
+                "to": "h3"
+              }
+            ]
+          },
+          "palette": [
+            "Load Balancer",
+            "Cache",
+            "Database",
+            "Message Queue"
+          ],
+          "answer": {
+            "h1": "Load Balancer",
+            "h2": "Cache",
+            "h3": "Database"
+          },
+          "why": "This is the shape most web systems converge on, and each box is one lesson from this tier: spread the load so no single server is the limit, keep the answer close so most reads never do the expensive work, and hold the truth in one place so there's something to be right about. Notice the ordering is not arbitrary. The load balancer is in front because it has to see every request. The cache is between the app and the database because its whole job is to be *in the way* of the expensive thing. Put the cache behind the database and you have a component that caches nothing; put it in front of the load balancer and you're caching before you know who's asking.",
+          "hint": "Each component has to be in the way of the thing it's protecting you from."
+        },
+        {
+          "id": "cp3-2-2",
+          "type": "simulate",
+          "prompt": "Your origin serves 1,000 req/s before it dies. A launch sends 50,000 req/s of static assets at it. Drag the CDN hit rate to the *lowest* setting that keeps the origin alive.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Users",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "cdn",
+                "label": "CDN Edge",
+                "col": 1,
+                "kind": "cdn"
+              },
+              {
+                "id": "origin",
+                "label": "Origin",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "cdn"
+              },
+              {
+                "from": "cdn",
+                "to": "origin"
+              }
+            ]
+          },
+          "sim": {
+            "input": 50000,
+            "inputLabel": "Incoming traffic",
+            "chain": [
+              "cdn",
+              "origin"
+            ],
+            "capacity": {
+              "cdn": 500000,
+              "origin": 1000
+            },
+            "watch": "origin",
+            "watchLabel": "Reaching the origin",
+            "absorb": {
+              "node": "cdn",
+              "label": "CDN hit rate",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            98,
+            99
+          ],
+          "why": "98%. Sit with that for a second, because it reframes what a CDN is. A 95% hit rate — a number that sounds like an unambiguous success, and that you'd happily put on a slide — sends 2,500 req/s at an origin that dies at 1,000. It isn't close. It's 2.5× over. The last three points of hit rate are doing more work than your entire origin fleet, which is why CDN hit rates get quoted to a decimal place and why one uncacheable `Set-Cookie` header on your logo can take a site down. The general lesson, and it's the one to carry out of this tier: when a component absorbs most of the load, your survival is decided entirely by the *miss* rate, and the miss rate is a small number that behaves violently.",
+          "hint": "The origin's limit is 2% of the traffic. So what has to be absorbed?"
+        },
+        {
+          "id": "cp3-2-3",
+          "type": "spot_bottleneck",
+          "prompt": "You cached everything and added app servers. Traffic is 30k rps. Where's the ceiling now?",
+          "viz": {
+            "nodes": [
+              {
+                "id": "n0",
+                "label": "Load Balancer",
+                "sub": "100k rps",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "n1",
+                "label": "App Servers",
+                "sub": "60k rps",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "n2",
+                "label": "Cache",
+                "sub": "80k rps",
+                "col": 2,
+                "kind": "cache"
+              },
+              {
+                "id": "n3",
+                "label": "Database",
+                "sub": "3k rps",
+                "col": 3,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "n0",
+                "to": "n1"
+              },
+              {
+                "from": "n1",
+                "to": "n2"
+              },
+              {
+                "from": "n2",
+                "to": "n3"
+              }
+            ]
+          },
+          "answer": 3,
+          "why": "The database, at 3k — and the interesting part is that it might be *fine anyway*. At a 95% hit rate only 1,500 rps of that 30k reaches it, so you're comfortably inside the limit and nothing is on fire. That's exactly what makes this the dangerous shape: your true capacity is now 3,000 ÷ your miss rate, a number nobody has written down, and it moves whenever someone deploys a new query, shortens a `TTL`, or restarts Redis. The cache didn't remove the bottleneck, it *hid* it — which is the same thing right up until the moment the cache is cold, and then 30k rps arrives at a database that can take 3k. This is the thundering herd, and it's why 'we're fine, we have a cache' and 'we're one Redis restart from an outage' are frequently the same system.",
+          "hint": "Divide by the miss rate, then ask what happens when the cache is empty."
+        },
+        {
+          "id": "cp3-2-4",
+          "type": "tradeoff_slider",
+          "prompt": "You're rate limiting an API. Set the limit strictly enough to protect the backend, loosely enough not to break legitimate bursty clients.",
+          "leftLabel": "Loose — never block a real user",
+          "rightLabel": "Strict — protect the backend at all costs",
+          "answerRange": [
+            40,
+            70
+          ],
+          "why": "The honest answer sits in the middle, and lands there for a reason worth naming: rate limiting is the one technique in this tier that fails by hurting the people you built the thing for. Too loose and it isn't protection, it's a suggestion — the backend still falls over, just with a counter watching. Too strict and you've built an outage that only affects your best customers, because the mobile client that fires twelve parallel requests on app open looks exactly like abuse. What resolves it isn't the number, it's the shape: a token bucket lets a client burst and then throttles to a sustained rate, which is a fair description of what real clients actually do. And the failure mode you can't slider your way out of is per-server counters — 50 servers each allowing 100 rps is a limit of 5,000, which is why the counter has to be shared even though that puts Redis in the path of every request.",
+          "hint": "Which direction fails silently, and which fails loudly at your best customer?"
+        },
+        {
+          "id": "cp3-2-5",
+          "type": "multiple_choice",
+          "prompt": "You put a queue between checkout and the payment service so checkout stays fast. Payments now happen asynchronously. What have you just made your problem?",
+          "choices": [
+            "Nothing — the queue guarantees delivery",
+            "Duplicates: at-least-once delivery means a retried message can charge the card twice, so the consumer has to be idempotent",
+            "The queue will lose messages",
+            "Payments become synchronous again"
+          ],
+          "answer": 1,
+          "why": "Queues almost universally give you at-least-once, not exactly-once, and the reason is unavoidable rather than lazy: the consumer has to do the work and then acknowledge it, and if it dies in that gap the broker cannot tell 'never did it' from 'did it and crashed before saying so'. So it redelivers, and the card gets charged twice. Exactly-once as a *delivery* guarantee is essentially a marketing claim; what you can actually have is at-least-once delivery plus an idempotent consumer, which adds up to exactly-once *effects*. That means the payment carries a key the provider deduplicates on — and critically, that key must go to the provider, because a 'have I seen this?' table on your side is just the same race one layer up.",
+          "hint": "The broker can't tell 'never did it' from 'did it and crashed before saying so'."
+        },
+        {
+          "id": "cp3-2-6",
+          "type": "multiple_choice",
+          "prompt": "Load balancing, caching, CDNs, sharding, queues. What do all five actually have in common?",
+          "choices": [
+            "They all make the system faster",
+            "Each buys capacity by selling a guarantee: a single place to look, a fresh answer, a simple query, or an immediate result",
+            "They're all optional",
+            "They all require more servers"
+          ],
+          "answer": 1,
+          "why": "Every technique in this tier is the same move: give up something that was true of one small machine to get something you can't have on one small machine. Load balancing costs you 'any server can answer you' — hence statelessness. Caching and CDNs cost you 'the answer is current'. Sharding costs you 'any query is easy' — cross-shard joins and transactions get hard or impossible. Queues cost you 'it's done when I return' — and hand you duplicates and ordering to think about. Notice none of that is a downside to be managed; it's the *price*, and it's the whole reason these are engineering decisions rather than best practices. Anyone can list the five. The job is knowing what each one costs and whether your product can pay it — which is why the next tier is about the guarantees themselves.",
+          "hint": "Ask what each one takes away, not what it adds."
+        }
+      ]
+    }
+  ]
+}

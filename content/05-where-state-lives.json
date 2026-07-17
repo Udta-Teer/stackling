@@ -408,7 +408,7 @@
         {
           "id": "state-4-6",
           "type": "multiple_choice",
-          "prompt": "Which state placement survives an entire datacenter losing power?",
+          "prompt": "Which state placement is still SERVING you while an entire datacenter sits dark?",
           "choices": [
             "Redis running in that datacenter",
             "A database on disk in that datacenter",
@@ -416,7 +416,7 @@
             "Server RAM"
           ],
           "answer": 2,
-          "why": "Durability has levels: on-disk survives a process crash but not a building losing power, and only replication to another region survives losing the region. Each rung costs you — cross-region replication can mean a write waits for an acknowledgement from far away, that ~150ms from the latency unit now sitting inside your write path. This is exactly where 'where does state live' collides with physics, and it's the road that leads to CAP."
+          "why": "Watch that word *serving*. A database on disk in that datacenter does not lose your data when the power dies — it replays its write-ahead log and every committed row is still there, exactly as the durability lesson promised. What it loses is *availability*, for as long as the building is dark; and it loses everything only if the building is destroyed rather than merely unplugged. Being intact and being reachable are different properties, and conflating them is how people mis-scope disaster recovery. Only a copy in another region is both. You pay for it: an acknowledged cross-region write can put that ~150ms from the latency unit inside your write path. This is where 'where does state live' collides with physics, and it's the road that leads to CAP."
         },
         {
           "id": "state-4-7",

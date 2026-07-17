@@ -22,6 +22,7 @@ Usage:
 
 import json
 import glob
+import math
 import os
 import re
 import sys
@@ -70,8 +71,10 @@ CONCEPT_BODY_MAX = 360        # ~55 words. One idea, stated once.
 CONCEPT_NOTE_MAX = 220        # optional second beat, tighter still
 CONCEPT_MAX_PER_LESSON = 3    # past this it's a textbook chapter, not a beat
 
-# A diagram wider than this scrolls sideways on a phone, which is where this ships.
-VIZ_MAX_COLS = 4
+# Node size adapts down to 5 columns (see vizMetrics() in the prototype). Past
+# that the text is too small to read, so it's a content problem, not a CSS one:
+# a 6-stage diagram is two diagrams.
+VIZ_MAX_COLS = 5
 VIZ_NODE_FIELDS = {"id", "label", "col", "kind", "sub", "hole"}
 VIZ_KINDS = {"client", "lb", "dns", "cdn", "gw", "server", "db",
              "cache", "queue", "storage"}
@@ -161,12 +164,18 @@ def check_viz(unit_name, lesson_id, viz, who):
 
 def sim_load(sim, pct):
     """Mirror of simCompute() in the prototype: load enters at `input` and flows
-    down `chain`; the absorb node removes pct% of what reaches it."""
+    down `chain`; the absorb node removes pct% of what reaches it.
+
+    Rounds at each hop exactly as the prototype does — if these two ever
+    disagree, this check silently validates a model the learner never sees.
+    """
     load, cur = {}, float(sim["input"])
     for nid in sim.get("chain") or []:
         load[nid] = cur
         if (sim.get("absorb") or {}).get("node") == nid:
-            cur = cur * (1 - pct / 100.0)
+            # floor(x+0.5), NOT round(): Python rounds half to even (round(2.5)==2)
+            # and JS Math.round rounds half up (3). Same spelling, different answer.
+            cur = math.floor(cur * (1 - pct / 100.0) + 0.5)
     return load
 
 

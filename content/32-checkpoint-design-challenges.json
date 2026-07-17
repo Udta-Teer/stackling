@@ -1,0 +1,280 @@
+{
+  "unitId": "checkpoint-design-challenges",
+  "tier": 4,
+  "title": "Checkpoint: Design Challenges",
+  "subtitle": "Mixing units 23–27 — the five designs were one design, asked five ways",
+  "objectives": [
+    "Recall the load-bearing decision in each design without the unit label as a cue",
+    "See the shared skeleton under a shortener, a feed, a chat app, a limiter and a marketplace",
+    "Defend a design decision with a number rather than a preference"
+  ],
+  "lessons": [
+    {
+      "id": "cp5-1",
+      "title": "Mixed recall",
+      "exercises": [
+        {
+          "id": "cp5-1-1",
+          "type": "multiple_choice",
+          "prompt": "A URL shortener. Someone proposes generating the short code by hashing the long URL. What breaks?",
+          "choices": [
+            "Nothing — hashing is the standard answer",
+            "Two different URLs can collide on one code, and worse, you can no longer give two people different codes for the same URL",
+            "Hashing is too slow",
+            "The codes would be too long"
+          ],
+          "answer": 1,
+          "why": "Collisions are the answer people give and the smaller half of the problem — you can detect one and re-hash with a salt. The real damage is the property hashing forces on you for free: the same URL always produces the same code. That sounds like a feature until product asks for per-campaign analytics, and two customers shortening `example.com` need two codes with separate click counts, and you've architecturally forbidden it. A counter with a base-62 encoding gives you a fresh code per request, no collision to detect, and shorter codes — the design question was never 'how do I avoid collisions', it was 'is a code a function of the URL, or a thing I hand out'.",
+          "hint": "What if two customers shorten the same URL and both want their own stats?"
+        },
+        {
+          "id": "cp5-1-2",
+          "type": "multiple_choice",
+          "prompt": "A news feed. Fan-out-on-write pre-computes each follower's feed when you post. Where does that fall apart?",
+          "choices": [
+            "It never does — it's the standard design",
+            "A celebrity with 50 million followers turns one post into 50 million writes, so the very users you most want to keep are the ones that hurt most",
+            "Reads become slow",
+            "It uses too much CPU on read"
+          ],
+          "answer": 1,
+          "why": "Fan-out-on-write makes reads trivial — your feed is already sitting there — by making writes proportional to your follower count. For almost everyone that's a fine trade, because almost everyone has a few hundred followers. Then one account has 50 million and a single post becomes 50 million writes, arriving as a spike, and your write path is now hostage to your most valuable user. The real answer in production is neither pure strategy but a hybrid: fan out on write for normal accounts, and for the handful of celebrities, don't — merge their posts in at read time, since anyone following a celebrity is following few enough of them that the merge is cheap. That shape is worth remembering beyond feeds: when a distribution has a long tail, the design that works for the body is often exactly wrong for the tail, and you handle them separately rather than compromise.",
+          "hint": "What does one post cost, and who has the most followers?"
+        },
+        {
+          "id": "cp5-1-3",
+          "type": "multiple_choice",
+          "prompt": "A chat app. User A is connected to chat server 3. User B sends A a message and lands on chat server 7. How does server 7 find A?",
+          "choices": [
+            "It broadcasts to every chat server",
+            "A shared connection registry maps user → the server currently holding their socket, so 7 can hand the message to 3",
+            "It writes to the database and A polls",
+            "It can't — A must reconnect"
+          ],
+          "answer": 1,
+          "why": "This is the problem persistent connections create and stateless HTTP never had. A WebSocket is *pinned* to one machine — that socket exists on server 3 and nowhere else — so 'which server can reach this user' becomes a question someone has to answer. A shared registry (Redis, typically) is the standard answer, and the interesting part is that it's now a small piece of hard state at the centre of your fan-out: it has to be fast, because it's consulted per message, and it has to be roughly right, because a stale entry means the message goes to a server that no longer holds that socket. Broadcasting works at ten servers and is a quadratic disaster at a thousand.",
+          "hint": "That socket physically exists on exactly one machine."
+        },
+        {
+          "id": "cp5-1-4",
+          "type": "multiple_choice",
+          "prompt": "A distributed rate limiter across 50 API servers, limit 1,000 req/s per customer. Each server keeps its own counter. What's the real limit?",
+          "choices": [
+            "1,000 req/s",
+            "50,000 req/s — every server independently allows 1,000, so the limit you advertise isn't the limit you enforce",
+            "20 req/s",
+            "It depends on the load balancer"
+          ],
+          "answer": 1,
+          "why": "Fifty servers each enforcing 1,000 is a limit of 50,000, and you'd never know from reading the config — it says 1,000. This is why rate limiting has an uncomfortable shape: the counter must be shared, which puts a network hop on the hot path of every single request, in front of the thing whose job is protecting you from load. That's the tension the whole unit lives in. The pragmatic answers all trade accuracy for that hop: each server takes a *lease* on a slice of the budget from Redis and spends it locally, or you accept approximate enforcement and reconcile periodically. Nobody who has looked closely runs an exact distributed counter per request — they decide how wrong they can afford to be.",
+          "hint": "Multiply."
+        },
+        {
+          "id": "cp5-1-5",
+          "type": "multi_select",
+          "prompt": "Ride-sharing: matching a rider to nearby drivers. Which of these are real reasons a plain `SELECT ... WHERE lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?` on your main database is the wrong tool? Select all.",
+          "choices": [
+            "Driver locations update every few seconds, so it's a write-heavy workload aimed at your source of truth",
+            "A B-tree on `(lat, lng)` can't answer 'near' efficiently — it orders by `lat` first, so a bounding box still scans a whole latitude band",
+            "Locations are worthless within a minute, so durability is largely wasted on them",
+            "Geographic queries are mathematically impossible in SQL"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Three good reasons and one nonsense. The write rate is the first: a hundred thousand drivers each pinging every four seconds is 25,000 writes/s of data whose value expires in seconds, pointed at the database holding your trips and payments. The index reason is the one worth actually understanding — a composite B-tree sorts by `lat` and only then by `lng`, so a bounding box is a range scan over an entire latitude band with `lng` filtered afterwards, which is why real systems reach for geohashes, S2 cells or H3: they turn two dimensions into one ordered key, so 'near' becomes a prefix match. And durability is genuinely wasted here — a location you'd never replay after a crash doesn't need a write-ahead log. Postgres has PostGIS and it's excellent; option 4 is the distractor, and 'the database can't do it' is almost always a claim about the index, not the language.",
+          "hint": "One of these is false, and the other three are each independently sufficient."
+        },
+        {
+          "id": "cp5-1-6",
+          "type": "fill_blank",
+          "prompt": "Every one of these five designs began the same way: before choosing a single component, you estimate the ______ — how many requests, how much data, what read/write ratio.",
+          "choices": [
+            "back-of-the-envelope numbers",
+            "database schema",
+            "programming language",
+            "team size"
+          ],
+          "answer": 0,
+          "why": "The numbers come first because they are what turns a design conversation from taste into engineering. A shortener at 100 reads per write is a caching problem; at 1:1 it's a write problem. A feed for a thousand users is a `SELECT`; for a hundred million it's the fan-out question. A rate limiter for one server is a variable in memory. Same words, different systems — and the only thing that told them apart was an estimate someone did in thirty seconds. This is also the single most reliable tell in an interview, and more importantly on a real team: someone who reaches for a component before they have a number is choosing by fashion, and someone who says '20,000 writes a second, so one Postgres won't do it' has actually made an argument you can check.",
+          "hint": "It's the thing that tells you whether this is a hard problem at all."
+        }
+      ]
+    },
+    {
+      "id": "cp5-2",
+      "title": "Connecting the units",
+      "exercises": [
+        {
+          "id": "cp5-2-1",
+          "type": "estimate",
+          "prompt": "A URL shortener does 100 million redirects/day. Assume the busiest hour carries ~4× the average hour. Roughly how many redirects/second at that peak?",
+          "answer": 4600,
+          "tolerance": 1500,
+          "unit": "req/s",
+          "why": "100M ÷ 86,400 ≈ 1,160/s average, and ×4 for the peak hour ≈ 4,600/s. That number is the whole design conversation, which is why it comes first. Under 5,000 reads/s of tiny immutable rows is *nothing* — a single cached Postgres serves it without noticing, and the entire elaborate architecture people sketch for this problem is unnecessary. Notice what the peak multiplier did, though: it's the difference between provisioning for 1,160 and for 4,600, and traffic never arrives politely spread across the day. Getting this estimate wrong in either direction is expensive — build for the average and you fall over daily at lunchtime; build for 100× the peak and you've spent a year's budget on idle machines.",
+          "hint": "Seconds in a day is ~86,400. Then multiply by the peak factor."
+        },
+        {
+          "id": "cp5-2-2",
+          "type": "build_diagram",
+          "prompt": "The shortener at that scale: reads must be cheap and the codes must come from somewhere that never repeats.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "svc",
+                "label": "Redirect Service",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "svc"
+              },
+              {
+                "from": "svc",
+                "to": "h1"
+              },
+              {
+                "from": "h1",
+                "to": "h2"
+              }
+            ]
+          },
+          "palette": [
+            "Cache",
+            "Database",
+            "Message Queue",
+            "CDN"
+          ],
+          "answer": {
+            "h1": "Cache",
+            "h2": "Database"
+          },
+          "why": "The same read path as every other system in this course, which is the point of putting it here: a shortener is not a special problem, it's the standard shape with an unusually favourable read profile. Short codes are immutable — once `abc123` means a URL, it means that forever — so this is the easiest caching problem you will ever be handed. No invalidation, no staleness, no `TTL` argument: set it and forget it, and a hit rate in the high nineties falls out for free because link traffic is brutally skewed toward a few hot links. The database exists for the misses and for the one thing a cache can't do, which is guarantee that a code was never handed out twice.",
+          "hint": "Immutable data is the easiest thing in the world to cache."
+        },
+        {
+          "id": "cp5-2-3",
+          "type": "multiple_choice",
+          "prompt": "Across all five designs, one component keeps appearing for one reason. Which pairing is right?",
+          "choices": [
+            "A message queue, because everything needs async",
+            "Redis — as the shortener's cache, the chat app's connection registry, the limiter's shared counter and the driver location store — because each design has a small amount of hot, shared, mostly-disposable state that the source of truth is the wrong place for",
+            "A load balancer, because everything needs traffic spread",
+            "A CDN, because everything serves static files"
+          ],
+          "answer": 1,
+          "why": "Look at what Redis is actually doing in each of these and it's the same job wearing four hats: hot, shared, small, and cheap to lose. A cached redirect can be rebuilt from the database. A connection registry entry is worthless the moment the socket closes. A rate limit counter resets every window by design. A driver's location expires in seconds. In every case the data must be reachable by *every* server (so it can't live in one process's memory) and doesn't need to survive a crash (so it shouldn't be paying for a write-ahead log). That combination is the actual definition of the tool, and it's more useful than 'Redis is a cache' — because the chat registry and the rate counter aren't caches at all, and Redis is still right.",
+          "hint": "Ask what those four pieces of state have in common, not what they're called."
+        },
+        {
+          "id": "cp5-2-4",
+          "type": "spot_bottleneck",
+          "prompt": "Ride-sharing at peak: 100k drivers pinging location every 4s. Where does this design break first?",
+          "viz": {
+            "nodes": [
+              {
+                "id": "n0",
+                "label": "Drivers",
+                "sub": "25k pings/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "n1",
+                "label": "Location Svc",
+                "sub": "80k rps",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "n2",
+                "label": "Postgres",
+                "sub": "8k writes/s",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "n3",
+                "label": "Matching Svc",
+                "sub": "50k rps",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "n0",
+                "to": "n1"
+              },
+              {
+                "from": "n1",
+                "to": "n2"
+              },
+              {
+                "from": "n2",
+                "to": "n3"
+              }
+            ]
+          },
+          "answer": 2,
+          "why": "100,000 ÷ 4 = 25,000 writes/s arriving at a Postgres that tops out around 8,000 — over by 3×, and it's the only component that isn't comfortable. What makes this the most instructive shape in the tier is that the fix isn't 'scale the database'. It's noticing that this data should never have been there: a driver's coordinates are worthless sixty seconds later, so every one of those 25,000 writes/s is paying for a write-ahead log, a durable fsync and replication to protect data you would never restore. Move it to an in-memory geo store with a `TTL` and the load doesn't get distributed, it gets *deleted* — the write volume was real, but the durability requirement was imaginary. The best scaling fix is regularly the realisation that you were storing something in the wrong kind of place.",
+          "hint": "Which of these numbers is the workload, and which is a limit you chose?"
+        },
+        {
+          "id": "cp5-2-5",
+          "type": "multi_select",
+          "prompt": "You're 20 minutes into a design interview for 'design Twitter'. Which of these are actually good moves? Select all.",
+          "choices": [
+            "State your assumptions out loud — 300M users, 2 posts/day, 100:1 read/write — and design against those numbers",
+            "Name the one hard problem (celebrity fan-out) and go deep on it rather than sketching every box evenly",
+            "Say what your design gives up, and when it would stop working",
+            "List every AWS service that could be involved"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "The first three are the job and the fourth is the impression of the job. Numbers first, because 'design Twitter' is unanswerable until you decide whether it's a thousand users or three hundred million — and stating them out loud lets the interviewer correct you early instead of watching you build the wrong thing. Then go deep on the one thing that's genuinely hard, because every interesting system has a small number of decisions doing all the work, and even coverage of ten boxes signals you can't tell which. And naming what you gave up is the strongest move available: 'this is eventually consistent, so a user's own post could briefly not appear in their feed, and here's what I'd do about that' says you understand the trade rather than having stumbled into it. Naming services is the classic tell — it's vocabulary standing in for a decision, and this whole course has been one argument that those are different things.",
+          "hint": "Three of these are decisions. One is a word list."
+        },
+        {
+          "id": "cp5-2-6",
+          "type": "multiple_choice",
+          "prompt": "Last question of the course. What is system design, actually?",
+          "choices": [
+            "Knowing which components to use",
+            "Choosing which guarantees to give up, in a specific order, for specific reasons you can defend with a number",
+            "Drawing boxes and arrows",
+            "Using microservices"
+          ],
+          "answer": 1,
+          "why": "Every unit in this course has been the same lesson in different clothes. Caching gives up freshness. Replication gives up read-your-writes. Sharding gives up easy queries. Queues give up 'it's done when I return'. Eventual consistency gives up knowing. None of those are compromises you fell into — they're purchases, and the price is always a guarantee you used to have on one small machine. Which is why 'knowing the components' isn't the skill: everyone knows the components, they're on the first page of every blog post. The skill is that when someone says 'we should add a cache', you can ask what staleness the product can tolerate, and know that if the answer is none, the cache is not the tool. You are now a person who can ask that question — and asking it is the entire job.",
+          "hint": "What did every single technique in this course cost you?"
+        }
+      ]
+    }
+  ]
+}

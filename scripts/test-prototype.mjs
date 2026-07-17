@@ -51,7 +51,10 @@ const jump = async (u, l, e) => {
 
 console.log('\n── page boots over file:// ──');
 is(errors.length === 0, `no JS errors on load${errors.length ? ': ' + errors[0] : ''}`);
-is(await page.locator('#unittabs .utab').count() === 28, '28 unit tabs rendered');
+// Derived, not hardcoded: a tab count baked into the test rots every time a
+// unit ships, and a rotting test teaches you to ignore failures.
+const nUnits = await page.evaluate(() => COURSE.length);
+is(await page.locator('#unittabs .utab').count() === nUnits, `all ${nUnits} unit tabs rendered`);
 
 // The bug the user reported: options containing code spans shattered into columns.
 console.log('\n── the reported bug: option B on unit 2 ──');

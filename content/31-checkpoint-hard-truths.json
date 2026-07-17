@@ -1,0 +1,210 @@
+{
+  "unitId": "checkpoint-hard-truths",
+  "tier": 3,
+  "title": "Checkpoint: Hard Truths",
+  "subtitle": "Mixing units 18–22 — the guarantees you can't buy, and the ones you were sold",
+  "objectives": [
+    "Recall CAP, consistency models, consensus and idempotency without the unit label as a cue",
+    "Tell the difference between a real guarantee and a plausible sentence about one",
+    "Diagnose a distributed failure where the obvious fix is the bug"
+  ],
+  "lessons": [
+    {
+      "id": "cp4-1",
+      "title": "Mixed recall",
+      "exercises": [
+        {
+          "id": "cp4-1-1",
+          "type": "multiple_choice",
+          "prompt": "The network between your two datacenters goes down. CAP says you must now choose. Choose what, exactly?",
+          "choices": [
+            "Between consistency, availability and partition tolerance — pick any two",
+            "Between refusing writes (staying consistent) and accepting them on both sides (staying available) — the partition isn't a choice, it's the weather",
+            "Between SQL and NoSQL",
+            "Between latency and throughput"
+          ],
+          "answer": 1,
+          "why": "'Pick two' is the sentence everyone remembers and it's the wrong reading. You never *choose* partition tolerance — networks fail whether or not you consented, so P is a fact about the world. The theorem only bites during a partition, and then it offers exactly two options: refuse the write and stay correct, or take it on both sides and reconcile a mess later. The subtler point that survives past the interview: the rest of the time — which is nearly all the time — there's no partition and the real trade is latency against consistency, because a strongly consistent write still has to talk to a quorum before it can answer. That's PACELC, and it's the one that describes your p99 on a normal Tuesday.",
+          "hint": "Which of the three letters did you actually get a vote on?"
+        },
+        {
+          "id": "cp4-1-2",
+          "type": "match_pairs",
+          "prompt": "Match each consistency model to what it actually promises.",
+          "pairs": [
+            {
+              "left": "Strong / linearizable",
+              "right": "Every read sees the latest committed write, as if there were one copy"
+            },
+            {
+              "left": "Eventual",
+              "right": "Stop writing and the copies converge — with no promise about when"
+            },
+            {
+              "left": "Read-your-writes",
+              "right": "You always see your own changes; other people's may lag"
+            },
+            {
+              "left": "Monotonic reads",
+              "right": "You never see time go backwards"
+            }
+          ],
+          "why": "These aren't points on one line from bad to good — they're different promises to different observers, which is why 'strongly consistent' is a lazy requirement. Eventual is the weakest and the most honest about it: convergence, no deadline. Read-your-writes and monotonic reads are the two that users actually notice the absence of, because both failures look like the app is broken rather than slow — your edit vanishes, or a comment appears and then un-appears on refresh. Most products need those two and don't need linearizability anywhere except a couple of specific operations, which is a much cheaper system than 'make it strong'.",
+          "hint": "Two of these are about what *you* see; one is about everyone; one has no deadline."
+        },
+        {
+          "id": "cp4-1-3",
+          "type": "multiple_choice",
+          "prompt": "A quorum system has N=5 replicas, W=3, R=3. W+R > N, so the read and write sets always overlap. Does that give you strong consistency?",
+          "choices": [
+            "Yes — overlap means a read always sees the latest write",
+            "No — overlap guarantees a read *touches* a replica that saw the write, but not that it can tell which value is newest, or that a half-finished write is resolved",
+            "Yes, as long as N is odd",
+            "Only if W = N"
+          ],
+          "answer": 1,
+          "why": "Overlap is necessary and nowhere near sufficient, and this is the single most common over-claim about quorums. Your read set does contain a node that saw the write — but a write that got to 2 of 3 before the client crashed is now in limbo, visible to some readers and not others, and no one is obliged to finish it. Concurrent writes leave you holding two values and needing a rule to pick — last-write-wins, and now you're trusting clock skew. Even reading the newest value tells you nothing about whether a *later* read might see an older one. Real strong consistency needs a protocol that orders operations and repairs partial writes: read repair, anti-entropy, and in practice a consensus algorithm. W+R>N buys overlap. It does not buy linearizability.",
+          "hint": "What does the read set do with two different values it found?"
+        },
+        {
+          "id": "cp4-1-4",
+          "type": "multiple_choice",
+          "prompt": "Raft elects a leader by majority vote. Why isn't 'won a majority' enough on its own to make someone leader?",
+          "choices": [
+            "It is enough — a majority is a majority",
+            "A majority could elect a candidate that's missing committed writes, so Raft additionally refuses to vote for anyone whose log is behind the voter's",
+            "Because elections can tie",
+            "Because the old leader might come back"
+          ],
+          "answer": 1,
+          "why": "Counting votes gets you agreement on *who*, not on *what they know* — and a leader missing committed entries would silently erase acknowledged writes, which is the one thing consensus exists to prevent. So Raft adds the election restriction: a voter refuses any candidate whose log is less up-to-date than its own. Because a committed entry is by definition on a majority, and any winner needs a majority, the two majorities must overlap in at least one node — and that node won't vote for anyone missing the entry. That's the actual mechanism, and it's worth knowing precisely because 'majority vote' sounds complete and isn't. Quorum overlap keeps turning out to be the load-bearing idea in this tier while never being the whole answer.",
+          "hint": "Two majorities of the same set always share at least one member."
+        },
+        {
+          "id": "cp4-1-5",
+          "type": "multi_select",
+          "prompt": "Which of these are genuinely idempotent — safe to retry with the same input? Select all.",
+          "choices": [
+            "`PUT /users/42` with a full user object",
+            "`POST /payments` with a client-supplied `Idempotency-Key` the provider deduplicates on",
+            "`POST /comments` with a body",
+            "`UPDATE accounts SET balance = balance - 10 WHERE id = 42`"
+          ],
+          "answer": [
+            0,
+            1
+          ],
+          "why": "`PUT` sets a resource to a state, so doing it five times leaves the same state — idempotent by construction. The keyed `POST` is idempotent by *agreement*: the key travels to whoever performs the side effect, and they promise to do it once. The last one is the instructive trap, because it looks safe — it's a single atomic statement with no read-modify-write race, so it survives concurrency fine. It just isn't idempotent: run it twice and you've withdrawn 20. Atomic and idempotent are different properties and the same statement can have one without the other. Note also where the key has to live: dedupe in *your* database and you've rebuilt the dual-write problem, because your table and the provider's charge can't be updated atomically.",
+          "hint": "One of these is perfectly atomic and still charges you twice."
+        },
+        {
+          "id": "cp4-1-6",
+          "type": "multiple_choice",
+          "prompt": "Your dashboards are all green. Users are reporting the site is broken. What did your observability actually miss?",
+          "choices": [
+            "Nothing — the users are wrong",
+            "You're measuring what you predicted would break; this is a failure you didn't predict, so no dashboard was watching for it",
+            "The dashboards need a faster refresh",
+            "You need more dashboards"
+          ],
+          "answer": 1,
+          "why": "A dashboard answers a question someone thought of in advance. That's monitoring, and it's good at the failures you've already had. Observability is the ability to ask a question you *didn't* anticipate — which needs high-cardinality data you can slice after the fact by user, region, version, endpoint. This is why the green dashboard is a genre of outage: your averages are fine because the failure is concentrated in one cohort — one region, one app version, one shard, customers whose IDs hash to a hot partition — and every aggregate you're watching dilutes it into invisibility. 'More dashboards' is the wrong reflex for the same reason: you'd be adding more pre-formed questions.",
+          "hint": "Who chose which questions your dashboard can answer, and when?"
+        }
+      ]
+    },
+    {
+      "id": "cp4-2",
+      "title": "Connecting the units",
+      "exercises": [
+        {
+          "id": "cp4-2-1",
+          "type": "order_steps",
+          "prompt": "Order a payment flow that survives the client retrying at the worst possible moment.",
+          "steps": [
+            "Client generates an idempotency key and sends it with the charge request",
+            "Server atomically reserves the key — insert-if-absent, so a concurrent duplicate loses the race",
+            "Server calls the payment provider, passing the same key onward",
+            "Server records the result against the key",
+            "Any retry with that key returns the stored result instead of charging again"
+          ],
+          "why": "The order is the whole lesson, and getting it wrong is a double charge. The reservation has to come *first* and it has to be atomic — an insert-if-absent, a conditional write — because 'look up the key, and if it's missing do the work' is check-then-act, exactly the race this exists to kill. Two retries arriving together would both look, both find nothing, and both charge. Note step 3 as well: the key travels to the provider. If you only dedupe locally you have two systems that must agree and no transaction spanning them — crash between charging and recording, and your table says it never happened while the customer's statement disagrees. The key is the thread stitching the two together, which is why it's generated by the client and survives every hop.",
+          "hint": "One of these steps has to be atomic, and it has to be first."
+        },
+        {
+          "id": "cp4-2-2",
+          "type": "multiple_choice",
+          "prompt": "Your service calls a flaky dependency. You add retries. The dependency now goes down completely for ten minutes instead of degrading. What did the retries do?",
+          "choices": [
+            "Nothing — retries are always safe",
+            "They multiplied load exactly when the dependency was weakest, turning a slowdown into a retry storm that finished it off",
+            "They fixed the problem",
+            "They caused a memory leak"
+          ],
+          "answer": 1,
+          "why": "A dependency slows down, every caller's timeout fires, and every caller sends the request again — so a service already failing to serve X now receives 2X or 3X. That's a retry storm, and it's a genuine feedback loop: the fix amplifies the fault. Worse, retries stack multiplicatively through a call chain, so three layers each retrying three times is 27 requests at the bottom from one at the top. What makes it safe is the boring part nobody implements first: exponential backoff so you don't all come back at once, *jitter* so you don't all come back at the same instant a second later, a retry budget capping retries as a fraction of traffic, and a circuit breaker that stops calling entirely once you've established it's down. Retries without those aren't resilience, they're a load test you scheduled for your worst moment.",
+          "hint": "What does the dependency see, from every caller at once?"
+        },
+        {
+          "id": "cp4-2-3",
+          "type": "multiple_choice",
+          "prompt": "A leader is partitioned from its followers but doesn't know it. The followers elect a new leader. The old one is still accepting writes. What is this, and what stops it?",
+          "choices": [
+            "Nothing stops it — this is unavoidable",
+            "Split brain: the old leader's writes need a quorum it no longer has, and leases/terms mean its acknowledgements aren't valid",
+            "The old leader shuts down automatically",
+            "The clients notice and switch"
+          ],
+          "answer": 1,
+          "why": "Split brain is what consensus is *for*, and the defence is the same overlap argument as everywhere else in this tier. The old leader can accept requests all it likes; it cannot commit them, because committing needs acknowledgement from a majority and it's on the minority side of the partition. It also can't have been superseded in secret — the new leader carries a higher term, and any node that has seen that term rejects the old one's messages. The dangerous version is the one people build by hand: a leader that decides for itself that it's still the leader, based on its own clock, while a lease it can't see has expired. That's why real systems tie leadership to a lease shorter than the failure detector, and why 'just have the leader check if it's still leader' is a question the leader is structurally unable to answer alone.",
+          "hint": "Can the old leader actually *commit* anything?"
+        },
+        {
+          "id": "cp4-2-4",
+          "type": "tradeoff_slider",
+          "prompt": "You're choosing consistency for a social feed's like counter — millions of writes, shown everywhere.",
+          "leftLabel": "Eventual — fast, may be briefly wrong",
+          "rightLabel": "Strong — always exact, coordinated",
+          "answerRange": [
+            10,
+            35
+          ],
+          "why": "Lean hard eventual, and be able to say why in one sentence: nobody can tell. A like count of 14,203 shown as 14,201 for two seconds is invisible to every human who will ever see it, and the price of exactness is a coordinated write on the hottest key in your system — every like on a viral post serialised through one consensus round. That's not a small cost, it's the difference between a counter that scales and an outage. The discipline this tier is really teaching is that consistency is chosen *per operation*, not per system: the same product wants eventual for like counts, read-your-writes for your own comment appearing after you post it, and genuine linearizability for the balance on a payout. Asking 'is this system strongly consistent' is already the wrong question.",
+          "hint": "Who is harmed by a like count being two seconds stale?"
+        },
+        {
+          "id": "cp4-2-5",
+          "type": "multi_select",
+          "prompt": "Which of these actually help you debug a failure you did not predict? Select all.",
+          "choices": [
+            "High-cardinality structured events you can slice by user, version, region after the fact",
+            "Distributed tracing that follows one request across every service it touched",
+            "A dashboard of average latency per service",
+            "Alerting on symptoms users feel (error rate, latency) rather than on causes (CPU)"
+          ],
+          "answer": [
+            0,
+            1,
+            3
+          ],
+          "why": "The first two let you ask new questions of old data, which is the entire definition of observability — slice by dimension to find the cohort, then trace one of their requests to find the hop. The fourth is what keeps you from drowning: alert on CPU and you'll page someone for a busy machine that's serving fine, and miss the outage where CPU is low precisely *because* nothing is being served. Averages are the odd one out and the reason is now familiar: an average per service is a pre-chosen question with every useful dimension already thrown away, and it's actively misleading during exactly the partial failure you're trying to catch — one dead region among five barely moves the mean.",
+          "hint": "Three of these preserve information. One of them destroys it on purpose."
+        },
+        {
+          "id": "cp4-2-6",
+          "type": "multiple_choice",
+          "prompt": "What's the honest summary of this tier?",
+          "choices": [
+            "Distributed systems are too hard; keep everything on one machine",
+            "Every distributed guarantee is bought with coordination, and coordination costs latency and availability — so the job is buying the fewest guarantees you can live with",
+            "Use a database that says it's strongly consistent and stop worrying",
+            "Eventual consistency is always fine"
+          ],
+          "answer": 1,
+          "why": "Everything in this tier reduces to one exchange rate. Strong consistency means a quorum round trip before you can answer. Consensus means a majority must agree before anything is true. Exactly-once effects mean a shared key and someone doing a durable write to dedupe on. None of that is free, and none of it is optional if you actually need the guarantee — the skill is being precise about where you need it, because it's almost never everywhere. Option 3 is the trap worth naming: a database advertising strong consistency hasn't repealed anything, it has *chosen* for you, and it's paying the same coordination cost in your p99 whether or not that operation needed it. The engineering isn't picking a system that promises the most. It's knowing what each promise costs and buying only the ones your product would actually notice losing.",
+          "hint": "What does every guarantee in this tier have to pay for?"
+        }
+      ]
+    }
+  ]
+}

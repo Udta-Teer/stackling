@@ -307,7 +307,7 @@
             "20"
           ],
           "answer": 2,
-          "why": "One request for the list, plus one per post = 21. This is the N+1 problem, and on a mobile network with ~100ms round trips it's over two seconds of pure waiting before anything renders. Chattiness is the number one killer of mobile API performance, and the fix is to let the server do the joining and return posts *with* their authors in one response."
+          "why": "One request for the list, plus one per post = 21. This is the N+1 problem. Fire those 20 author calls one after another on a mobile network with ~100ms round trips and you wait over two seconds before anything renders. Fire them in parallel — which any decent client does — and you escape most of the waiting, but you still pay 20× the requests, 20× the server work, and the slowest one sets what the user feels. Chattiness is the number one killer of mobile API performance, and the fix is to let the server do the joining and return posts *with* their authors in one response."
         },
         {
           "id": "api-4-2",
