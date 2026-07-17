@@ -98,6 +98,9 @@
     text-transform:uppercase;cursor:pointer;color:#fff;background:var(--blueprint);border-bottom:4px solid var(--blueprint-dk);transition:.08s;}
   .btn:disabled{background:var(--line);color:var(--muted);border-bottom-color:var(--line);cursor:not-allowed;}
   .btn.grey{background:var(--line);color:var(--muted);border-bottom-color:var(--line);}
+  .btn.ghost{background:none;color:var(--muted);border:1px solid var(--line);border-bottom-width:1px;
+    margin-top:10px;font-size:14px;text-transform:none;letter-spacing:0;}
+  .btn.ghost:hover{color:var(--ink);border-color:var(--blue);}
   .feedback{border-radius:16px 16px 0 0;margin:16px -16px -16px;padding:18px 16px 22px;}
   .feedback.ok{background:var(--green-soft);}
   .feedback.bad{background:var(--red-soft);}
@@ -151,7 +154,7 @@
 
 <div class="app">
   <div class="top">
-    <button class="close" onclick="location.reload()">✕</button>
+    <button class="close" id="closebtn" title="Exit to lessons">✕</button>
     <svg class="mark" style="--s:26px"><use href="#stack"/></svg>
     <div class="bar"><i id="bar"></i></div>
     <button class="hearts" id="heartbox" title="Click for unlimited hearts — review mode">♥ <span id="hearts">5</span></button>
@@ -181,7 +184,8 @@
         <div class="box"><small>Hearts left</small><span id="hleft">5</span></div>
       </div>
       <div id="ftask-host"></div>
-      <button class="btn" style="max-width:260px;margin-top:18px" onclick="location.reload()">Back to lessons</button>
+      <button class="btn" id="nextbtn" style="max-width:280px;margin-top:18px">Next lesson</button>
+      <button class="btn ghost" id="backbtn" style="max-width:280px">Back to lessons</button>
     </div>
   </div>
 
@@ -255,7 +259,7 @@ const TIERLABEL = ["Foundations","Foundations","Foundations","Foundations","Foun
 /* === END GENERATED === */
 
 /* ---- engine ---- */
-let uidx=0, UNIT=COURSE[0];
+let uidx=0, lidx=0, UNIT=COURSE[0];
 let hearts=5, xp=0, correct=0, total=0, idx=0, ex=null, lesson=null, checked=false, current=null;
 
 /* Review mode: unlimited hearts, so a wrong answer never ends a lesson early.
@@ -264,8 +268,7 @@ let hearts=5, xp=0, correct=0, total=0, idx=0, ex=null, lesson=null, checked=fal
    State lives in the URL fragment (#review), NOT localStorage: this page is
    opened over file://, where Safari throws SecurityError on localStorage and
    would take the whole script down with it. The fragment costs nothing, needs
-   no API, survives the location.reload() that "Back to lessons" does, and is
-   visible + shareable. */
+   no API, survives a manual reload, and is visible + shareable. */
 let unlimited = /(^|[#&])review\b/.test(location.hash);
 function heartsLabel(){ return unlimited ? '∞' : hearts; }
 function paintHearts(){
@@ -320,7 +323,7 @@ function boot(){
   });
 }
 function startLesson(i){
-  lesson=UNIT.lessons[i]; idx=0; correct=0; total=0; hearts=5; xp=0;
+  lidx=i; lesson=UNIT.lessons[i]; idx=0; correct=0; total=0; hearts=5; xp=0;
   paintHearts();
   $('picker').classList.add('hidden'); $('complete').classList.add('hidden');
   $('stage').classList.remove('hidden'); $('foot').classList.remove('hidden');
@@ -509,12 +512,44 @@ function next(){
   if(idx>=lesson.exercises.length) return finish();
   render();
 }
+/* Leaving a lesson must NOT reload the page: a reload resets uidx to 0 and
+   dumps you back on unit 1, so finishing a lesson in unit 20 lost your place
+   every time. Just swap the screens. */
+function exitToPicker(){
+  $('stage').classList.add('hidden');
+  $('foot').classList.add('hidden');
+  $('complete').classList.add('hidden');
+  $('picker').classList.remove('hidden');
+  $('bar').style.width='0';
+  boot();
+}
+
+/* Where "next" goes: the next lesson, else the first lesson of the next unit,
+   else nowhere (end of course). */
+function nextTarget(){
+  if(lidx+1 < UNIT.lessons.length) return {kind:'lesson', label:'Next lesson'};
+  if(uidx+1 < COURSE.length)       return {kind:'unit',   label:'Next unit: '+COURSE[uidx+1].title};
+  return null;
+}
+
+function goNext(){
+  const t=nextTarget();
+  if(!t) return exitToPicker();
+  if(t.kind==='lesson') return startLesson(lidx+1);
+  uidx++; UNIT=COURSE[uidx]; bootUnits(); boot(); startLesson(0);
+}
+
 function finish(){
   $('bar').style.width='100%';
   $('stage').classList.add('hidden'); $('foot').classList.add('hidden');
   $('complete').classList.remove('hidden');
   $('xp').textContent=xp; $('acc').textContent=Math.round(correct/Math.max(1,total)*100)+'%'; $('hleft').textContent=heartsLabel();
   renderFieldTask();
+
+  // Primary action is to keep going — never make them navigate back to advance.
+  const t=nextTarget(), nb=$('nextbtn');
+  if(t){ nb.textContent=t.label; nb.classList.remove('hidden'); }
+  else { nb.classList.add('hidden'); }
 }
 
 /* A field task sends the learner out of the app, so it only ever appears AFTER
@@ -537,6 +572,9 @@ function renderFieldTask(){
 }
 
 $('heartbox').onclick = toggleUnlimited;
+$('nextbtn').onclick  = goNext;
+$('backbtn').onclick  = exitToPicker;
+$('closebtn').onclick = exitToPicker;
 paintHearts();
 bootUnits(); boot();
 </script>
