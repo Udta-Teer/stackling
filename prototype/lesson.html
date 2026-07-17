@@ -365,28 +365,50 @@ function ms(){
   w.appendChild(c);
 }
 /* match pairs */
+/* Buttons are tracked by INDEX, never by their text. Keying by text breaks the
+   moment two options read the same — e.g. matching four use cases onto TCP/UDP
+   gives a right column of TCP,TCP,UDP,UDP, where the second button of each pair
+   silently overwrote the first, so clicking one lit up or greyed out another.
+   Duplicate values are legitimate content, so the renderer handles them:
+   matching a left item to EITHER button with the right text is correct. */
 function match(){
-  const w=$('body'); current={sel:null,map:{}};
-  const lefts=ex.pairs.map(p=>p.left), rights=shuffle(ex.pairs.map(p=>p.right));
+  const w=$('body');
+  const lefts  = ex.pairs.map(p=>p.left);
+  const rights = shuffle(ex.pairs.map(p=>p.right));
+  current = { pending:null, map:{}, rights };   // map: leftIndex -> rightIndex
   const grid=document.createElement('div'); grid.className='match';
-  const cl=document.createElement('div'); cl.className='col'; const cr=document.createElement('div'); cr.className='col';
-  const lb={},rb={};
-  lefts.forEach(l=>{const b=document.createElement('button');b.className='chip';b.innerHTML=md(l);b.style.textAlign='left';lb[l]=b;
-    b.onclick=()=>{if(checked)return;current.sel={side:'l',v:l};highlight();};cl.appendChild(b);});
-  rights.forEach(r=>{const b=document.createElement('button');b.className='chip';b.innerHTML=md(r);b.style.textAlign='left';rb[r]=b;
-    b.onclick=()=>{if(checked)return;current.sel={side:'r',v:r};highlight();};cr.appendChild(b);});
-  function highlight(){
-    Object.values(lb).forEach(b=>b.classList.remove('sel'));Object.values(rb).forEach(b=>b.classList.remove('sel'));
-    const s=current.sel; if(!s)return;
-    (s.side==='l'?lb[s.v]:rb[s.v]).classList.add('sel');
-    // try pairing: if one of each selected across clicks
-    if(current._pending && current._pending.side!==s.side){
-      const l=s.side==='l'?s.v:current._pending.v, r=s.side==='r'?s.v:current._pending.v;
-      current.map[l]=r; lb[l].classList.add('used'); rb[r].classList.add('used'); current._pending=null; current.sel=null;
-      Object.values(lb).forEach(b=>b.classList.remove('sel'));Object.values(rb).forEach(b=>b.classList.remove('sel'));
-      if(Object.keys(current.map).length===lefts.length) enable();
-    } else { current._pending=s; }
+  const cl=document.createElement('div'); cl.className='col';
+  const cr=document.createElement('div'); cr.className='col';
+  const lb=[], rb=[];
+
+  const takenR = ()=> new Set(Object.values(current.map));
+  function paint(){
+    const p=current.pending, taken=takenR();
+    lb.forEach((b,i)=>{ b.classList.toggle('sel', !!p && p.side==='l' && p.i===i);
+                        b.classList.toggle('used', i in current.map); });
+    rb.forEach((b,j)=>{ b.classList.toggle('sel', !!p && p.side==='r' && p.i===j);
+                        b.classList.toggle('used', taken.has(j)); });
   }
+  function pick(side,i){
+    if(checked) return;
+    if(side==='l' && (i in current.map)) return;      // already matched
+    if(side==='r' && takenR().has(i)) return;
+    const p=current.pending;
+    if(p && p.side!==side){
+      const li = side==='l' ? i : p.i;
+      const ri = side==='r' ? i : p.i;
+      current.map[li]=ri;
+      current.pending=null;
+      if(Object.keys(current.map).length===lefts.length) enable();
+    } else {
+      current.pending={side,i};
+    }
+    paint();
+  }
+  lefts.forEach((l,i)=>{ const b=document.createElement('button'); b.className='chip';
+    b.innerHTML=md(l); b.style.textAlign='left'; b.onclick=()=>pick('l',i); lb.push(b); cl.appendChild(b); });
+  rights.forEach((r,j)=>{ const b=document.createElement('button'); b.className='chip';
+    b.innerHTML=md(r); b.style.textAlign='left'; b.onclick=()=>pick('r',j); rb.push(b); cr.appendChild(b); });
   grid.appendChild(cl); grid.appendChild(cr); w.appendChild(grid);
 }
 /* order steps */
@@ -482,7 +504,8 @@ function check(){
   } else if(ex.type==='order_steps'){
     ok=current.every((it,pos)=>it.i===pos);
   } else if(ex.type==='match_pairs'){
-    ok=ex.pairs.every(p=>current.map[p.left]===p.right);
+    // Grade on the VALUE the chosen slot holds, so either duplicate is accepted.
+    ok=ex.pairs.every((p,i)=>current.rights[current.map[i]]===p.right);
   } else if(ex.type==='spot_bottleneck'){
     ok=current===ex.answer;
     const nodes=body.querySelectorAll('.node.pick');
