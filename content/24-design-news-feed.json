@@ -15,6 +15,47 @@
       "title": "The shape of the problem",
       "exercises": [
         {
+          "id": "feed-1-0",
+          "type": "concept",
+          "title": "A feed can't be cached, because no two people have the same one",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "You refresh",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Feed service",
+                "sub": "sort + page",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Posts by everyone you follow",
+                "sub": "×500 authors",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "s"
+              },
+              {
+                "from": "s",
+                "to": "d"
+              }
+            ]
+          },
+          "body": "The shortener worked because one cached answer served everybody. A feed has no shared answer: 300 million users, 300 million different lists — and each person refreshes far more often than they post. Reads dominate and none of them repeat, which kills the playbook that rescued every system so far. One lever is left: *when* you build the list.",
+          "note": "Only two answers exist, and both are named. Build it when someone looks: fan-out on read, drawn above. Build it when someone posts: fan-out on write. This unit is the argument between them — and the winner is neither."
+        },
+        {
           "id": "feed-1-1",
           "type": "multiple_choice",
           "prompt": "'Design a news feed.' What's the defining characteristic of this workload?",
@@ -94,6 +135,67 @@
       "id": "feed-2",
       "title": "Fan-out on write",
       "exercises": [
+        {
+          "id": "feed-2-0",
+          "type": "concept",
+          "title": "Fan-out on write makes a post cost whatever the author's follower count happens to be",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Author posts",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Post service",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Posts table",
+                "sub": "stored once",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "q",
+                "label": "Fan-out queue",
+                "col": 2,
+                "kind": "queue"
+              },
+              {
+                "id": "f",
+                "label": "Feed lists ×200",
+                "sub": "post id only",
+                "col": 3,
+                "kind": "cache"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "s"
+              },
+              {
+                "from": "s",
+                "to": "p"
+              },
+              {
+                "from": "s",
+                "to": "q"
+              },
+              {
+                "from": "q",
+                "to": "f"
+              }
+            ]
+          },
+          "body": "Posting stops being one write. The post is stored once, then its *id* is appended to the ready-made feed list of every follower — 200 followers, 200 appends. A read collapses to 'fetch my list': one lookup. You bought that with a write whose size is somebody else's follower count, and nobody chose that number.",
+          "note": "The queue isn't decoration. The post is live the moment it's stored, and the response goes out before a single append happens — nobody is waiting on those 200 writes, so making the author wait buys nothing."
+        },
         {
           "id": "feed-2-1",
           "type": "order_steps",
@@ -183,6 +285,58 @@
       "title": "The hybrid",
       "exercises": [
         {
+          "id": "feed-3-0",
+          "type": "concept",
+          "title": "The two models fail at opposite ends, so production runs both at once",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "You open the feed",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Feed service",
+                "sub": "merge + rank",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "l",
+                "label": "Your feed list",
+                "sub": "precomputed",
+                "col": 2,
+                "kind": "cache"
+              },
+              {
+                "id": "c",
+                "label": "Posts by celebrities you follow",
+                "sub": "queried live",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "s"
+              },
+              {
+                "from": "s",
+                "to": "l"
+              },
+              {
+                "from": "s",
+                "to": "c"
+              }
+            ]
+          },
+          "body": "Fan-out on write dies on huge follower counts. Fan-out on read dies on ordinary read volume. So you don't pick — you route: normal accounts fan out on write, accounts above a follower threshold don't, and a feed read becomes your precomputed list merged at read time with a live query for the few giants you follow.",
+          "note": "The merge stays cheap only because that second half is tiny: you follow a handful of accounts big enough to be excluded, not five hundred. Set it too low and you query live all day; too high and the storms come back."
+        },
+        {
           "id": "feed-3-1",
           "type": "multiple_choice",
           "prompt": "Fan-out on write breaks for celebrities. Fan-out on read breaks for everyone. What's the actual answer?",
@@ -266,6 +420,68 @@
       "id": "feed-4",
       "title": "Ranking, paging, and lies",
       "exercises": [
+        {
+          "id": "feed-4-0",
+          "type": "concept",
+          "title": "Fan-out doesn't build your feed — it builds a shortlist someone still has to rank",
+          "viz": {
+            "nodes": [
+              {
+                "id": "f",
+                "label": "Fan-out list",
+                "sub": "write time",
+                "col": 0,
+                "kind": "cache"
+              },
+              {
+                "id": "c",
+                "label": "Celebrity posts",
+                "sub": "read time",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "k",
+                "label": "Candidate set",
+                "sub": "a few hundred",
+                "col": 1
+              },
+              {
+                "id": "r",
+                "label": "Rank for this reader",
+                "sub": "right now",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "One page",
+                "sub": "~20 posts",
+                "col": 3
+              }
+            ],
+            "edges": [
+              {
+                "from": "f",
+                "to": "k"
+              },
+              {
+                "from": "c",
+                "to": "k"
+              },
+              {
+                "from": "k",
+                "to": "r"
+              },
+              {
+                "from": "r",
+                "to": "p"
+              }
+            ]
+          },
+          "body": "Chronological order is a property of the posts, so it can be baked in at write time. Relevance is a property of *you, right now* — this session, what you just scrolled past, what's happening this minute — so it can't. The precomputed list survives by demoting itself: it decides which posts you *might* see, and the order is decided when you look.",
+          "note": "Ranking at read time sounds like the expensive work you spent the unit avoiding. It isn't: you rank a few hundred candidates, not millions of posts. Fan-out didn't stop being useful — it stopped being the final word."
+        },
         {
           "id": "feed-4-1",
           "type": "multiple_choice",

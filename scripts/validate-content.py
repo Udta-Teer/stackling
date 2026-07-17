@@ -427,6 +427,9 @@ def main():
             if key not in d:
                 errors.append(f"{name} :: missing top-level `{key}`")
 
+        # A checkpoint mixes units already taught, so it tests by design.
+        is_checkpoint = "checkpoint" in (d.get("unitId") or "")
+
         unit_field_tasks = 0
         for lesson in d.get("lessons", []):
             lid = lesson.get("id", "<no id>")
@@ -448,6 +451,20 @@ def main():
             n_concept = sum(1 for e in exs if e.get("type") == "concept")
             counts["concept"] += n_concept
             counts["viz"] += sum(1 for e in exs if e.get("viz"))
+
+            # THE RAMP PRINCIPLE (CONTENT_MASTER.md 6.1, owner directive).
+            # Every teaching lesson opens by teaching. A building has a ramp even
+            # though most people take the stairs; low usage is not a reason to
+            # fail the people who need it. Advanced learners get a one-tap skip
+            # in the app — that's the stairs, and it's why this can be mandatory
+            # without taxing anyone. Checkpoints are exempt: a checkpoint is a
+            # test by design, mixing units the learner was already taught.
+            if exs and not is_checkpoint and exs[0].get("type") != "concept":
+                errors.append(
+                    f"{name} :: {lid} :: opens with `{exs[0].get('type')}` — every "
+                    f"lesson must open with a `concept` card (CONTENT_MASTER 6.1). "
+                    f"Testing before teaching is the thing this rule exists to stop.")
+
             if n_concept > CONCEPT_MAX_PER_LESSON:
                 errors.append(f"{name} :: {lid} :: {n_concept} concept cards — max "
                               f"{CONCEPT_MAX_PER_LESSON} per lesson. Teaching beats are "

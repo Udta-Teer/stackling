@@ -22,6 +22,63 @@
       },
       "exercises": [
         {
+          "id": "hiw-1-0",
+          "type": "concept",
+          "title": "Nothing connects your laptop to the server — your data is passed hand to hand",
+          "viz": {
+            "nodes": [
+              {
+                "id": "you",
+                "label": "Your laptop",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r1",
+                "label": "Router",
+                "col": 1
+              },
+              {
+                "id": "r2",
+                "label": "Router",
+                "sub": "10-20 hops",
+                "col": 2
+              },
+              {
+                "id": "r3",
+                "label": "Router",
+                "col": 3
+              },
+              {
+                "id": "s",
+                "label": "Server",
+                "col": 4,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "you",
+                "to": "r1"
+              },
+              {
+                "from": "r1",
+                "to": "r2"
+              },
+              {
+                "from": "r2",
+                "to": "r3"
+              },
+              {
+                "from": "r3",
+                "to": "s"
+              }
+            ]
+          },
+          "body": "There is no wire from your laptop to Google. Your data is chopped into small chunks called *packets*, each stamped with the destination's IP address — a number like `142.250.72.14` that identifies one machine on the internet. Each packet goes to a router, whose only job is to hand it on to another router closer to the target.",
+          "note": "It's post, not a phone call. Each packet is addressed and travels alone, so two packets from the same page can take different routes and show up out of order."
+        },
+        {
           "id": "hiw-1-1",
           "type": "multiple_choice",
           "prompt": "You open a website. Roughly how many separate computers might your request pass through before it reaches the server?",
@@ -100,6 +157,47 @@
       "title": "DNS: the internet's phonebook",
       "exercises": [
         {
+          "id": "hiw-2-0",
+          "type": "concept",
+          "title": "`google.com` is not an address — it's a name that has to be looked up first",
+          "viz": {
+            "nodes": [
+              {
+                "id": "b",
+                "label": "Browser",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "DNS",
+                "sub": "1 · what IP?",
+                "col": 1,
+                "kind": "dns"
+              },
+              {
+                "id": "s",
+                "label": "Server",
+                "sub": "2 · connect",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "d"
+              },
+              {
+                "from": "b",
+                "to": "s"
+              }
+            ]
+          },
+          "body": "Routers move packets toward numbers, not names. So before your browser can connect to `google.com`, something has to turn that name into an IP address. That something is DNS — the Domain Name System, the internet's phonebook. Give it a name, it hands back a number. Every connection you make starts with this translation.",
+          "note": "The indirection is the feature: because you connect to a name, the company behind it can swap machines, add servers, or point you at a nearer one — and your browser simply gets a different number back."
+        },
+        {
           "id": "hiw-2-1",
           "type": "multiple_choice",
           "prompt": "You type `google.com`, but computers route by IP address. Who turns the name into the number?",
@@ -174,6 +272,13 @@
       "id": "hiw-3",
       "title": "The journey of a request",
       "exercises": [
+        {
+          "id": "hiw-3-0",
+          "type": "concept",
+          "title": "A request can't start until it knows where it's going",
+          "body": "The order of a page load isn't a convention — it's forced. Each link needs the one before it: you need the server's IP address before you can open a connection, a connection before you can send a request, and a request before the server has anything to answer. Then the whole answer has to travel back before your browser can draw anything.",
+          "note": "Distance gets charged more than once. A fresh HTTPS connection can spend round trips on a DNS lookup, then the TCP handshake, then the TLS handshake — all before one byte of your actual page is sent."
+        },
         {
           "id": "hiw-3-1",
           "type": "multiple_choice",
@@ -274,6 +379,59 @@
       "id": "hiw-4",
       "title": "TCP vs UDP: reliable vs fast",
       "exercises": [
+        {
+          "id": "hiw-4-0",
+          "type": "concept",
+          "title": "The internet doesn't promise your packets will arrive — TCP does, UDP doesn't",
+          "viz": {
+            "nodes": [
+              {
+                "id": "app",
+                "label": "Your app",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "t",
+                "label": "TCP",
+                "sub": "ordered",
+                "col": 1
+              },
+              {
+                "id": "u",
+                "label": "UDP",
+                "sub": "fire, forget",
+                "col": 1
+              },
+              {
+                "id": "n",
+                "label": "IP / routers",
+                "sub": "may drop",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "app",
+                "to": "t"
+              },
+              {
+                "from": "app",
+                "to": "u"
+              },
+              {
+                "from": "t",
+                "to": "n"
+              },
+              {
+                "from": "u",
+                "to": "n"
+              }
+            ]
+          },
+          "body": "Routers drop packets when they're overloaded, and packets arrive out of order. The network itself doesn't care. So you pick a protocol on top. TCP — Transmission Control Protocol — numbers every packet, notices what went missing, re-sends it, and hands your app the bytes in order. UDP — User Datagram Protocol — does none of that.",
+          "note": "The obvious way to be reliable would be: send a chunk, wait for the *ack*, send the next. TCP doesn't. It keeps a whole window of packets in flight at once, which is how it's reliable without crawling."
+        },
         {
           "id": "hiw-4-1",
           "type": "multiple_choice",

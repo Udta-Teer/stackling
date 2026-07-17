@@ -15,6 +15,46 @@
       "title": "The server speaks first",
       "exercises": [
         {
+          "id": "chat-1-0",
+          "type": "concept",
+          "title": "Chat inverts HTTP: the event you need to hear about happens somewhere else",
+          "viz": {
+            "nodes": [
+              {
+                "id": "b",
+                "label": "Bob sends a message",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Chat server",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "a",
+                "label": "Alice",
+                "sub": "asked nothing",
+                "col": 2,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "s"
+              },
+              {
+                "from": "s",
+                "to": "a"
+              }
+            ]
+          },
+          "body": "Every system so far had the client ask first. Chat's defining event — someone messaged *you* — originates elsewhere and arrives unprompted, and HTTP gives a server no way to speak until it's spoken to. So chat either fakes it by asking over and over, or changes the connection itself. Everything hard in this unit descends from that inversion.",
+          "note": "Short polling, long polling, Server-Sent Events, WebSocket: four points on one line, answering two questions — how long does a connection live, and who is allowed to speak on it. Chat needs both sides talking."
+        },
+        {
           "id": "chat-1-1",
           "type": "multiple_choice",
           "prompt": "Everything so far has been request/response: the client asks, the server answers. Why doesn't that work for chat?",
@@ -105,6 +145,58 @@
       "id": "chat-2",
       "title": "Finding the recipient",
       "exercises": [
+        {
+          "id": "chat-2-0",
+          "type": "concept",
+          "title": "Delivering a message means finding one specific process on one specific machine",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Alice",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s7",
+                "label": "Server 7",
+                "sub": "holds Alice",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "s31",
+                "label": "Server 31",
+                "sub": "holds Bob",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Bob",
+                "col": 3,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "s7"
+              },
+              {
+                "from": "s7",
+                "to": "s31",
+                "dash": true
+              },
+              {
+                "from": "s31",
+                "to": "b"
+              }
+            ]
+          },
+          "body": "A redirect could be served by any server. A feed read too. Bob's connection can't: it's an open socket on exactly one machine out of a hundred, so 'send Bob a message' first means finding out which one is holding him. Every server in your fleet is the wrong one except that server, and no load balancer knows which.",
+          "note": "That dashed arrow is the hop nobody has built yet. Whatever fills it gets consulted on every message and is wrong milliseconds after a phone enters a tunnel — so it's derived state you rebuild, not a record to mourn."
+        },
         {
           "id": "chat-2-1",
           "type": "multiple_choice",
@@ -222,6 +314,58 @@
       "title": "Delivery and ordering",
       "exercises": [
         {
+          "id": "chat-3-0",
+          "type": "concept",
+          "title": "Writing to a socket tells you the bytes left — not that anyone received them",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Alice sends",
+                "sub": "pending",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Server stores it",
+                "sub": "✓ sent",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Bob's client",
+                "sub": "✓✓ delivered",
+                "col": 2,
+                "kind": "client"
+              },
+              {
+                "id": "e",
+                "label": "Rendered on screen",
+                "sub": "✓✓ read",
+                "col": 3
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "s"
+              },
+              {
+                "from": "s",
+                "to": "b"
+              },
+              {
+                "from": "b",
+                "to": "e"
+              }
+            ]
+          },
+          "body": "The only party who knows Bob has the message is Bob's client. Everything upstream — the socket accepted the write, nothing errored — is your own process reporting on itself. So the ticks in every chat UI aren't decoration: each is an acknowledgement from a *different* party, which is why they arrive at different times and why 'delivered' can sit for hours.",
+          "note": "Ordering has the same shape. Two messages sent one after the other can arrive in either order, and no clock in the system is trustworthy enough to settle it — so order has to be *assigned* by somebody, never observed."
+        },
+        {
           "id": "chat-3-1",
           "type": "multiple_choice",
           "prompt": "Server 31 pushes the message down Bob's socket. Is it delivered?",
@@ -316,6 +460,47 @@
       "id": "chat-4",
       "title": "Presence and groups",
       "exercises": [
+        {
+          "id": "chat-4-0",
+          "type": "concept",
+          "title": "A green dot costs you a fan-out every time someone walks into a tunnel",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "One phone",
+                "sub": "signal drops",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Chat server",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "1,000 contacts watching",
+                "sub": "×1,000 pushes",
+                "col": 2,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "s"
+              },
+              {
+                "from": "s",
+                "to": "c"
+              }
+            ]
+          },
+          "body": "Presence looks free and isn't. It's high-churn, low-value data: mobile connections flap constantly, and every flap has to reach everyone watching — so a user with 1,000 contacts generates 1,000 notifications each time their signal drops, and 1,000 more when it returns. You're paying unit 24's celebrity price for a dot nobody remembers seeing.",
+          "note": "Group chat is the same bill under a different name: one message to 100,000 members is one write and 100,000 pushes across your whole fleet. Both problems end the same way — stop pushing to people who aren't looking."
+        },
         {
           "id": "chat-4-1",
           "type": "multiple_choice",

@@ -15,6 +15,45 @@
       "title": "The book index",
       "exercises": [
         {
+          "id": "idx-1-0",
+          "type": "concept",
+          "title": "An index is a second, sorted copy of one column that says where the row is",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "`WHERE email = …`",
+                "col": 0
+              },
+              {
+                "id": "i",
+                "label": "Index on `email`",
+                "sub": "~24 steps",
+                "col": 1
+              },
+              {
+                "id": "t",
+                "label": "`users` table",
+                "sub": "10M rows",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "i"
+              },
+              {
+                "from": "i",
+                "to": "t"
+              }
+            ]
+          },
+          "body": "The index at the back of a book is separate from the text, sorted, and much smaller — so you find \"sharding\" by flipping to S rather than reading 1,000 pages. A database index is that same object: a sorted structure mapping one column's values to row locations. Sorted means you can bisect, and bisecting 10 million rows is ~24 steps.",
+          "note": "Everything in an index also exists in the table, so an index is derived data — drop one and you lose no rows, only speed. Unless it's a `UNIQUE` index, which is also enforcing a rule you'd be dropping with it."
+        },
+        {
           "id": "idx-1-1",
           "type": "multiple_choice",
           "prompt": "A 1,000-page book. You want every page mentioning 'sharding.' You could read all 1,000 pages — or flip to the index at the back. What does that index give you?",
@@ -94,6 +133,82 @@
       "id": "idx-2",
       "title": "How it actually works",
       "exercises": [
+        {
+          "id": "idx-2-0",
+          "type": "concept",
+          "title": "The B-tree's shape was dictated by the disk, not by your data",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Root page",
+                "sub": "~500 keys",
+                "col": 0
+              },
+              {
+                "id": "a",
+                "label": "Internal",
+                "col": 1
+              },
+              {
+                "id": "b",
+                "label": "Internal",
+                "col": 1
+              },
+              {
+                "id": "c",
+                "label": "Internal",
+                "col": 1
+              },
+              {
+                "id": "x",
+                "label": "Leaf",
+                "sub": "row ptrs",
+                "col": 2
+              },
+              {
+                "id": "y",
+                "label": "Leaf",
+                "sub": "row ptrs",
+                "col": 2
+              },
+              {
+                "id": "z",
+                "label": "Leaf",
+                "sub": "row ptrs",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "a"
+              },
+              {
+                "from": "r",
+                "to": "b"
+              },
+              {
+                "from": "r",
+                "to": "c"
+              },
+              {
+                "from": "a",
+                "to": "x"
+              },
+              {
+                "from": "b",
+                "to": "y"
+              },
+              {
+                "from": "c",
+                "to": "z"
+              }
+            ]
+          },
+          "body": "A disk hands you a whole page — say 8KB — however little of it you wanted. A binary tree would spend one page read per comparison, narrowing the search only by half each time. A B-tree makes each node a page holding hundreds of keys, so one read narrows it hundreds of times. A billion rows end up only ~3–4 levels deep.",
+          "note": "In RAM, a binary tree is perfectly good. The B-tree exists because disks deal in blocks rather than bytes — a structure whose whole design is a response to hardware it never mentions."
+        },
         {
           "id": "idx-2-1",
           "type": "multiple_choice",
@@ -190,6 +305,62 @@
       "title": "Indexes aren't free",
       "exercises": [
         {
+          "id": "idx-3-0",
+          "type": "concept",
+          "title": "Every index you add is another structure the database must write on every change",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "One `INSERT`",
+                "sub": "4 writes",
+                "col": 0
+              },
+              {
+                "id": "t",
+                "label": "`users` table",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "i1",
+                "label": "idx `email`",
+                "col": 1
+              },
+              {
+                "id": "i2",
+                "label": "idx `created_at`",
+                "col": 1
+              },
+              {
+                "id": "i3",
+                "label": "idx `status`",
+                "col": 1
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "t"
+              },
+              {
+                "from": "w",
+                "to": "i1"
+              },
+              {
+                "from": "w",
+                "to": "i2"
+              },
+              {
+                "from": "w",
+                "to": "i3"
+              }
+            ]
+          },
+          "body": "An index is a copy, and a copy has to be kept true. `INSERT` one row into a table carrying three indexes and the database does four writes: the row, plus an entry in each index — every one of them landing in a sorted structure that may have to split a page to make room. The reads got faster. The writes paid for them.",
+          "note": "So a write's cost scales with how many indexes sit on the table — and nobody notices, because the query you sped up is the one you were watching."
+        },
+        {
           "id": "idx-3-1",
           "type": "multiple_choice",
           "prompt": "You add 5 indexes to a table to make reads fast. What happens to writes?",
@@ -276,6 +447,13 @@
       "id": "idx-4",
       "title": "Designing indexes",
       "exercises": [
+        {
+          "id": "idx-4-0",
+          "type": "concept",
+          "title": "An index earns its keep by narrowing, and matching 95% of the table narrows nothing",
+          "body": "*Selectivity* is the fraction of rows a lookup eliminates. `WHERE email = 'x@y.com'` leaves one row out of ten million: superb. `WHERE is_active = true`, where 95% of rows are true, leaves 95% — and reaching 95% of a table through an index is *slower* than scanning it, because you'd jump around the disk to fetch nearly every row anyway.",
+          "note": "Selectivity belongs to the query, not the column. That same `is_active` index is excellent for `WHERE is_active = false` — 5% of rows, highly selective. One column, two opposite verdicts."
+        },
         {
           "id": "idx-4-1",
           "type": "multiple_choice",

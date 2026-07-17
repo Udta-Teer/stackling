@@ -15,6 +15,13 @@
       "title": "Two different speeds",
       "exercises": [
         {
+          "id": "lat-1-0",
+          "type": "concept",
+          "title": "Two different speeds hide inside the word 'fast'",
+          "body": "*Latency* is how long one request takes — a duration, in milliseconds. *Throughput* is how many requests finish per second — a rate. Picture a pipe: latency is how long one drop takes to travel it end to end; throughput is how much water pours out of the end each second. They are separate axes, and you can move one without touching the other.",
+          "note": "They can even point opposite ways. A nightly job chewing through a billion rows has huge throughput and dreadful latency; a tiny service answering in 2ms may handle almost no traffic. Neither number implies the other."
+        },
+        {
           "id": "lat-1-1",
           "type": "multiple_choice",
           "prompt": "Think of a pipe carrying water. Latency is how long one drop takes to travel it; throughput is how much water flows per second. Which change raises throughput but does NOT improve latency?",
@@ -121,6 +128,45 @@
       },
       "exercises": [
         {
+          "id": "lat-2-0",
+          "type": "concept",
+          "title": "The gaps between fast and slow aren't percentages — they're orders of magnitude",
+          "viz": {
+            "nodes": [
+              {
+                "id": "cpu",
+                "label": "CPU",
+                "col": 0
+              },
+              {
+                "id": "l1",
+                "label": "L1 cache",
+                "sub": "~1ns",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "ram",
+                "label": "RAM",
+                "sub": "~100ns",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "cpu",
+                "to": "l1"
+              },
+              {
+                "from": "l1",
+                "to": "ram"
+              }
+            ]
+          },
+          "body": "Your CPU's L1 cache answers in roughly 1 nanosecond. Main memory — RAM, the thing we all call fast — takes roughly 100. That isn't 'a bit slower', it's about 100 times slower. And the ladder keeps descending: SSD, then the network, then another continent. Each step down is a cliff rather than a slope.",
+          "note": "Treat these as orders of magnitude, not measurements — hardware moves, the ratios barely do. Nobody cares whether RAM is 80ns or 120ns. Everybody should care that it's ~100 L1 hits."
+        },
+        {
           "id": "lat-2-1",
           "type": "multiple_choice",
           "prompt": "Roughly how much slower is reading from main memory (RAM) than from the CPU's L1 cache?",
@@ -207,6 +253,13 @@
       "id": "lat-3",
       "title": "The average is a lie",
       "exercises": [
+        {
+          "id": "lat-3-0",
+          "type": "concept",
+          "title": "An average is a number that describes nobody",
+          "body": "An average answers 'what happened overall'. Nobody experiences overall. If most requests are quick and a few are dreadful, the arithmetic quietly buries the dreadful ones — divide one horrible request across thousands of fast ones and it vanishes. So measure *percentiles* instead: p50 is the middle request, p99 is the one slower than 99% of the rest.",
+          "note": "And the tail isn't random. Your p99 usually belongs to your heaviest users — most data, longest history, most friends — so the worst of your system lands on the people most invested in it."
+        },
         {
           "id": "lat-3-1",
           "type": "multiple_choice",
@@ -315,6 +368,48 @@
       "id": "lat-4",
       "title": "When the system gets busy",
       "exercises": [
+        {
+          "id": "lat-4-0",
+          "type": "concept",
+          "title": "A busy server doesn't work slower — you just wait longer for your turn",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Requests",
+                "sub": "arriving",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "q",
+                "label": "The queue",
+                "sub": "wait time",
+                "col": 1,
+                "kind": "queue"
+              },
+              {
+                "id": "s",
+                "label": "Server",
+                "sub": "work time",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "q"
+              },
+              {
+                "from": "q",
+                "to": "s"
+              }
+            ]
+          },
+          "body": "Latency is two things added together: the time a request spends *working*, and the time it spends *waiting in line*. A supermarket till doesn't scan groceries any slower at 6pm — the queue is just longer. Servers are tills. So when a system is nearly saturated, the work per request hasn't changed at all; the extra time your users feel is queue.",
+          "note": "Which is why nobody sane runs a server at 100% utilization. That spare capacity isn't waste — it's what keeps the line short. Headroom you never use is what you buy instead of waiting."
+        },
         {
           "id": "lat-4-1",
           "type": "multiple_choice",

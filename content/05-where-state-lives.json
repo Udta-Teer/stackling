@@ -15,6 +15,47 @@
       "title": "State is the hard part",
       "exercises": [
         {
+          "id": "state-1-0",
+          "type": "concept",
+          "title": "Whatever you'd lose by restarting every server at once — that's your state",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Your app",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "label": "Image resizer",
+                "sub": "no memory",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Profile store",
+                "sub": "holds data",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "r"
+              },
+              {
+                "from": "a",
+                "to": "p"
+              }
+            ]
+          },
+          "body": "Some code only transforms: same input tomorrow, same answer, nothing kept in between. That's compute, and it's the easy kind — run a hundred copies, kill any of them, nobody notices, because no copy has to agree with any other. *State* is the opposite: data the system must remember. Copies of it have to agree, and that is where the hard problems live.",
+          "note": "Watch what falls out of 'remembers nothing': you can deploy it mid-traffic, autoscale it at 3am, kill it at random, run it on hardware that vanishes without warning. Disposability is the whole prize."
+        },
+        {
           "id": "state-1-1",
           "type": "multiple_choice",
           "prompt": "You have two services: one resizes images (input in, output out, remembers nothing) and one stores user profiles. Which is trivially easy to run as 100 copies?",
@@ -113,6 +154,59 @@
       "id": "state-2",
       "title": "The places state can live",
       "exercises": [
+        {
+          "id": "state-2-0",
+          "type": "concept",
+          "title": "State has to live somewhere, and every somewhere charges a different price",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "untrusted",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "App server",
+                "sub": "volatile",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "ca",
+                "label": "Shared cache",
+                "sub": "fast, shared",
+                "col": 2,
+                "kind": "cache"
+              },
+              {
+                "id": "db",
+                "label": "Database",
+                "sub": "durable",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "s"
+              },
+              {
+                "from": "s",
+                "to": "ca"
+              },
+              {
+                "from": "s",
+                "to": "db"
+              }
+            ]
+          },
+          "body": "There are only a handful of places state can go, each with a personality. The client, in a cookie or token: travels with the user, and the user can edit it. Server RAM: fastest, and gone the moment the process restarts. A shared cache: fast, visible to every server, usually volatile. A database on disk: durable, authoritative, slowest of the four.",
+          "note": "Read the list again and notice what's missing: no single place is fast *and* durable *and* shared *and* trustworthy. Choosing where state lives always means deciding which of those you can do without."
+        },
         {
           "id": "state-2-1",
           "type": "multiple_choice",
@@ -213,6 +307,47 @@
       "title": "Copies and the truth",
       "exercises": [
         {
+          "id": "state-3-0",
+          "type": "concept",
+          "title": "Every copy is a copy of something allowed to change without telling it",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "c",
+                "label": "Cache",
+                "sub": "may be stale",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "the truth",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "c"
+              },
+              {
+                "from": "a",
+                "to": "d"
+              }
+            ]
+          },
+          "body": "Give one piece of data two homes and they stop being the same thing. One is the *source of truth* — the copy that wins any argument, by definition. Everything else is derived: a cache, a replica, a search index. Derived copies exist to be fast, and they can be rebuilt from the truth. What they can't do is notice, unaided, that the truth moved on.",
+          "note": "In a design review the sharpest question you can ask is 'which of these is the source of truth?' Surprisingly often nobody knows — and that ambiguity is precisely where the worst bugs live."
+        },
+        {
           "id": "state-3-1",
           "type": "multiple_choice",
           "prompt": "The moment you cache a value so it exists in two places, what problem have you created?",
@@ -306,6 +441,13 @@
       "id": "state-4",
       "title": "Deciding where state goes",
       "exercises": [
+        {
+          "id": "state-4-0",
+          "type": "concept",
+          "title": "Where state lives is decided by what you promised, not by what's fastest",
+          "body": "Two questions settle nearly every placement. *If we lost this right now, what breaks?* — that sets how durable it has to be. *Who else needs to read it?* — that sets how shared it has to be. Answer both and the place picks itself. Notice that neither question is technical: they're about the promise you made, and the technology is just what keeps it.",
+          "note": "Run it on two examples. A computed value you can recalculate, that nobody else reads? Local memory, perfect. A payment record? Durable, replicated, shared. Same question, opposite answers."
+        },
         {
           "id": "state-4-1",
           "type": "multiple_choice",

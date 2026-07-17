@@ -15,6 +15,13 @@
       "title": "The timeout you can't interpret",
       "exercises": [
         {
+          "id": "idem-1-0",
+          "type": "concept",
+          "title": "A timeout tells you that you stopped waiting — nothing about what the server did",
+          "body": "You `POST` a payment. Nothing comes back. The request may never have arrived. Or it arrived, charged the card, and its reply died on the way home. From where you stand these look *exactly* the same. So you get a choice of mistakes: retry and maybe charge twice, or don't and maybe charge nobody.",
+          "note": "Idempotency dissolves the choice rather than answering it. Make a repeat harmless and you can always retry — \"did it happen?\" stops being a question you need answered."
+        },
+        {
           "id": "idem-1-1",
           "type": "multiple_choice",
           "prompt": "You POST a payment. The request times out. Did the charge happen?",
@@ -103,6 +110,13 @@
       "id": "idem-2",
       "title": "What's already safe",
       "exercises": [
+        {
+          "id": "idem-2-0",
+          "type": "concept",
+          "title": "An operation that names a final state repeats harmlessly; one that names a change does not",
+          "body": "\"Set the balance to 100\" can run five times and the balance is 100. \"Add 50\" runs five times and you're at 250. Absolute intents don't care what came before, so repetition is free; relative and creative intents compound. That's the whole split: `GET`, `PUT` and `DELETE` name an end state, and `POST` makes something new each call.",
+          "note": "*Atomic* and *idempotent* are different words. `UPDATE balance = balance - 10` is perfectly atomic — nothing can interleave with it — and running it twice still takes 20."
+        },
         {
           "id": "idem-2-1",
           "type": "match_pairs",
@@ -203,6 +217,13 @@
       "title": "Idempotency keys",
       "exercises": [
         {
+          "id": "idem-3-0",
+          "type": "concept",
+          "title": "An idempotency key names the *intent*, so every retry of one charge arrives under the same name",
+          "body": "The client mints a unique key before its first attempt and reuses it on every retry of that same intent. The server's first move — before any work — is to insert that key atomically, insert-if-absent. Win the insert: do the work, then store the result under the key. Lose it: the key is already claimed, so return what's stored.",
+          "note": "Look the key up and *then* decide, and you've written check-then-act. Two simultaneous retries both look, both find nothing, both charge. The store's unique constraint must pick the winner — not your `if`."
+        },
+        {
           "id": "idem-3-1",
           "type": "multiple_choice",
           "prompt": "`POST /payments` genuinely creates a charge. How do you make retrying it safe?",
@@ -286,6 +307,56 @@
       "id": "idem-4",
       "title": "The boundaries",
       "exercises": [
+        {
+          "id": "idem-4-0",
+          "type": "concept",
+          "title": "Idempotency covers exactly what the key covers, and not one thing more",
+          "viz": {
+            "nodes": [
+              {
+                "id": "s",
+                "label": "Payment API",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "k",
+                "label": "Key + result",
+                "sub": "covered",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "e",
+                "label": "Email",
+                "sub": "not covered",
+                "col": 1
+              },
+              {
+                "id": "x",
+                "label": "Stripe call",
+                "sub": "not covered",
+                "col": 1
+              }
+            ],
+            "edges": [
+              {
+                "from": "s",
+                "to": "k"
+              },
+              {
+                "from": "s",
+                "to": "e"
+              },
+              {
+                "from": "s",
+                "to": "x"
+              }
+            ]
+          },
+          "body": "You deduplicated the charge. The confirmation email was never in the deal. A retry re-runs every side effect living outside the key's record — the email, the third-party call, the event you published. Your database can be spotless while the customer reads two receipts and a downstream service does the work twice.",
+          "note": "Anything that leaves your database can't be rolled back; the world remembers. Each side effect is its own promise: fire it once from the stored result, or hand it a key of its own."
+        },
         {
           "id": "idem-4-1",
           "type": "multiple_choice",

@@ -15,6 +15,49 @@
       "title": "A promise about reads",
       "exercises": [
         {
+          "id": "cm-1-0",
+          "type": "concept",
+          "title": "A consistency model is a contract about what a read may return — not a quality setting",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Your read",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Replica A",
+                "sub": "has the write",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "b",
+                "label": "Replica B",
+                "sub": "not yet",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "a",
+                "dash": true
+              },
+              {
+                "from": "r",
+                "to": "b",
+                "dash": true
+              }
+            ]
+          },
+          "body": "Put data on more than one machine and the copies disagree for a while. Your read lands on one of them. A consistency model is the rulebook for that gap: it states exactly which values a read is *allowed* to come back with. *Strong* forbids nearly every surprise. *Eventual* forbids almost nothing. Both are contracts, not quality levels.",
+          "note": "So \"stronger\" never means \"more correct\" — it means fewer legal surprises, bought with a coordination round trip on every operation, and paid for again during a partition by refusing to answer at all."
+        },
+        {
           "id": "cm-1-1",
           "type": "multiple_choice",
           "prompt": "What is a consistency model, at bottom?",
@@ -98,6 +141,13 @@
       "id": "cm-2",
       "title": "The useful middle",
       "exercises": [
+        {
+          "id": "cm-2-0",
+          "type": "concept",
+          "title": "Between strong and eventual sits a menu of narrow promises, each forbidding one specific insult",
+          "body": "Strong and eventual are only the two ends. The useful guarantees live between them and each bans exactly one anomaly. *Read-your-writes*: you always see your own writes. *Monotonic reads*: your view never moves backwards. *Consistent prefix*: you never see an effect before its cause. Everything else stays legal — which is why they are cheap.",
+          "note": "Users never ask for these by name. They say \"my comment vanished\", \"the count went down\", \"there's a reply to a message I can't see\" — three complaints, three different missing promises."
+        },
         {
           "id": "cm-2-1",
           "type": "multiple_choice",
@@ -194,6 +244,13 @@
       "title": "Reading the complaint",
       "exercises": [
         {
+          "id": "cm-3-0",
+          "type": "concept",
+          "title": "Users report symptoms, and the clue that names the bug is usually *whose* read it was",
+          "body": "Nobody files a ticket saying \"read-your-writes is missing\". They say: \"my photo still shows the old one — but my friend can see the new one.\" That second clause is the diagnosis. The write landed and spread, so nothing is broken except which replica *their own* read hit. Read every complaint for who saw what, and when.",
+          "note": "Rule out latency first. Stale is wrong-but-fast; slow is right-but-late. In a ticket they read identically — \"the site is bad\" — and they need opposite fixes."
+        },
+        {
           "id": "cm-3-1",
           "type": "multiple_choice",
           "prompt": "A user says 'I changed my profile photo and it still shows the old one, but my friend can see the new one.' Diagnosis?",
@@ -281,6 +338,13 @@
       "id": "cm-4",
       "title": "Choosing a model",
       "exercises": [
+        {
+          "id": "cm-4-0",
+          "type": "concept",
+          "title": "`W + R > N` buys you overlap, and overlap is not strong consistency",
+          "body": "A key lives on `N` replicas. A write waits for `W` of them to acknowledge it; a read asks `R` of them. If `W + R > N` the two sets *cannot* be disjoint — pigeonhole — so at least one replica you read holds the newest completed write. That is the entire guarantee: a fresh copy is somewhere in your read set.",
+          "note": "It does not tell you which of the returned values is newest, does not resolve a write still in flight, and is not linearizability. That needs a leader or consensus — unit 20. Arithmetic alone won't buy it."
+        },
         {
           "id": "cm-4-1",
           "type": "multiple_choice",

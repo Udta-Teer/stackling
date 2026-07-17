@@ -15,6 +15,69 @@
       "title": "Work the user shouldn't wait for",
       "exercises": [
         {
+          "id": "mq-1-0",
+          "type": "concept",
+          "title": "Anything your handler does before it responds is time the user spends watching a spinner",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "API Server",
+                "col": 1,
+                "kind": "server",
+                "sub": "~25ms"
+              },
+              {
+                "id": "q",
+                "label": "Queue",
+                "col": 2,
+                "kind": "queue",
+                "sub": "send email"
+              },
+              {
+                "id": "w",
+                "label": "Worker",
+                "col": 3,
+                "kind": "server",
+                "sub": "~2s, later"
+              },
+              {
+                "id": "e",
+                "label": "Email API",
+                "col": 4,
+                "kind": "server",
+                "sub": "3rd party"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "s"
+              },
+              {
+                "from": "s",
+                "to": "q"
+              },
+              {
+                "from": "q",
+                "to": "w"
+              },
+              {
+                "from": "w",
+                "to": "e"
+              }
+            ]
+          },
+          "body": "A handler runs top to bottom, and every line finishes before the response is sent. Create the account (20ms), call the email provider (2s), respond — the user waits for all of it, including work they will never look at. A queue breaks the chain: write down *send this email*, respond now, let a separate worker do it later.",
+          "note": "The catch arrives with the speed. You answered `200 OK` when the email was merely *scheduled*, so if it fails an hour later the user has already been told it worked, and the failure has nowhere to go."
+        },
+        {
           "id": "mq-1-1",
           "type": "multiple_choice",
           "prompt": "A user signs up. Your handler creates the account (20ms), then sends a welcome email via a third-party API (2 seconds). How long do they stare at a spinner?",
@@ -102,6 +165,67 @@
       "id": "mq-2",
       "title": "Decoupling and buffering",
       "exercises": [
+        {
+          "id": "mq-2-0",
+          "type": "concept",
+          "title": "The message belongs to the queue until a worker says it's done",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Producer",
+                "col": 0,
+                "kind": "server",
+                "sub": "API server"
+              },
+              {
+                "id": "q",
+                "label": "Queue",
+                "col": 1,
+                "kind": "queue",
+                "sub": "durable"
+              },
+              {
+                "id": "w1",
+                "label": "Worker 1",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "w2",
+                "label": "Worker 2",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "w3",
+                "label": "Worker 3",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "q"
+              },
+              {
+                "from": "q",
+                "to": "w1"
+              },
+              {
+                "from": "q",
+                "to": "w2"
+              },
+              {
+                "from": "q",
+                "to": "w3"
+              }
+            ]
+          },
+          "body": "The *producer* puts a message on the queue and moves on. The queue stores it durably. A *consumer* — a worker — pulls it off, does the work, then sends an *acknowledgement*: done, delete it. Until that ack arrives the message is still the queue's problem, which is why a worker dying mid-job doesn't lose the work.",
+          "note": "A queue absorbs a *spike* because a burst ends and the workers catch up. If arrivals beat your workers on average, the same queue quietly hides a deficit instead — a backlog growing for six hours was never a burst."
+        },
         {
           "id": "mq-2-1",
           "type": "match_pairs",
@@ -198,6 +322,13 @@
       "title": "Delivery guarantees",
       "exercises": [
         {
+          "id": "mq-3-0",
+          "type": "concept",
+          "title": "The queue can't tell 'the work is done' apart from 'the ack got lost' — so it sends the message again",
+          "body": "A worker acks to say *done, delete it*. If no ack arrives, the queue cannot know whether the worker died before the work or after it — from outside, those are identical. So it redelivers. That is *at-least-once*: nothing is lost, and some things happen twice. Acking first doesn't fix it; it just trades duplicates for losses.",
+          "note": "'Exactly-once' is about *effects*: at-least-once plus a consumer safe to run twice. The idempotency key must travel to whoever performs the side effect — a dedup table beside the work is a second write that can fail."
+        },
+        {
           "id": "mq-3-1",
           "type": "multiple_choice",
           "prompt": "A worker finishes the job, then crashes before sending its acknowledgement. What happens to that message?",
@@ -292,6 +423,63 @@
       "id": "mq-4",
       "title": "The hard parts",
       "exercises": [
+        {
+          "id": "mq-4-0",
+          "type": "concept",
+          "title": "The queue is ordered; your workers are not",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Queue",
+                "col": 0,
+                "kind": "queue",
+                "sub": "A, then B"
+              },
+              {
+                "id": "w1",
+                "label": "Worker 1",
+                "col": 1,
+                "kind": "server",
+                "sub": "takes A"
+              },
+              {
+                "id": "w2",
+                "label": "Worker 2",
+                "col": 1,
+                "kind": "server",
+                "sub": "takes B"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "col": 2,
+                "kind": "db",
+                "sub": "ends at A"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "w1"
+              },
+              {
+                "from": "q",
+                "to": "w2"
+              },
+              {
+                "from": "w1",
+                "to": "d"
+              },
+              {
+                "from": "w2",
+                "to": "d"
+              }
+            ]
+          },
+          "body": "Even a queue that hands messages out in order loses that order the instant two workers run at once. *Set email to A* and *set email to B* get pulled a millisecond apart by different workers, and whichever writes last wins. The older value can be the one that sticks — permanently, with no error anywhere to tell you.",
+          "note": "The fix isn't 'add ordering', it's *partition by key*: route every message for one user to one partition read by one worker. That user's messages stay in order while different users still run in parallel."
+        },
         {
           "id": "mq-4-1",
           "type": "multiple_choice",

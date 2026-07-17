@@ -338,6 +338,48 @@
       "exercises": [
         {
           "id": "cache-3-0",
+          "type": "concept",
+          "title": "Your database only ever sees the misses",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App Servers",
+                "sub": "10k req/s",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "Cache",
+                "sub": "9.5k hits",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "500 misses",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "c"
+              },
+              {
+                "from": "a",
+                "to": "d"
+              }
+            ]
+          },
+          "body": "A cache doesn't reduce traffic, it absorbs part of it. 10,000 reads a second at a 95% hit rate means 9,500 answered from memory and 500 forwarded on. So the load arriving at your database is set by the *miss* rate and nothing else — and *is my cache good enough* is really one question: is the leftover small enough for whatever is behind it?",
+          "note": "That's also the eviction problem in a sentence. The cache is finite, so it lives permanently deciding what to forget, and every thing it forgets wrongly becomes one more request the database has to answer."
+        },
+        {
+          "id": "cache-3-sim",
           "type": "simulate",
           "prompt": "Read traffic is 20,000 req/s. Your database tops out at 2,000 req/s before it falls over. Drag the hit rate to the *lowest* setting that keeps it alive.",
           "viz": {
@@ -357,7 +399,7 @@
               {
                 "id": "db",
                 "label": "Database",
-                "col": 2,
+                "col": 1,
                 "kind": "db"
               }
             ],
@@ -367,8 +409,9 @@
                 "to": "cache"
               },
               {
-                "from": "cache",
-                "to": "db"
+                "from": "a",
+                "to": "db",
+                "dash": true
               }
             ]
           },
@@ -508,6 +551,69 @@
       "id": "cache-4",
       "title": "The hard parts",
       "exercises": [
+        {
+          "id": "cache-4-0",
+          "type": "concept",
+          "title": "Invalidation is hard because nothing tells you which keys a change touched",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "One price changes",
+                "sub": "1 write",
+                "col": 0
+              },
+              {
+                "id": "k1",
+                "label": "Product page",
+                "sub": "now stale",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "k2",
+                "label": "Category list",
+                "sub": "now stale",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "k3",
+                "label": "Search result",
+                "sub": "now stale",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "k4",
+                "label": "Homepage deals",
+                "sub": "now stale",
+                "col": 1,
+                "kind": "cache"
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "k1"
+              },
+              {
+                "from": "w",
+                "to": "k2"
+              },
+              {
+                "from": "w",
+                "to": "k3"
+              },
+              {
+                "from": "w",
+                "to": "k4"
+              }
+            ]
+          },
+          "body": "Deleting a key takes a millisecond. The hard part is the question before it: one product's price changing might invalidate the product page, three category listings, a search result, and a homepage module — and nothing in your system knows that list. It lives in your head, it was written once, and it is already out of date.",
+          "note": "And the failure is silent. A missed invalidation raises no error and appears in no log — it just serves a wrong answer, confidently, until something else happens to evict it. Bugs that page you are the easy ones."
+        },
         {
           "id": "cache-4-1",
           "type": "multiple_choice",

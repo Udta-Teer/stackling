@@ -15,6 +15,72 @@
       "title": "Two ways to grow",
       "exercises": [
         {
+          "id": "scale-1-0",
+          "type": "concept",
+          "title": "There are exactly two ways to make a system bigger",
+          "viz": {
+            "nodes": [
+              {
+                "id": "now",
+                "label": "Your Server",
+                "sub": "at capacity",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "up",
+                "label": "One Bigger Server",
+                "sub": "scale up",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "o1",
+                "label": "Server",
+                "sub": "scale out",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "o2",
+                "label": "Server",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "o3",
+                "label": "Server",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "now",
+                "to": "up",
+                "dash": true
+              },
+              {
+                "from": "now",
+                "to": "o1",
+                "dash": true
+              },
+              {
+                "from": "now",
+                "to": "o2",
+                "dash": true
+              },
+              {
+                "from": "now",
+                "to": "o3",
+                "dash": true
+              }
+            ]
+          },
+          "body": "One server, out of room. You get two moves. Replace it with a bigger machine — more cores, more RAM, still one box — and that's *vertical* scaling, or scaling up. Run more copies of the machine you already have and that's *horizontal* scaling, or scaling out. Same goal, opposite work: scaling up is a purchase, scaling out is a redesign.",
+          "note": "The words trip people up because both just mean *more*. Up = the machine grew. Out = the count grew. One of those you can do this afternoon; the other changes how you write software permanently."
+        },
+        {
           "id": "scale-1-1",
           "type": "multiple_choice",
           "prompt": "Your server is at capacity. Option A: replace it with a machine that has 4× the CPU and RAM. Option B: run 4 copies of the machine you already have. What are these called?",
@@ -114,6 +180,59 @@
       "title": "Why vertical runs out",
       "exercises": [
         {
+          "id": "scale-2-0",
+          "type": "concept",
+          "title": "Vertical scaling doesn't die of price — it dies because there is a biggest machine",
+          "viz": {
+            "nodes": [
+              {
+                "id": "s1",
+                "label": "Server",
+                "sub": "2 vCPU",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "s2",
+                "label": "Bigger",
+                "sub": "8 vCPU",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "s3",
+                "label": "Biggest",
+                "sub": "96 vCPU",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "w",
+                "label": "Nothing larger to buy",
+                "sub": "the ceiling",
+                "col": 3
+              }
+            ],
+            "edges": [
+              {
+                "from": "s1",
+                "to": "s2"
+              },
+              {
+                "from": "s2",
+                "to": "s3"
+              },
+              {
+                "from": "s3",
+                "to": "w",
+                "dash": true
+              }
+            ]
+          },
+          "body": "Folklore says twice the machine costs more than twice the money. Inside a mainstream cloud family it doesn't: AWS `m5` charges about the same per vCPU at `m5.large` as at `m5.24xlarge`, so 2× the size is roughly 2× the bill. What actually runs out is the range — there is a largest instance, and you can reach it.",
+          "note": "A price premium is real at the top specialty tiers, but that's the same place the ceiling is, so it's a late argument for scaling out, not an early one. Paying for a peak you're idle through at 3am bites at any size."
+        },
+        {
           "id": "scale-2-1",
           "type": "multiple_choice",
           "prompt": "Folklore says a machine with twice the cores costs more than twice as much. Is that true today?",
@@ -212,6 +331,57 @@
       "id": "scale-3",
       "title": "What horizontal demands",
       "exercises": [
+        {
+          "id": "scale-3-0",
+          "type": "concept",
+          "title": "Horizontal scaling assumes your machines are interchangeable",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "label": "Load Balancer",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "has session",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "no session",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "lb"
+              },
+              {
+                "from": "lb",
+                "to": "a"
+              },
+              {
+                "from": "lb",
+                "to": "b"
+              }
+            ]
+          },
+          "body": "A second server only helps if either machine can serve any request. That holds right up until something a user needs exists on only one box — their session in local memory, their upload on local disk. Now half their requests land on a stranger. The machines aren't interchangeable, and *add another box* quietly stops working.",
+          "note": "Which is why 1 → 2 is the hardest scaling step there is, and it's the first one. Every assumption you made about there being one machine surfaces at once, and nobody ever wrote them down. 2 → 200 is boring after it."
+        },
         {
           "id": "scale-3-1",
           "type": "multiple_choice",
@@ -352,6 +522,13 @@
       "id": "scale-4",
       "title": "Choosing, honestly",
       "exercises": [
+        {
+          "id": "scale-4-0",
+          "type": "concept",
+          "title": "Scale up until you have a named reason not to",
+          "body": "Scaling up is a config change you can undo this afternoon. Scaling out is a one-way door: split the work across machines and every bug becomes a distributed bug, every local test needs the whole cast running. That complexity bills you daily. The scale it buys arrives someday, maybe. Take the reversible option until evidence says you can't.",
+          "note": "Three reasons qualify, and they're real: you're near the largest machine, your uptime target needs a second box, or traffic is spiky enough that paying for peak around the clock hurts. *We read an article* isn't one."
+        },
         {
           "id": "scale-4-1",
           "type": "multiple_choice",

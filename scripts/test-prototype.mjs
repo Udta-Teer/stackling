@@ -47,6 +47,22 @@ const jump = async (u, l, e) => {
   await page.evaluate(([u,l,e]) => { uidx=u; UNIT=COURSE[u]; bootUnits(); boot(); startLesson(l); idx=e; render(); }, [u,l,e]);
   await page.waitForTimeout(200);
 };
+// Address exercises by their stable id, never by position: inserting one
+// concept card shifts every index in the lesson and silently retargets the test.
+const jumpTo = async (exId) => {
+  await page.goto(FILE + '#review');
+  await page.waitForTimeout(250);
+  const found = await page.evaluate((exId) => {
+    for (let u = 0; u < COURSE.length; u++)
+      for (let l = 0; l < COURSE[u].lessons.length; l++) {
+        const i = COURSE[u].lessons[l].exercises.findIndex(e => e.id === exId);
+        if (i >= 0) { uidx=u; UNIT=COURSE[u]; bootUnits(); boot(); startLesson(l); idx=i; render(); return true; }
+      }
+    return false;
+  }, exId);
+  await page.waitForTimeout(220);
+  return found;
+};
 
 
 console.log('\n── page boots over file:// ──');
@@ -58,7 +74,7 @@ is(await page.locator('#unittabs .utab').count() === nUnits, `all ${nUnits} unit
 
 // The bug the user reported: options containing code spans shattered into columns.
 console.log('\n── the reported bug: option B on unit 2 ──');
-await jump(1, 3, 4);   // unit 2 / lesson 4 / the avatar exercise
+is(await jumpTo('csh-4-5'), 'found the avatar exercise by id');
 const promptTxt = await page.locator('#stage .prompt').textContent();
 is(promptTxt.includes('avatar'), 'reached the avatar exercise');
 const bBox = await page.locator('#stage .choice').nth(1).boundingBox();
@@ -72,7 +88,7 @@ const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
 is(scrollW <= 430, `page does not scroll sideways at 430px (scrollWidth ${scrollW})`);
 
 console.log('\n── concept card (unit 13, lesson 1) ──');
-await jump(12, 0, 0);
+await jumpTo('cache-1-0');
 is((await page.locator('#stage .kicker').textContent()) === 'Concept', 'first card is flagged as Concept');
 is((await page.locator('.cbody').count()) === 1, 'concept body renders');
 is((await page.locator('.viz .vn').count()) === 3, 'concept carries a 3-node diagram');
@@ -95,7 +111,7 @@ const heartsAfter = await page.locator('#hearts').textContent();
 is(heartsAfter === '∞', 'review mode still on after concept card');
 
 console.log('\n── simulate (unit 13, lesson 3) ──');
-await jump(12, 2, 0);
+await jumpTo('cache-3-sim');
 is((await page.locator('input[type=range]').count()) === 1, 'simulate renders a slider');
 const dbLoad = async () => (await page.locator('.vn[data-id="db"] .sub').textContent());
 const melting = async () => (await page.locator('.vn[data-id="db"]').getAttribute('class')).includes('melt');
@@ -121,7 +137,7 @@ await page.waitForTimeout(150);
 is((await page.locator('.feedback').getAttribute('class')).includes('ok'), '90% grades as correct');
 
 console.log('\n── build_diagram: real drag and drop (unit 13, lesson 2) ──');
-await jump(12, 1, 5);   // the upgraded 2-hole diagram
+await jumpTo('cache-2-5');   // the upgraded 2-hole diagram
 is((await page.locator('.vn.hole').count()) === 2, 'the upgraded diagram has 2 holes (was 1)');
 is((await page.locator('.chip.drag').count()) === 4, '4 draggable components (was 3)');
 is(await page.locator('#action').isDisabled(), 'Check is disabled until every hole is filled');
@@ -154,15 +170,53 @@ is((await page.locator('.feedback').getAttribute('class')).includes('ok'), 'Cach
 is((await page.locator('.vn[data-id="h1"]').getAttribute('class')).includes('ok'), 'correct hole marked green');
 
 console.log('\n── wrong order must fail (the ordering IS the lesson) ──');
-await jump(12, 1, 5);   // the upgraded 2-hole diagram
+await jumpTo('cache-2-5');   // the upgraded 2-hole diagram
 await drag('Database', 0);
 await drag('Cache', 1);
 await page.locator('#action').click();
 await page.waitForTimeout(150);
 is((await page.locator('.feedback').getAttribute('class')).includes('bad'), 'Database→Cache grades WRONG (cache must come first)');
 
+
+console.log('\n── the ramp and the stairs: concept cards on/off ──');
+await page.goto(FILE + '#review'); await page.waitForTimeout(250);
+// default must be ON — the beginner never has to find a setting to be taught
+is(await page.evaluate(()=>teach) === true, 'concept cards are ON by default');
+await jumpTo('cache-1-0');
+is((await page.locator('#stage .kicker').textContent()) === 'Concept', 'lesson opens on a concept card');
+is((await page.locator('#cskip').count()) === 1, 'the card offers a one-tap way out');
+
+// the stairs: one tap skips this card AND all future ones
+await page.locator('#cskip').click();
+await page.waitForTimeout(200);
+is(await page.evaluate(()=>teach) === false, 'skip turns concept cards off');
+is((await page.locator('#stage .kicker').textContent()) !== 'Concept', 'skip advanced past the card');
+await page.evaluate(()=>{ uidx=12; UNIT=COURSE[12]; startLesson(1); });
+await page.waitForTimeout(200);
+is((await page.locator('#stage .kicker').textContent()) !== 'Concept',
+   'a later lesson also opens straight on a question now');
+
+// reversible from the header, or the toggle is a trap
+await page.locator('#teachbtn').click(); await page.waitForTimeout(200);
+is(await page.evaluate(()=>teach) === true, 'header toggle brings them back');
+await page.evaluate(()=>{ uidx=12; UNIT=COURSE[12]; startLesson(1); });
+await page.waitForTimeout(200);
+is((await page.locator('#stage .kicker').textContent()) === 'Concept', 'teaching restored on the next lesson');
+
+// the preference must survive a reload — that's what makes it a preference
+await page.locator('#cskip').click(); await page.waitForTimeout(150);
+await page.reload(); await page.waitForTimeout(400);
+is(await page.evaluate(()=>teach) === false, 'the choice survives a reload');
+is((await page.locator('#unittabs .utab').count()) > 0, 'and the page still boots (localStorage is guarded)');
+await page.evaluate(()=>setTeach(true));
+
+console.log('\n── counters count questions, not cards ──');
+await jumpTo('cache-1-1');
+const k = await page.locator('#stage .kicker').textContent();
+is(/1\/\d+/.test(k), `first QUESTION reads as 1/n, not 2/n (got "${k}")`);
+
 console.log('\n── legacy types still work ──');
-await jump(0, 0, 0);
+await jumpTo('hiw-1-1');
 await page.locator('#stage .choice').first().click();
 await page.locator('#action').click();
 await page.waitForTimeout(120);

@@ -15,6 +15,13 @@
       "title": "All or nothing",
       "exercises": [
         {
+          "id": "txn-1-0",
+          "type": "concept",
+          "title": "Half a transfer is worse than no transfer",
+          "body": "Subtract $100 from A. Add $100 to B. Two writes that are only correct together. Crash between them and $100 has left the world — no error, no log line, and neither account can tell by looking. A *transaction* is the answer: wrap both writes in `BEGIN` … `COMMIT` and the pair becomes indivisible. All of it happens, or none of it does.",
+          "note": "That all-or-nothing property is *atomicity*, the A in ACID, and it's the one with no middle setting. There is no \"partly atomic\" — either the whole unit landed, or the database acts as though you never asked."
+        },
+        {
           "id": "txn-1-1",
           "type": "multiple_choice",
           "prompt": "Transfer $100: subtract from account A, then add to account B. The server crashes between the two steps. What happened?",
@@ -98,6 +105,13 @@
       "id": "txn-2",
       "title": "ACID, honestly",
       "exercises": [
+        {
+          "id": "txn-2-0",
+          "type": "concept",
+          "title": "ACID is four unrelated promises wearing one acronym",
+          "body": "*Atomicity*: the whole unit lands or none of it does. *Consistency*: the constraints you declared — `UNIQUE`, foreign keys, checks — still hold. *Isolation*: what concurrent transactions can see of each other's unfinished work. *Durability*: once committed, it survives a crash. Four separate promises. The acronym flatters them into a set.",
+          "note": "Two of them are dials you can turn down: isolation has levels, and durability has switches like `synchronous_commit`. Atomicity has no setting at all, and C is mostly your own declared constraints doing the work."
+        },
         {
           "id": "txn-2-1",
           "type": "match_pairs",
@@ -201,6 +215,55 @@
       "title": "Isolation is a dial",
       "exercises": [
         {
+          "id": "txn-3-0",
+          "type": "concept",
+          "title": "Your database is running a weaker isolation level than you think it is",
+          "viz": {
+            "nodes": [
+              {
+                "id": "ru",
+                "label": "Read Uncommitted",
+                "sub": "weakest",
+                "col": 0
+              },
+              {
+                "id": "rc",
+                "label": "Read Committed",
+                "sub": "PG default",
+                "col": 1
+              },
+              {
+                "id": "rr",
+                "label": "Repeatable Read",
+                "sub": "MySQL dflt",
+                "col": 2
+              },
+              {
+                "id": "s",
+                "label": "Serializable",
+                "sub": "strongest",
+                "col": 3
+              }
+            ],
+            "edges": [
+              {
+                "from": "ru",
+                "to": "rc"
+              },
+              {
+                "from": "rc",
+                "to": "rr"
+              },
+              {
+                "from": "rr",
+                "to": "s"
+              }
+            ]
+          },
+          "body": "Isolation decides what one transaction can see of another's unfinished work. Stronger rungs forbid more anomalies and cost more — more locking, more coordination, more transactions aborted and retried. So you get to pick. Postgres defaults to Read Committed, where each *statement* takes a fresh snapshot; MySQL's InnoDB defaults to Repeatable Read.",
+          "note": "And the names lie across engines: Postgres's \"Repeatable Read\" is really snapshot isolation, and Postgres quietly treats Read Uncommitted as Read Committed — you cannot get a dirty read out of it however hard you ask."
+        },
+        {
           "id": "txn-3-1",
           "type": "multiple_choice",
           "prompt": "Why don't databases just always use the strictest isolation?",
@@ -294,6 +357,13 @@
       "id": "txn-4",
       "title": "Transactions in the real world",
       "exercises": [
+        {
+          "id": "txn-4-0",
+          "type": "concept",
+          "title": "Two transactions can each be holding exactly what the other is waiting for",
+          "body": "Locks are one way a database keeps transactions out of each other's way: touch a row, hold it until commit. Now T1 holds row A and asks for B, while T2 holds B and asks for A. Neither can move and neither will let go. That's a *deadlock* — and real databases detect the cycle and kill one, so a transaction gets an error out of nowhere.",
+          "note": "It's a cycle, so you prevent it by never letting one form: take locks in a fixed order — always the lower account id first — and two transactions can't end up waiting on each other's tail."
+        },
         {
           "id": "txn-4-1",
           "type": "multiple_choice",

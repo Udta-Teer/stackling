@@ -15,6 +15,36 @@
       "title": "Distance is the enemy",
       "exercises": [
         {
+          "id": "cdn-1-0",
+          "type": "concept",
+          "title": "You cannot outrun the speed of light, so the only lever left is distance",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User (Sydney)",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "o",
+                "label": "Your Server (Virginia)",
+                "sub": "~200ms away",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "o"
+              }
+            ]
+          },
+          "body": "Your server in Virginia answers in 5ms. A user in Sydney still waits roughly 200ms, because their request crossed the Pacific and came back, and light in fibre has a fixed speed. No CPU upgrade touches that number. The only way to shorten the trip is to shorten the trip — keep a copy of the answer near the person asking for it.",
+          "note": "Sydney to Virginia is about 16,000 km. Light through fibre covers that in ~80ms one way, and real routes aren't straight lines — so ~200ms round trip is a floor you're paying before your code runs at all."
+        },
+        {
           "id": "cdn-1-1",
           "type": "multiple_choice",
           "prompt": "Your servers are in Virginia. A user in Sydney loads your site. Your server responds in 5ms. Why does the page still feel slow?",
@@ -110,6 +140,68 @@
       "title": "What belongs at the edge",
       "exercises": [
         {
+          "id": "cdn-2-0",
+          "type": "concept",
+          "title": "A CDN caches what many people want identically — file type has nothing to do with it",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u1",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "u2",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "u3",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "e",
+                "label": "Edge",
+                "sub": "1 copy",
+                "col": 1,
+                "kind": "cdn"
+              },
+              {
+                "id": "o",
+                "label": "Origin",
+                "sub": "only on miss",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u1",
+                "to": "e"
+              },
+              {
+                "from": "u2",
+                "to": "e"
+              },
+              {
+                "from": "u3",
+                "to": "e"
+              },
+              {
+                "from": "e",
+                "to": "o",
+                "dash": true
+              }
+            ]
+          },
+          "body": "Two questions decide it: do lots of people ask for the exact same bytes, and is being slightly out of date fine? Your logo passes both — one copy serves millions and nobody minds it's an hour old. A user's dashboard fails the first outright: an audience of one shares nothing, so there's nothing for a copy near them to save.",
+          "note": "*Static assets* is a rule of thumb that works only because images happen to be identical for everyone. An HTML page identical for every logged-out visitor caches beautifully; a personalized SVG can't cache at all."
+        },
+        {
           "id": "cdn-2-1",
           "type": "multiple_choice",
           "prompt": "Which of these is the easiest thing to serve from a CDN?",
@@ -197,6 +289,80 @@
       "id": "cdn-3",
       "title": "Getting rid of stale copies",
       "exercises": [
+        {
+          "id": "cdn-3-0",
+          "type": "concept",
+          "title": "A CDN is 300 copies of your mistake, held for exactly as long as you told them to hold it",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Users",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "e1",
+                "label": "Edge",
+                "sub": "24h stale",
+                "col": 1,
+                "kind": "cdn"
+              },
+              {
+                "id": "e2",
+                "label": "Edge",
+                "sub": "24h stale",
+                "col": 1,
+                "kind": "cdn"
+              },
+              {
+                "id": "e3",
+                "label": "Edge ×300",
+                "sub": "24h stale",
+                "col": 1,
+                "kind": "cdn"
+              },
+              {
+                "id": "o",
+                "label": "Origin",
+                "sub": "typo fixed",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "e1"
+              },
+              {
+                "from": "u",
+                "to": "e2"
+              },
+              {
+                "from": "u",
+                "to": "e3"
+              },
+              {
+                "from": "e1",
+                "to": "o",
+                "dash": true
+              },
+              {
+                "from": "e2",
+                "to": "o",
+                "dash": true
+              },
+              {
+                "from": "e3",
+                "to": "o",
+                "dash": true
+              }
+            ]
+          },
+          "body": "You told the edges `max-age=86400`, so they believe your file is fresh for 24 hours. Fix the typo at your origin and not one of them cares — nothing informs them. They serve the old bytes, confidently, all day. The copies aren't broken. They are doing precisely what you asked, on 300 machines you don't administer.",
+          "note": "Which leaves three exits, and only one is good: wait out the `TTL`, purge all 300 and trust the purge landed, or never have the problem — change the filename, because a name nobody has cached can't be stale."
+        },
         {
           "id": "cdn-3-1",
           "type": "multiple_choice",
@@ -292,6 +458,48 @@
       "title": "The hard parts",
       "exercises": [
         {
+          "id": "cdn-4-0",
+          "type": "concept",
+          "title": "A middling CDN hit ratio is almost never your traffic — it's something you did",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Users",
+                "sub": "100 req",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "e",
+                "label": "Edge",
+                "sub": "60 hits",
+                "col": 1,
+                "kind": "cdn"
+              },
+              {
+                "id": "o",
+                "label": "Origin",
+                "sub": "40 misses",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "e"
+              },
+              {
+                "from": "e",
+                "to": "o"
+              }
+            ]
+          },
+          "body": "For static assets, mature CDN setups sit far above 60%, so a middling ratio usually means the cache is being defeated rather than that your users are unusual. A unique `?t=1234` per URL makes every request a brand-new object. An over-broad `Vary` shatters one file into a copy per browser. A missing `Cache-Control` and many CDNs decline entirely.",
+          "note": "Read the miss column, not the hit column. Going 60% → 95% sounds like a tune-up and is really 40 origin fetches per 100 becoming 5 — an 8× cut in the exact load you bought the CDN to remove."
+        },
+        {
           "id": "cdn-4-1",
           "type": "multiple_choice",
           "prompt": "Your CDN reports a 60% cache hit ratio. Is that good?",
@@ -315,7 +523,7 @@
             "The file serves stale forever"
           ],
           "answer": 1,
-          "why": "Every edge independently discovers the copy expired and independently goes to fetch it, so your origin gets hit by a synchronized stampede for a file it thought the CDN was handling. The defenses are request coalescing at the edge (many waiting users, one origin fetch) and origin shielding, where a designated edge fronts the origin so the other 299 ask it instead."
+          "why": "Every edge independently discovers the copy expired and independently goes to fetch it, so your origin gets hit by a synchronized stampede for a file it thought the CDN was handling. The defenses come in two parts, and you need both. Request coalescing at the edge collapses many waiting users into one origin fetch — but that's one fetch *per edge*, so 300 edges still means 300 fetches. Origin shielding is what closes it: a designated edge fronts the origin, and the other 299 ask it instead."
         },
         {
           "id": "cdn-4-3",

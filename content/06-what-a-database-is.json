@@ -15,6 +15,46 @@
       "title": "Why not just use a file?",
       "exercises": [
         {
+          "id": "db-1-0",
+          "type": "concept",
+          "title": "A file stores your bytes and promises you nothing else",
+          "viz": {
+            "nodes": [
+              {
+                "id": "s1",
+                "label": "Signup A",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "s2",
+                "label": "Signup B",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "f",
+                "label": "`users.txt`",
+                "sub": "no lock",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "s1",
+                "to": "f"
+              },
+              {
+                "from": "s2",
+                "to": "f"
+              }
+            ]
+          },
+          "body": "You can store users in `users.txt` — one line per signup. It works flawlessly with one user. Now two arrive at once: each process writes at what it believes is the end of the file, and one line lands on top of the other. No lock, no error, no crash. A signup simply never happened, and nothing anywhere will tell you.",
+          "note": "A database is what you get when someone has already built the missing parts: concurrency control, crash recovery, and a way to find one row without reading ten million."
+        },
+        {
           "id": "db-1-1",
           "type": "multiple_choice",
           "prompt": "You store users in `users.txt`. Two people sign up at the exact same instant and both write to the file. What happens?",
@@ -102,6 +142,13 @@
       "id": "db-2",
       "title": "Tables, rows, and keys",
       "exercises": [
+        {
+          "id": "db-2-0",
+          "type": "concept",
+          "title": "In the relational model, every fact has exactly one home",
+          "body": "A *table* is rows that share the same columns. A *primary key* is the column that names a row uniquely — `users.id`. A *foreign key* is a column in another table holding that id — `orders.user_id` — which is how an order points at its buyer. So an email is stored once, in `users`, and every order just references it.",
+          "note": "Repeat that email on all 500 of their orders instead and you no longer have one email. You have 500 chances for them to disagree, and nothing to say which one is right."
+        },
         {
           "id": "db-2-1",
           "type": "multiple_choice",
@@ -202,6 +249,54 @@
       "title": "How the database finds your data",
       "exercises": [
         {
+          "id": "db-3-0",
+          "type": "concept",
+          "title": "SQL says what you want, never how to get it — the database decides that part",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Your `SELECT`",
+                "col": 0
+              },
+              {
+                "id": "p",
+                "label": "Query planner",
+                "sub": "picks one",
+                "col": 1
+              },
+              {
+                "id": "i",
+                "label": "Index lookup",
+                "sub": "~1ms",
+                "col": 2
+              },
+              {
+                "id": "s",
+                "label": "Full table scan",
+                "sub": "~10s",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "p"
+              },
+              {
+                "from": "p",
+                "to": "i"
+              },
+              {
+                "from": "p",
+                "to": "s"
+              }
+            ]
+          },
+          "body": "`SELECT * FROM users WHERE email = 'x@y.com'` names a result, not a method. A component called the *query planner* picks the method. Given a useful index on `email` it jumps straight to the row. Without one there is only one other option: read all 10 million rows and check each — a full table scan.",
+          "note": "Same query text, same answer, wildly different cost. The query is not the plan, which is exactly why `EXPLAIN` exists: it shows you which one you actually got."
+        },
+        {
           "id": "db-3-1",
           "type": "multiple_choice",
           "prompt": "You run `SELECT * FROM users WHERE email = 'x@y.com'` — on 10 million rows, with no index on `email`. What does the database do?",
@@ -296,6 +391,58 @@
       "id": "db-4",
       "title": "What a database actually promises",
       "exercises": [
+        {
+          "id": "db-4-0",
+          "type": "concept",
+          "title": "\"Success\" is a promise the database has to keep through a power cut",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "w",
+                "label": "Write-ahead log",
+                "sub": "flushed",
+                "col": 2,
+                "kind": "storage"
+              },
+              {
+                "id": "p",
+                "label": "Data pages",
+                "sub": "later",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "d"
+              },
+              {
+                "from": "d",
+                "to": "w"
+              },
+              {
+                "from": "d",
+                "to": "p",
+                "dash": true
+              }
+            ]
+          },
+          "body": "When a database answers `INSERT` with success, it has already forced a record of that change onto disk. That is *durability*, and it is why the word committed means anything. The trick is the write-ahead log: before touching the real data pages, the database appends what it is about to do to one sequential file and flushes that.",
+          "note": "Appending to one file is fast. Scattering random writes across a huge data file is not. The data pages can be updated whenever, because after a crash the log can always replay them."
+        },
         {
           "id": "db-4-1",
           "type": "multiple_choice",

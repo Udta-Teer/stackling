@@ -15,6 +15,56 @@
       "title": "Ask and answer",
       "exercises": [
         {
+          "id": "csh-1-0",
+          "type": "concept",
+          "title": "Your phone owns almost none of the app — it just knows how to ask",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p1",
+                "label": "Your phone",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "p2",
+                "label": "A laptop",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "p3",
+                "label": "Someone else",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Server",
+                "sub": "for millions",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p1",
+                "to": "s"
+              },
+              {
+                "from": "p2",
+                "to": "s"
+              },
+              {
+                "from": "p3",
+                "to": "s"
+              }
+            ]
+          },
+          "body": "The app on your phone is mostly a way of asking. It holds the buttons and the layout; the posts, the likes and the follower counts live on someone else's machine. Open the app and it sends a *request* across the network; a server sends back a *response* carrying the data. The machine that asks is the client. The machine that answers is the server.",
+          "note": "Client and server are roles, not machines. Your own server becomes a client the second it calls a payments service — the roles nest, all the way down."
+        },
+        {
           "id": "csh-1-1",
           "type": "multiple_choice",
           "prompt": "You open a social app and your feed appears. Where did that data physically come from the instant you opened it?",
@@ -109,6 +159,13 @@
       "id": "csh-2",
       "title": "The verbs: HTTP methods",
       "exercises": [
+        {
+          "id": "csh-2-0",
+          "type": "concept",
+          "title": "Every request says what it wants done in one word, before it says to what",
+          "body": "An HTTP request opens with a verb. `GET /users/42` reads user 42. `POST /users` creates one. `PUT` replaces one, `DELETE` removes one. The path names the thing; the method says what to do with it. That verb isn't decoration — browsers, caches and crawlers all decide how to treat a request by reading it alone.",
+          "note": "`GET` is meant to be *safe* — read-only — so the web fires them at you unasked: crawlers, prefetchers, link previews. Hide a delete behind a `GET` and something will eventually crawl your data away."
+        },
         {
           "id": "csh-2-1",
           "type": "multiple_choice",
@@ -216,6 +273,13 @@
       },
       "exercises": [
         {
+          "id": "csh-3-0",
+          "type": "concept",
+          "title": "The first digit of a status code tells you whose fault it is",
+          "body": "Every HTTP response opens with a three-digit verdict, and you read the first digit rather than memorize the rest. `2xx`: it worked. `3xx`: go look somewhere else. `4xx`: your request was wrong. `5xx`: the server broke trying. So `200 OK` is success, `404` is you asked for something that isn't there, `500` is the server falling over.",
+          "note": "That first digit is a blame line, and monitoring lives on it: a spike in `5xx` wakes an engineer at 3am, while a spike in `4xx` means your callers are confused, misconfigured — or attacking you."
+        },
+        {
           "id": "csh-3-1",
           "type": "multiple_choice",
           "prompt": "A server replies with `200`. At a glance, what does that number tell you?",
@@ -314,6 +378,66 @@
       "id": "csh-4",
       "title": "Stateless HTTP at scale",
       "exercises": [
+        {
+          "id": "csh-4-0",
+          "type": "concept",
+          "title": "HTTP forgets you between every single request",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "You",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "label": "Load balancer",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "s1",
+                "label": "App Server 1",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "s2",
+                "label": "App Server 2",
+                "sub": "any will do",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "s3",
+                "label": "App Server 3",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "lb"
+              },
+              {
+                "from": "lb",
+                "to": "s1"
+              },
+              {
+                "from": "lb",
+                "to": "s2"
+              },
+              {
+                "from": "lb",
+                "to": "s3"
+              }
+            ]
+          },
+          "body": "Each HTTP request arrives as a complete stranger. The server reads it, answers it, and remembers nothing about it. Your next request could land on a different machine in a different building and the result would be identical. That's what *stateless* means — and it isn't a limitation, it's what lets one address hide a thousand interchangeable servers.",
+          "note": "Which raises the obvious question: if the server forgets you the instant it replies, how are you still logged in? Something has to re-prove who you are on *every* request — and it can't be the server's memory."
+        },
         {
           "id": "csh-4-1",
           "type": "multiple_choice",

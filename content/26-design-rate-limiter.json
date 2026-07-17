@@ -15,6 +15,57 @@
       "title": "Specifying it",
       "exercises": [
         {
+          "id": "drl-1-0",
+          "type": "concept",
+          "title": "'Rate limit our API' is four questions, and the one people skip is how exact it must be",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Every request",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Rate limiter",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "a",
+                "label": "Your API",
+                "sub": "allowed",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Rejected",
+                "sub": "429",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "l"
+              },
+              {
+                "from": "l",
+                "to": "a"
+              },
+              {
+                "from": "l",
+                "to": "r",
+                "dash": true
+              }
+            ]
+          },
+          "body": "What you limit on, the limit and its window, what happens on breach — those get answered. *How exact* doesn't. But 'exactly 100, never 101' and 'roughly 100' are different systems at different prices: one of them buys a round trip on every request and the other doesn't. Unit 17 gave you the algorithm. Choosing what it may get wrong is the design.",
+          "note": "The limiter also holds a position nothing else here has: in front of 100% of traffic, deciding before you know whether a request was worth serving. Its latency is everyone's latency; its outage is everyone's outage."
+        },
+        {
           "id": "drl-1-1",
           "type": "multiple_choice",
           "prompt": "'Build a rate limiter for our API.' What must you pin down before designing anything?",
@@ -94,6 +145,59 @@
       "id": "drl-2",
       "title": "The counter store",
       "exercises": [
+        {
+          "id": "drl-2-0",
+          "type": "concept",
+          "title": "A limit is only a limit if there is one counter behind it",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "One API key",
+                "sub": "3,000/min",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s1",
+                "label": "Server 1",
+                "sub": "sees 60",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "s2",
+                "label": "Server 2",
+                "sub": "sees 60",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "s3",
+                "label": "Server 50",
+                "sub": "sees 60",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "s1"
+              },
+              {
+                "from": "c",
+                "to": "s2"
+              },
+              {
+                "from": "c",
+                "to": "s3"
+              }
+            ]
+          },
+          "body": "Your 50 API servers are interchangeable — that's the property that let them scale. A counter in each one's local memory is 50 fragments of a count: every server sees only the requests it happened to handle. Configure 1,000 a minute and each of the 50 waves through 60 of them without blinking. Unit 5's question, with a sharp edge.",
+          "note": "And the failure is silent. Nothing throws, no alert fires, your dashboard shows limits being enforced — the only party who ever learns the real number is the customer you were supposed to be stopping."
+        },
         {
           "id": "drl-2-1",
           "type": "multiple_choice",
@@ -212,6 +316,57 @@
       "title": "When exactness costs too much",
       "exercises": [
         {
+          "id": "drl-3-0",
+          "type": "concept",
+          "title": "Exactness is bought with a network hop on every request you were going to serve anyway",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Every request",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Limiter",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "s",
+                "label": "Counter store",
+                "sub": "1 · +0.5ms",
+                "col": 2,
+                "kind": "cache"
+              },
+              {
+                "id": "a",
+                "label": "Your API",
+                "sub": "2 · if allowed",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "l"
+              },
+              {
+                "from": "l",
+                "to": "s"
+              },
+              {
+                "from": "l",
+                "to": "a"
+              }
+            ]
+          },
+          "body": "An exact check is a hop to a shared store, and you pay it on 100% of traffic — including the requests that were never anywhere near the limit. Unit 4's ladder prices one datacenter round trip at roughly 5,000 RAM reads. So exactness isn't free-and-obviously-right. It's a purchase, and its worth depends on what being wrong costs you.",
+          "note": "It gets stranger across regions. Split a 1,000/min budget three ways and a client hammering one region is cut off at 333 — lopsided traffic is *under*-served, not over-served, the opposite of what everyone guesses."
+        },
+        {
           "id": "drl-3-1",
           "type": "multiple_choice",
           "prompt": "Every check is a Redis round trip — say 0.5ms. What have you added to every single API request?",
@@ -294,6 +449,59 @@
       "id": "drl-4",
       "title": "The edges",
       "exercises": [
+        {
+          "id": "drl-4-0",
+          "type": "concept",
+          "title": "A request count only means something while requests cost the same",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Two clients",
+                "sub": "100/min each",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Limiter",
+                "sub": "counts requests",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "a",
+                "label": "`/cached`",
+                "sub": "2ms",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "`/report`",
+                "sub": "30s",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "l"
+              },
+              {
+                "from": "l",
+                "to": "a"
+              },
+              {
+                "from": "l",
+                "to": "b"
+              }
+            ]
+          },
+          "body": "Your limiter counts requests. One endpoint returns a string from cache; another runs a 30-second report. Both clients above sit at 100 a minute and look identical to the limiter, while one of them is eating your fleet. The number you're enforcing has stopped describing the resource you meant to protect.",
+          "note": "There's a bigger version of the same gap: per-client limits sum to no bound at all. Ten thousand clients can each be perfectly compliant while the total flattens you. Fairness and total capacity are different questions."
+        },
         {
           "id": "drl-4-1",
           "type": "multiple_choice",

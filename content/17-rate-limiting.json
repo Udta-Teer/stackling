@@ -15,6 +15,13 @@
       "title": "Saying no on purpose",
       "exercises": [
         {
+          "id": "rl-1-0",
+          "type": "concept",
+          "title": "A server with no limit doesn't refuse the extra work — it accepts all of it and gets slow for everyone",
+          "body": "A server has a fixed capacity — say 1,000 requests/second. Send 50,000 and it doesn't bounce the excess; it queues it. Every request now waits behind a queue that can never drain, so latency climbs until things time out — including requests from clients doing nothing wrong. A limit is deciding *who* gets refused, before that happens.",
+          "note": "Which is why refusing fast beats serving slow. A rejection costs a header and no database call, and leaves the capacity for someone who can still be served inside their timeout."
+        },
+        {
           "id": "rl-1-1",
           "type": "multiple_choice",
           "prompt": "Your API can serve 1,000 requests/second. One client starts sending 50,000/second. With no limit, what happens?",
@@ -102,6 +109,13 @@
       "id": "rl-2",
       "title": "How to count",
       "exercises": [
+        {
+          "id": "rl-2-0",
+          "type": "concept",
+          "title": "'100 per minute' means nothing until you say *which* minute",
+          "body": "The simplest counter resets at the top of each minute: count, reject past 100, zero it at `:00`. The rule is never broken and the guarantee is still a lie — 100 requests at 10:00:59 plus 100 more at 10:01:00 is 200 in one second, twice your limit, entirely within the rules. The window's edge is the hole.",
+          "note": "The alternatives differ in what they keep. A *sliding window* counts the last 60 seconds continuously, so there is no edge to sit on. A *token bucket* allows the burst on purpose: tokens accrue while you're idle."
+        },
         {
           "id": "rl-2-1",
           "type": "multiple_choice",
@@ -198,6 +212,69 @@
       "title": "Where the counter lives",
       "exercises": [
         {
+          "id": "rl-3-0",
+          "type": "concept",
+          "title": "A counter in one server's memory doesn't limit your client — it limits your client *per server*",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "One client",
+                "col": 0,
+                "kind": "client",
+                "sub": "300/min"
+              },
+              {
+                "id": "lb",
+                "label": "Load Balancer",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "s1",
+                "label": "Server 1",
+                "col": 2,
+                "kind": "server",
+                "sub": "saw 100"
+              },
+              {
+                "id": "s2",
+                "label": "Server 2",
+                "col": 2,
+                "kind": "server",
+                "sub": "saw 100"
+              },
+              {
+                "id": "s3",
+                "label": "Server 3",
+                "col": 2,
+                "kind": "server",
+                "sub": "saw 100"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "lb"
+              },
+              {
+                "from": "lb",
+                "to": "s1"
+              },
+              {
+                "from": "lb",
+                "to": "s2"
+              },
+              {
+                "from": "lb",
+                "to": "s3"
+              }
+            ]
+          },
+          "body": "Each server counts what it personally saw, and the load balancer sprays one client across all of them. Three servers each enforcing '100 per minute' let that client send 300 a minute while not one of them ever sees a violation. The counters multiply by your server count: 50 servers at 1,000 rps each is a real limit of 50,000 rps.",
+          "note": "Move the counter to a shared store and it becomes exact — and now every request pays a network round trip to a thing that can go down. When it does, you must choose: allow everything, or block everything."
+        },
+        {
           "id": "rl-3-1",
           "type": "multiple_choice",
           "prompt": "You run 10 servers. Each keeps its own in-memory counter with a limit of 100/minute per user. What's the client's real limit?",
@@ -280,6 +357,13 @@
       "id": "rl-4",
       "title": "The hard parts",
       "exercises": [
+        {
+          "id": "rl-4-0",
+          "type": "concept",
+          "title": "A rejection is cheap — unless it comes straight back",
+          "body": "A `429` costs almost nothing to send: no auth, no database, just a header. That is the entire economics of rate limiting. But the cost is charged per rejection, and you don't control how fast the client returns. Retry instantly on every refusal and the limit becomes a tighter loop — you now handle *more* requests than before, all rejections.",
+          "note": "Politeness doesn't save you. Send `Retry-After: 60` to a thousand clients at once and all thousand return in the same instant — a thundering herd built of clients obeying you perfectly. The fix is jitter on the delay."
+        },
         {
           "id": "rl-4-1",
           "type": "multiple_choice",

@@ -15,6 +15,66 @@
       "title": "The traffic cop",
       "exercises": [
         {
+          "id": "lb-1-0",
+          "type": "concept",
+          "title": "A load balancer sells indirection, and indirection is what makes a machine disposable",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "label": "Load Balancer",
+                "sub": "one address",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "s1",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "s2",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "s3",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "lb"
+              },
+              {
+                "from": "lb",
+                "to": "s1"
+              },
+              {
+                "from": "lb",
+                "to": "s2"
+              },
+              {
+                "from": "lb",
+                "to": "s3"
+              }
+            ]
+          },
+          "body": "Users can't be asked to know your machines. So one thing sits out front, owns the single address the world talks to, and hands each request to a server behind it. That's a load balancer. The distribution is the obvious part; the valuable part is that the outside now talks to one stable thing instead of to your servers.",
+          "note": "Which is what you're really buying: machines behind a stable address can be added, restarted, or destroyed mid-afternoon and nobody outside notices. Disposable machines are what horizontal scaling actually cashes in."
+        },
+        {
           "id": "lb-1-1",
           "type": "multiple_choice",
           "prompt": "You now run 3 identical app servers. Your users only know one address. What has to exist?",
@@ -109,6 +169,59 @@
       "id": "lb-2",
       "title": "How it chooses",
       "exercises": [
+        {
+          "id": "lb-2-0",
+          "type": "concept",
+          "title": "Every balancing algorithm is an assumption about your traffic wearing a name",
+          "viz": {
+            "nodes": [
+              {
+                "id": "lb",
+                "label": "Load Balancer",
+                "sub": "round robin",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "req 1, 4",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "req 2, 5",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "Server C",
+                "sub": "req 3, 6",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "lb",
+                "to": "a"
+              },
+              {
+                "from": "lb",
+                "to": "b"
+              },
+              {
+                "from": "lb",
+                "to": "c"
+              }
+            ]
+          },
+          "body": "Something must pick a server for every request, and no rule for picking is neutral. *Round robin* — A, then B, then C, then A — takes turns, which spreads request COUNTS evenly. That only spreads LOAD evenly while requests cost about the same. Let one request in fifty be a 30-second report and turn-taking will deal three onto one machine.",
+          "note": "The other algorithms are answers to that flaw: *least connections* looks at who's actually busy, *weighted* gives bigger machines a larger share, and *hashing* ignores load to send the same key to the same server."
+        },
         {
           "id": "lb-2-1",
           "type": "multiple_choice",
@@ -205,6 +318,60 @@
       "title": "Health checks",
       "exercises": [
         {
+          "id": "lb-3-0",
+          "type": "concept",
+          "title": "A dead server can't tell you it died, so the balancer never stops asking",
+          "viz": {
+            "nodes": [
+              {
+                "id": "lb",
+                "label": "Load Balancer",
+                "sub": "GET /health",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "200 OK",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "200 OK",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "Server C",
+                "sub": "no reply",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "lb",
+                "to": "a"
+              },
+              {
+                "from": "lb",
+                "to": "b"
+              },
+              {
+                "from": "lb",
+                "to": "c",
+                "dash": true
+              }
+            ]
+          },
+          "body": "Nothing announces its own crash. So the balancer probes every server on a schedule — a `GET /health` every few seconds — and pulls whichever stop answering out of rotation. That's an *active* health check. The passive alternative watches real traffic and notices the failures, which costs no probes but only ever learns by hurting real users first.",
+          "note": "The probe asks a yes/no question: are you answering? So a server replying in 8 seconds passes and keeps taking your users' requests. *Up* and *healthy* are not the same word, and that gap is where this lesson lives."
+        },
+        {
           "id": "lb-3-1",
           "type": "multiple_choice",
           "prompt": "How does the load balancer know a server has died?",
@@ -292,6 +459,66 @@
       "id": "lb-4",
       "title": "The hard parts",
       "exercises": [
+        {
+          "id": "lb-4-0",
+          "type": "concept",
+          "title": "You didn't remove the single point of failure — you moved it into the load balancer",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "label": "Load Balancer",
+                "sub": "everything",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "s1",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "s2",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "s3",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "lb"
+              },
+              {
+                "from": "lb",
+                "to": "s1"
+              },
+              {
+                "from": "lb",
+                "to": "s2"
+              },
+              {
+                "from": "lb",
+                "to": "s3"
+              }
+            ]
+          },
+          "body": "Every request now flows through one box whose entire job was to stop one box from taking you down. Real setups run several balancers and share the address between them — DNS handing out multiple IPs, a floating IP that jumps to a standby, or anycast. The question is never *is there a single point of failure*, it's *where is it and how fast is it replaced*.",
+          "note": "It's the same picture as lesson 1, read differently. Everything you added to survive a machine dying now depends on a machine that can die."
+        },
         {
           "id": "lb-4-1",
           "type": "multiple_choice",

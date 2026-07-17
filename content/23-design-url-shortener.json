@@ -15,6 +15,57 @@
       "title": "Requirements and numbers",
       "exercises": [
         {
+          "id": "urls-1-0",
+          "type": "concept",
+          "title": "A design prompt is deliberately under-specified — your first move is to make it specific",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "'Design a URL shortener'",
+                "col": 0
+              },
+              {
+                "id": "r",
+                "label": "Requirements",
+                "sub": "what it does",
+                "col": 1
+              },
+              {
+                "id": "n",
+                "label": "Numbers",
+                "sub": "reads:writes",
+                "col": 1
+              },
+              {
+                "id": "d",
+                "label": "Every later decision",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "r"
+              },
+              {
+                "from": "p",
+                "to": "n"
+              },
+              {
+                "from": "r",
+                "to": "d"
+              },
+              {
+                "from": "n",
+                "to": "d"
+              }
+            ]
+          },
+          "body": "'Design a URL shortener' is not a spec, it's an invitation to guess. Before you name a database, extract four things: what it must do, how many writes, how many reads, and the ratio between them. A shortener at 100 links a day and one at 100 million share a name and nothing else. The arithmetic tells you which of your problems are real.",
+          "note": "Estimation isn't a warm-up ritual — it's how you find out which problems are imaginary. Most of what gets over-built here is defence against a bottleneck the numbers would have ruled out in thirty seconds."
+        },
+        {
           "id": "urls-1-1",
           "type": "multiple_choice",
           "prompt": "'Design a URL shortener.' What's the first move?",
@@ -94,6 +145,54 @@
       "id": "urls-2",
       "title": "Generating the key",
       "exercises": [
+        {
+          "id": "urls-2-0",
+          "type": "concept",
+          "title": "A short code is something you hand out, not something you compute from the URL",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Long URL",
+                "col": 0
+              },
+              {
+                "id": "h",
+                "label": "Hash it",
+                "sub": "deterministic",
+                "col": 1
+              },
+              {
+                "id": "c",
+                "label": "Counter",
+                "sub": "next unused",
+                "col": 1
+              },
+              {
+                "id": "s",
+                "label": "Short code",
+                "sub": "7 × base62",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "h"
+              },
+              {
+                "from": "h",
+                "to": "s"
+              },
+              {
+                "from": "c",
+                "to": "s"
+              }
+            ]
+          },
+          "body": "Two families. Hash the long URL and keep 7 characters: the code is now a *function* of the input. Or keep a counter and hand out the next number, written in base62: the code is an *identity* you assign. Notice what the diagram is missing — no arrow from the URL to the counter. The counter never looks at what you're shortening.",
+          "note": "Collisions are the smaller objection — a clash is detectable, so you redraw. Determinism has no redraw: the same URL always yields the same code, so two customers shortening one link must share it, analytics and all."
+        },
         {
           "id": "urls-2-1",
           "type": "multiple_choice",
@@ -181,6 +280,47 @@
       "id": "urls-3",
       "title": "Serving the redirect",
       "exercises": [
+        {
+          "id": "urls-3-0",
+          "type": "concept",
+          "title": "The mapping never changes, and that one fact hands you the entire read path",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "sub": "116k/sec",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "App server",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Link store",
+                "sub": "every read",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a"
+              },
+              {
+                "from": "a",
+                "to": "d"
+              }
+            ]
+          },
+          "body": "A short code points at one long URL forever. Nothing to invalidate, nothing that drifts, no write-back — the hard half of unit 13 doesn't exist here, because immutable data can be copied anywhere and still can't be wrong. So the question stops being *how* to serve 116,000 redirects a second. It becomes what you'd give up to make them cheap.",
+          "note": "Immutability was a choice, not luck: you decided a code points at one URL for life rather than letting people re-target a link later. Shorteners that sell an editable destination hand this whole chapter back."
+        },
         {
           "id": "urls-3-1",
           "type": "build_diagram",
@@ -298,6 +438,46 @@
       "id": "urls-4",
       "title": "The edges",
       "exercises": [
+        {
+          "id": "urls-4-0",
+          "type": "concept",
+          "title": "You only built one map, and every feature you add later lands in it",
+          "viz": {
+            "nodes": [
+              {
+                "id": "g",
+                "label": "Generator",
+                "sub": "next base62",
+                "col": 0
+              },
+              {
+                "id": "a",
+                "label": "Custom alias",
+                "sub": "user-chosen",
+                "col": 0
+              },
+              {
+                "id": "m",
+                "label": "One namespace",
+                "sub": "code → URL",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "g",
+                "to": "m"
+              },
+              {
+                "from": "a",
+                "to": "m"
+              }
+            ]
+          },
+          "body": "A custom alias like `/launch` isn't a separate feature with its own storage. It's a row in the same map as every generated code — a key somebody chose rather than drew. So two parties now write into one namespace, neither of them coordinating, and `/launch` is free only if nothing ever generated it first.",
+          "note": "Your own product lives in that namespace too: `/about`, `/pricing`, `/api`. A generator that emits one of those doesn't collide with a customer — it collides with your website. That's what reserved prefixes are for."
+        },
         {
           "id": "urls-4-1",
           "type": "multiple_choice",

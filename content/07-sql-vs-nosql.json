@@ -15,6 +15,13 @@
       "title": "What NoSQL actually means",
       "exercises": [
         {
+          "id": "nosql-1-0",
+          "type": "concept",
+          "title": "\"NoSQL\" names what these databases aren't, which is why it explains nothing",
+          "body": "It expands to *not only SQL* — a label defined by absence. The name came from a 2009 meetup, not a design principle, and it was stretched over four unrelated families: key-value, document, wide-column, graph. They share no data model, no query language, no guarantees. Each gave up part of the relational model to buy something else.",
+          "note": "Several then added SQL back once users missed it — Cassandra's query language is called `CQL` and reads almost exactly like SQL. The name outlived the claim."
+        },
+        {
           "id": "nosql-1-1",
           "type": "multiple_choice",
           "prompt": "What does 'NoSQL' actually mean?",
@@ -102,6 +109,68 @@
       "id": "nosql-2",
       "title": "The four families",
       "exercises": [
+        {
+          "id": "nosql-2-0",
+          "type": "concept",
+          "title": "Pick the family by how you'll ask for the data, not by what the data is",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "How will you ask?",
+                "col": 0
+              },
+              {
+                "id": "kv",
+                "label": "Key-value",
+                "sub": "by one key",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "doc",
+                "label": "Document",
+                "sub": "whole record",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "wc",
+                "label": "Wide-column",
+                "sub": "by partition",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "g",
+                "label": "Graph",
+                "sub": "by hops",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "kv"
+              },
+              {
+                "from": "q",
+                "to": "doc"
+              },
+              {
+                "from": "q",
+                "to": "wc"
+              },
+              {
+                "from": "q",
+                "to": "g"
+              }
+            ]
+          },
+          "body": "*Key-value*: get and put a value by one key, and nothing else — sessions, carts. *Document*: a self-contained record you fetch whole — a product with its own odd attributes. *Wide-column*: enormous tables read by a partition key — events, time-series. *Graph*: the relationships are the data — \"friends of friends, three hops out\".",
+          "note": "Each is fast at exactly one access pattern and awkward at every other. Ask a key-value store \"which sessions are from Berlin?\" and it has no answer available but to read every key it holds."
+        },
         {
           "id": "nosql-2-1",
           "type": "match_pairs",
@@ -231,6 +300,13 @@
       "title": "Model the data vs model the queries",
       "exercises": [
         {
+          "id": "nosql-3-0",
+          "type": "concept",
+          "title": "Relational lets you decide the questions later; most NoSQL makes you decide them first",
+          "body": "In a relational database you normalize — each fact once — and a join assembles whatever answer you need, including answers to questions nobody has asked yet. Most NoSQL stores cannot join. So you work backwards: list the queries your screens make, then store the data pre-assembled in exactly the shape you will read it in.",
+          "note": "Which is why NoSQL feels wonderful for six months. You built precisely the shapes your product needed. The bill arrives the day the product needs a shape you didn't build."
+        },
+        {
           "id": "nosql-3-1",
           "type": "multiple_choice",
           "prompt": "What's the deepest difference between relational and most NoSQL modeling?",
@@ -317,6 +393,13 @@
       "id": "nosql-4",
       "title": "Choosing, honestly",
       "exercises": [
+        {
+          "id": "nosql-4-0",
+          "type": "concept",
+          "title": "Nobody made the join scale across machines — they deleted it",
+          "body": "A join is cheap when both rows sit on one machine and brutal when they sit on two, because every match becomes a network round trip. A transaction spanning machines is worse: someone must coordinate the commit and wait. So a store that spreads over 50 machines usually got there by dropping the features that don't cross a network.",
+          "note": "That makes \"which one scales better\" the wrong question — the scaling came from a subtraction. The right question is which half you're buying, because people notice the achievement immediately and the loss a year later."
+        },
         {
           "id": "nosql-4-1",
           "type": "multiple_choice",

@@ -15,6 +15,46 @@
       "title": "The location firehose",
       "exercises": [
         {
+          "id": "ride-1-0",
+          "type": "concept",
+          "title": "A driver's location is worthless four seconds after they send it",
+          "viz": {
+            "nodes": [
+              {
+                "id": "d",
+                "label": "Driver location",
+                "sub": "every 4s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "n",
+                "label": "Where they are now",
+                "sub": "dead in 4s",
+                "col": 1
+              },
+              {
+                "id": "h",
+                "label": "Trip trace",
+                "sub": "durable, late",
+                "col": 1
+              }
+            ],
+            "edges": [
+              {
+                "from": "d",
+                "to": "n"
+              },
+              {
+                "from": "d",
+                "to": "h"
+              }
+            ]
+          },
+          "body": "Every driver reports where they are, constantly, and each report makes the previous one garbage. That's ephemeral state by definition: you'd be buying durability for a value you're about to overwrite, about a fact every driver would re-tell you within seconds of you losing it. Unit 5's question answers itself here, loudly.",
+          "note": "But 'location' is two requirements wearing one word: a live position that must be fast and disposable, and a trip trace for receipts that must be durable and can arrive late. Design them as one and you get both wrong."
+        },
+        {
           "id": "ride-1-1",
           "type": "estimate",
           "prompt": "1 million drivers are online, each sending their location every 4 seconds. Roughly how many location writes per second?",
@@ -128,6 +168,56 @@
       "title": "Finding who's nearby",
       "exercises": [
         {
+          "id": "ride-2-0",
+          "type": "concept",
+          "title": "An index that sorts one axis at a time cannot answer a two-dimensional question",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Drivers within 2km",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Index on `(lat, lng)`",
+                "sub": "lat first",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "n",
+                "label": "Every driver at that latitude",
+                "sub": "worldwide",
+                "col": 2
+              },
+              {
+                "id": "f",
+                "label": "Filter by longitude",
+                "sub": "by hand",
+                "col": 3
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "b"
+              },
+              {
+                "from": "b",
+                "to": "n"
+              },
+              {
+                "from": "n",
+                "to": "f"
+              }
+            ]
+          },
+          "body": "A composite index on `(lat, lng)` sorts by `lat` first, and by `lng` only *within* an identical `lat`. So a 2km box around a rider narrows to a latitude band — every driver at that latitude, all the way around the Earth — and everything after that is filtering by hand. Unit 8's leftmost-prefix rule, biting somewhere new.",
+          "note": "Which is why geospatial indexes exist, and why they all do one thing: turn a 2D position into a *single* sortable key, so 'nearby' becomes a prefix match. Geohash, S2 and H3 differ mainly in cell shape."
+        },
+        {
           "id": "ride-2-1",
           "type": "multiple_choice",
           "prompt": "A rider opens the app. You need drivers within 2km. Why can't a normal B-tree index on (latitude, longitude) do this well?",
@@ -223,6 +313,67 @@
       "title": "Matching",
       "exercises": [
         {
+          "id": "ride-3-0",
+          "type": "concept",
+          "title": "Assigning a driver isn't a write — it's a claim only one matcher may win",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r1",
+                "label": "Rider A",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r2",
+                "label": "Rider B",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "m1",
+                "label": "Matcher 1",
+                "sub": "reads: free",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "m2",
+                "label": "Matcher 2",
+                "sub": "reads: free",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Driver 88",
+                "sub": "one car",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "r1",
+                "to": "m1"
+              },
+              {
+                "from": "r2",
+                "to": "m2"
+              },
+              {
+                "from": "m1",
+                "to": "d"
+              },
+              {
+                "from": "m2",
+                "to": "d"
+              }
+            ]
+          },
+          "body": "Two riders, two matchers, one nearby driver. Both read 'available', both decide, both write — and the second write quietly wins. It's unit 6's check-then-act, except the loser here isn't a dropped counter increment: it's a real car pulling up to a kerb with two people expecting it. So the store has to adjudicate, not your application logic.",
+          "note": "It doesn't take a consensus system to settle. *Set this driver to assigned if still available* is one atomic operation any decent store does natively — and a double-booking, unlike a split brain, you can reassign."
+        },
+        {
           "id": "ride-3-1",
           "type": "multiple_choice",
           "prompt": "Two riders request a ride simultaneously. Your matcher offers the same nearby driver to both. What have you built?",
@@ -306,6 +457,57 @@
       "id": "ride-4",
       "title": "The whole trip",
       "exercises": [
+        {
+          "id": "ride-4-0",
+          "type": "concept",
+          "title": "One trip produces data with completely different costs of being wrong",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "One trip",
+                "col": 0
+              },
+              {
+                "id": "l",
+                "label": "Trip state + money",
+                "sub": "strong",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "m",
+                "label": "Car on the map",
+                "sub": "seconds stale",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "e",
+                "label": "Receipt email",
+                "sub": "minutes late",
+                "col": 1,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "l"
+              },
+              {
+                "from": "r",
+                "to": "m"
+              },
+              {
+                "from": "r",
+                "to": "e"
+              }
+            ]
+          },
+          "body": "The trip's state and the money are commitments: charge twice and it's a refund, a complaint and a support ticket. The marker on the map can be a second stale and nobody alive notices. Unit 19's rule applies per *dataset*, not per company — so the ledger buys strong guarantees and the map stays eventually consistent, in one product, on one screen.",
+          "note": "And atomicity stops at your database: `ROLLBACK` can't un-charge a card. The idempotency key must travel *to the provider* — keep it in a local dedup table and you've built the dual write you were avoiding."
+        },
         {
           "id": "ride-4-1",
           "type": "multiple_choice",

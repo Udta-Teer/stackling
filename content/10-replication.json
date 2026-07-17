@@ -15,6 +15,68 @@
       "title": "Why copy the database?",
       "exercises": [
         {
+          "id": "rep-1-0",
+          "type": "concept",
+          "title": "Copies multiply your reads and do nothing whatsoever for your writes",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d1",
+                "label": "Database",
+                "sub": "writes",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "d2",
+                "label": "Copy",
+                "sub": "reads",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "d3",
+                "label": "Copy",
+                "sub": "reads",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d1"
+              },
+              {
+                "from": "a",
+                "to": "d2"
+              },
+              {
+                "from": "a",
+                "to": "d3"
+              },
+              {
+                "from": "d1",
+                "to": "d2",
+                "dash": true
+              },
+              {
+                "from": "d1",
+                "to": "d3",
+                "dash": true
+              }
+            ]
+          },
+          "body": "*Replication* means keeping full copies of your database on other machines. Any copy can answer a read, so N copies give you roughly N times the read capacity. But every copy must apply every write, so copies never reduce write load. At 100 reads per write that's transformative; at 1 read per write it buys you almost nothing.",
+          "note": "The second reason is survival: a copy on another machine is a machine you can promote when the first one dies at 3am. Read scaling is why people add replicas; failover is why they keep them."
+        },
+        {
           "id": "rep-1-1",
           "type": "multiple_choice",
           "prompt": "Your app does 100 reads for every write, and your single database is drowning in reads. What's the structural fix?",
@@ -102,6 +164,68 @@
       "id": "rep-2",
       "title": "Leader and followers",
       "exercises": [
+        {
+          "id": "rep-2-0",
+          "type": "concept",
+          "title": "Exactly one copy may accept writes — that avoids the conflict rather than solving it",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Writes",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "only writer",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "log",
+                "label": "Replication log",
+                "sub": "ordered",
+                "col": 2
+              },
+              {
+                "id": "f1",
+                "label": "Follower",
+                "sub": "read-only",
+                "col": 3,
+                "kind": "db"
+              },
+              {
+                "id": "f2",
+                "label": "Follower",
+                "sub": "read-only",
+                "col": 3,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "l"
+              },
+              {
+                "from": "l",
+                "to": "log"
+              },
+              {
+                "from": "log",
+                "to": "f1"
+              },
+              {
+                "from": "log",
+                "to": "f2"
+              }
+            ]
+          },
+          "body": "Let any copy take writes and two of them can accept different values for the same row, with nothing on earth to arbitrate. Single-leader replication dodges that by construction: one copy — the *leader* — accepts every write. The rest are *followers*, read-only copies that receive the leader's ordered stream of changes and replay it in that order.",
+          "note": "Postgres ships its write-ahead log, the crash-recovery log it already had to write. MySQL writes a *separate* binlog purely for replication — an extra write per transaction. Same idea, different bill."
+        },
         {
           "id": "rep-2-1",
           "type": "multiple_choice",
@@ -198,6 +322,52 @@
       "title": "Replication lag",
       "exercises": [
         {
+          "id": "rep-3-0",
+          "type": "concept",
+          "title": "A follower always shows you the past — the only question is how far back",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "has the write",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "f",
+                "label": "Follower",
+                "sub": "not yet",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "l"
+              },
+              {
+                "from": "l",
+                "to": "f",
+                "dash": true
+              },
+              {
+                "from": "u",
+                "to": "f"
+              }
+            ]
+          },
+          "body": "Under asynchronous replication the leader answers the client *before* the followers have the change. So there's a window where the leader holds your write and a follower doesn't. Read from that follower inside the window and you get the state from before your own write — your change appears not to have saved. That window is *replication lag*.",
+          "note": "Lag isn't a constant you can look up. It's write throughput against how fast a follower applies — which is why it's near zero in staging with no traffic, and seconds long in the middle of your spike."
+        },
+        {
           "id": "rep-3-1",
           "type": "multiple_choice",
           "prompt": "A user updates their profile (write goes to the leader), the page reloads, and the read is served by a follower that hasn't caught up yet. What do they see?",
@@ -285,6 +455,13 @@
       "id": "rep-4",
       "title": "Failover and the hard parts",
       "exercises": [
+        {
+          "id": "rep-4-0",
+          "type": "concept",
+          "title": "Failover asks you which mistake you would rather make",
+          "body": "The leader dies; you promote a follower. That's *failover*. Under asynchronous replication the leader had already told clients \"done\" for writes it hadn't shipped yet — and those die with it: acknowledged, then gone. Wait longer before promoting and you lose availability instead. You aren't choosing whether it hurts, only where.",
+          "note": "There's no third option because from the outside a dead leader and a slow one look identical. Every failover is a timeout guessing which it is — and guessing \"dead\" about a live leader gives you two of them."
+        },
         {
           "id": "rep-4-1",
           "type": "multiple_choice",

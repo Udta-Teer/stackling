@@ -210,22 +210,33 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 
 **Authoring order = the table order.** Do not jump ahead. Finish a concept (all lessons + `why` lines + a review pass) and mark it ✅ before starting the next.
 
-### 6.1 Teaching cards — the open gap (as of 2026-07-17)
+### 6.1 Teaching cards — every lesson teaches before it tests
 
-The course tests before it teaches. `concept` cards exist (type, renderer, validator cap, §7) but are **piloted on unit 13 only**. Every other unit still opens by asking a question about a thing it never explained.
+**⛔ THE RAMP PRINCIPLE (owner directive, 2026-07-17).** Every lesson opens with a `concept` card, and no argument from skip rates ever removes one.
 
-| | |
-|---|---|
-| Concept cards | **2**, both in unit 13 |
-| Lessons with no teaching beat | **112 of 114** |
+The owner's words, and they overrule the reasoning that was here before:
 
-**The next content job is a concept card at the head of every lesson that introduces something new** — the same order as §6, one unit at a time. Rules that make it work rather than become goDeeper 2.0:
+> *"there are ramps in the building for wheelchairs, a very small fraction of people actually use them, in fact the majority of the people never use them still the buildings must have them."*
+
+This corrected a real mistake in this doc. The earlier version argued against teaching content by citing "Duolingo's Tips page is the most-skipped surface in that app." **That reasoning is wrong and is recorded here so it doesn't get re-derived.** "Most people skip it" is a fact about the *majority's usage*; it was being used as a fact about the feature's *value*. The learner who is genuinely new cannot infer system design from exercises — language is pattern-inference, system design is not — and failing them is total, not proportional to their share. Skipping is what the *advanced* learner does, and their convenience is not a reason to fail the beginner.
+
+**So: build both paths. Ramp and stairs. Nobody is asked to choose.**
+- Teaching is ON by default. The beginner never has to find a setting to be taught.
+- Every card carries a one-tap "I know this — skip concept cards", which kills this card *and all future ones*.
+- Reversible any time from the header toggle, so trying it costs nothing.
+- The preference persists (guarded `localStorage`, memory fallback on `file://`).
+
+Rules that keep a card from becoming goDeeper 2.0:
 
 - **The cap is the feature.** 360 chars for `body`, 220 for `note`, validator-enforced. `goDeeper` died because an unbounded prose field invites rambling; this is the same shape, so it gets a wall.
-- **A claim, not a topic.** "A cache is a bet you'll be asked the same question twice", never "Caching".
-- **Point of need, not front-loading.** A card goes immediately before the exercises that need it. Duolingo's Tips page is the most-skipped surface in that app; a wall of text at the door is not teaching.
-- **Carry a `viz` where the idea has a shape.** Most system design ideas do. Prose-only is the exception, not the default.
+- **A claim, not a topic.** "A cache is a bet you'll be asked the same question twice", never "Caching". Never a question — that's what the exercises are for.
+- **It must make the lesson's FIRST exercise answerable** by someone who arrived knowing nothing. That is the whole test of whether the card works.
+- **Point of need.** The card sits at the head of the lesson whose exercises need it — not lumped into a front-loaded chapter.
+- **Carry a `viz` where the idea has a shape.** Most system design ideas do. But a wrong diagram teaches a wrong mental model, so omit it rather than force one.
+- **Don't define neighbouring concepts.** Each card does one job.
 - **Max 3 per lesson**, and a lesson of only concept cards is rejected — it's a slide deck.
+
+**Checkpoints (units 28–32) are the deliberate exception**: a checkpoint is a test *by design*, mixing units the learner has already been taught. No cards there.
 
 ### 6.2 Review status
 

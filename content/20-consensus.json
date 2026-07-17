@@ -15,6 +15,13 @@
       "title": "Why agreeing is hard",
       "exercises": [
         {
+          "id": "cons-1-0",
+          "type": "concept",
+          "title": "You cannot tell a dead machine from a slow one — every hard part of consensus grows from that",
+          "body": "You send a message and hear nothing back. Is the peer dead? Slow? Was your message lost, or its reply? From the outside these are *identical*, and no cleverness makes silence speak. That is why machines can't simply vote and be done: a vote you never heard might have been cast, and might arrive a second from now.",
+          "note": "Consensus is the machinery that squeezes one decision out of that fog anyway. Notice what it can promise: agreement, never speed. Nothing can guarantee both while a message is allowed to vanish."
+        },
+        {
           "id": "cons-1-1",
           "type": "multiple_choice",
           "prompt": "Five servers must agree on one value: who is the leader. Why can't they just vote and be done?",
@@ -103,6 +110,13 @@
       "title": "Majorities",
       "exercises": [
         {
+          "id": "cons-2-0",
+          "type": "concept",
+          "title": "A majority cannot happen twice at once — that's arithmetic, not policy",
+          "body": "Require more than half the nodes to agree before anything counts. Now split the cluster however you like: two groups that don't overlap cannot both hold more than half. So at most one side can ever proceed. Split brain isn't made *unlikely* by a majority rule. It's made impossible, by counting.",
+          "note": "The bill is honest. Split 5 nodes into 2, 2 and 1 and nobody can reach 3 — every node is healthy and the cluster does nothing at all. That's what choosing consistency costs on a bad day."
+        },
+        {
           "id": "cons-2-1",
           "type": "multiple_choice",
           "prompt": "5 nodes. A rule says a decision needs 3 votes. A partition splits them 3 and 2. Why can't both sides decide?",
@@ -182,6 +196,58 @@
       "id": "cons-3",
       "title": "Electing a leader",
       "exercises": [
+        {
+          "id": "cons-3-0",
+          "type": "concept",
+          "title": "Consensus is expensive, so you spend it once — on the question *who decides?*",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Writes",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "elected",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "f1",
+                "label": "Follower",
+                "sub": "copies its log",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "f2",
+                "label": "Follower",
+                "sub": "copies its log",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "l"
+              },
+              {
+                "from": "l",
+                "to": "f1"
+              },
+              {
+                "from": "l",
+                "to": "f2"
+              }
+            ]
+          },
+          "body": "Agreeing on every single write means every write waits on a majority. So you run the expensive protocol once, to settle one question: who is the leader? After that, one node puts writes in order by itself and the others copy. You buy agreement rarely, at an election, and get cheap ordering in between.",
+          "note": "Which is why a dead leader is a small *outage*, not a small delay. With nobody entitled to order writes, writes stop until an election finishes — usually hundreds of milliseconds."
+        },
         {
           "id": "cons-3-1",
           "type": "multiple_choice",
@@ -266,6 +332,13 @@
       "id": "cons-4",
       "title": "When you actually need it",
       "exercises": [
+        {
+          "id": "cons-4-0",
+          "type": "concept",
+          "title": "The right amount of consensus to implement yourself is none",
+          "body": "Raft reads like something you could build in a weekend. It isn't. The bugs live in interleavings you'd never think to test — a node pausing at exactly the wrong instant, a message arriving after you assumed it couldn't — and they don't crash anything. They quietly fork your data. Use etcd, ZooKeeper, or your database's built-in election.",
+          "note": "So the real decision was never \"which algorithm\". It's \"does this even need agreement?\" Two answers to *who is the leader* is a catastrophe. Two answers to *the page-view count* is a Tuesday."
+        },
         {
           "id": "cons-4-1",
           "type": "multiple_choice",
