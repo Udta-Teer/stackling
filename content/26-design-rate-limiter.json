@@ -226,13 +226,15 @@
               },
               {
                 "id": "h",
+                "sub": "1 · check",
                 "col": 1,
                 "hole": true
               },
               {
                 "id": "b",
                 "label": "Backend Services",
-                "col": 2,
+                "sub": "2 · if allowed",
+                "col": 1,
                 "kind": "server"
               }
             ],
@@ -242,8 +244,9 @@
                 "to": "h"
               },
               {
-                "from": "h",
-                "to": "b"
+                "from": "a",
+                "to": "b",
+                "dash": true
               }
             ]
           },

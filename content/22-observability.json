@@ -176,8 +176,8 @@
           "id": "obs-2-0",
           "type": "concept",
           "title": "Nobody experiences your average",
-          "body": "Ninety-nine requests at 30ms and one at 6 seconds average out to 90ms. The dashboard says healthy. One user in a hundred just waited six seconds. Every user lives exactly one request, never your mean — and `p99`, the number 99% of requests come in under, is where that user finally shows up.",
-          "note": "So the average is the one statistic that structurally *cannot* show an outage hitting 1% of traffic. Percentiles aren't a refinement of the mean. They're the thing you wanted all along."
+          "body": "Ninety-five requests at 30ms and five at 1 second average out to 78ms. Under a 100ms target the dashboard is green. But one user in twenty waited a full second — and 78ms is equally compatible with *everyone* getting 78ms, which is a completely different product. `p99`, the number 99% come in under, is 1 second here.",
+          "note": "The mean isn't lying to you, it's *averaging* — and one number cannot say whether the spread is tight or horrible. Percentiles aren't a refinement of the mean. They're the thing you wanted all along."
         },
         {
           "id": "obs-2-1",

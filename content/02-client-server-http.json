@@ -435,7 +435,7 @@
               }
             ]
           },
-          "body": "Each HTTP request arrives as a complete stranger. The server reads it, answers it, and remembers nothing about it. Your next request could land on a different machine in a different building and the result would be identical. That's what *stateless* means — and it isn't a limitation, it's what lets one address hide a thousand interchangeable servers.",
+          "body": "Each HTTP request arrives as a complete stranger. The server reads it, answers it, and keeps no memory of the conversation. Your next request could land on a different machine in a different building and the result is identical. That's what *stateless* means — and it isn't a limitation, it's what lets one address hide a thousand servers.",
           "note": "Which raises the obvious question: if the server forgets you the instant it replies, how are you still logged in? Something has to re-prove who you are on *every* request — and it can't be the server's memory."
         },
         {

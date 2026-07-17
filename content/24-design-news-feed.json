@@ -17,7 +17,7 @@
         {
           "id": "feed-1-0",
           "type": "concept",
-          "title": "A feed can't be cached, because no two people have the same one",
+          "title": "No two people have the same feed, so there is no one answer to cache",
           "viz": {
             "nodes": [
               {
@@ -52,7 +52,7 @@
               }
             ]
           },
-          "body": "The shortener worked because one cached answer served everybody. A feed has no shared answer: 300 million users, 300 million different lists — and each person refreshes far more often than they post. Reads dominate and none of them repeat, which kills the playbook that rescued every system so far. One lever is left: *when* you build the list.",
+          "body": "The shortener worked because one cached answer served everybody. A feed has no shared answer: 300 million users, 300 million different lists — and each person refreshes far more often than they post. Reads dominate, and no two people's feed is the same, which kills the playbook that rescued every system so far. One lever is left: *when* you build the list.",
           "note": "Only two answers exist, and both are named. Build it when someone looks: fan-out on read, drawn above. Build it when someone posts: fan-out on write. This unit is the argument between them — and the winner is neither."
         },
         {

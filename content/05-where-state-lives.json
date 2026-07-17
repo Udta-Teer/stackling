@@ -17,7 +17,7 @@
         {
           "id": "state-1-0",
           "type": "concept",
-          "title": "Whatever you'd lose by restarting every server at once — that's your state",
+          "title": "State is what your system must remember; compute is everything you could kill and restart",
           "viz": {
             "nodes": [
               {

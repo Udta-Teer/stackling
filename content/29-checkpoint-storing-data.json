@@ -285,7 +285,7 @@
               {
                 "id": "n3",
                 "label": "Followers",
-                "sub": "replay 5k/s",
+                "sub": "replay 9k/s",
                 "col": 3,
                 "kind": "db"
               }
@@ -306,7 +306,7 @@
             ]
           },
           "answer": 2,
-          "why": "A chain's throughput is its slowest link, and here that's the leader at 5,000 writes/s — everything upstream can deliver far more than it can take. What makes this worth its own question is the box next to it: the followers replay at 5,000/s too, so they are exactly keeping up and have no headroom. Push the leader to its limit and the followers are at theirs, so any hiccup — a vacuum, a slow disk, a burst — and lag starts growing and doesn't shrink back. Write capacity and replication lag are not independent numbers, which is why 'the leader can take 5k' is a more fragile claim than it looks.",
+          "why": "A chain's throughput is its slowest link, and here that's the leader at 5,000 writes/s — everything upstream can deliver far more than it can take. Look at the box next to it before you move on. The followers replay at 9,000/s, so at the leader's ceiling they have only 4,000/s of slack — and that margin is what your replication lag lives in. Narrow it (a heavier write mix, a slow disk, a vacuum) and lag starts growing and doesn't shrink back on its own. Write capacity and replication lag are not independent numbers, which is why 'the leader can take 5k' is a more fragile claim than it looks.",
           "hint": "Adding app servers can't help you past a number further down."
         },
         {
@@ -330,7 +330,7 @@
             "NoSQL avoids all of this"
           ],
           "answer": 1,
-          "why": "Every hard thing in this tier was a dial someone had already set for you. Isolation defaults to Read Committed, so your check-then-insert races. Durability can be relaxed until an acknowledged write is a lie. Replication defaults to asynchronous, so your own writes can vanish from your own screen. None of those are bugs — they're deliberate trades of correctness for speed, chosen by people who couldn't know your product. Option 3 is the tempting wrong answer: turning everything to maximum means synchronous commits, Serializable retries and leader-only reads, which is a correct system nobody can afford to run. The skill isn't picking the strongest setting, it's knowing which promise you just sold and what you got for it.",
+          "why": "Every hard thing in this tier was a dial someone had already set for you. In Postgres, isolation defaults to Read Committed, so your check-then-insert races. Durability can be relaxed until an acknowledged write is a lie. Replication defaults to asynchronous, so your own writes can vanish from your own screen. None of those are bugs — they're deliberate trades of correctness for speed, chosen by people who couldn't know your product. 'Always use the strongest setting' is the tempting wrong answer: turning everything to maximum means synchronous commits, Serializable retries and leader-only reads, which is a correct system nobody can afford to run. The skill isn't picking the strongest setting, it's knowing which promise you just sold and what you got for it.",
           "hint": "Every default in this tier was someone choosing speed on your behalf."
         }
       ]

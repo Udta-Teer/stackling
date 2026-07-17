@@ -90,6 +90,7 @@
               },
               {
                 "id": "h",
+                "sub": "derived, hot",
                 "col": 1,
                 "hole": true
               },
@@ -97,7 +98,7 @@
                 "id": "t",
                 "label": "Trip Database",
                 "sub": "source of truth",
-                "col": 2,
+                "col": 1,
                 "kind": "db"
               }
             ],
@@ -107,8 +108,9 @@
                 "to": "h"
               },
               {
-                "from": "h",
-                "to": "t"
+                "from": "l",
+                "to": "t",
+                "dash": true
               }
             ]
           },
@@ -215,7 +217,7 @@
             ]
           },
           "body": "A composite index on `(lat, lng)` sorts by `lat` first, and by `lng` only *within* an identical `lat`. So a 2km box around a rider narrows to a latitude band — every driver at that latitude, all the way around the Earth — and everything after that is filtering by hand. Unit 8's leftmost-prefix rule, biting somewhere new.",
-          "note": "Which is why geospatial indexes exist, and why they all do one thing: turn a 2D position into a *single* sortable key, so 'nearby' becomes a prefix match. Geohash, S2 and H3 differ mainly in cell shape."
+          "note": "Which is why geohashing and its relatives exist: they turn a 2D position into a *single* sortable key, so 'nearby' becomes a prefix match. Geohash, S2 and H3 differ mainly in cell shape."
         },
         {
           "id": "ride-2-1",

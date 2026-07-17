@@ -145,7 +145,7 @@
           "id": "cm-2-0",
           "type": "concept",
           "title": "Between strong and eventual sits a menu of narrow promises, each forbidding one specific insult",
-          "body": "Strong and eventual are only the two ends. The useful guarantees live between them and each bans exactly one anomaly. *Read-your-writes*: you always see your own writes. *Monotonic reads*: your view never moves backwards. *Consistent prefix*: you never see an effect before its cause. Everything else stays legal — which is why they are cheap.",
+          "body": "Strong and eventual are only the two ends. The useful guarantees live between them and each bans exactly one anomaly. *Read-your-writes*: you always see your own writes. *Monotonic reads*: your view never moves backwards. *Causal consistency*: you never see an effect before its cause. Everything else stays legal — which is why they are cheap.",
           "note": "Users never ask for these by name. They say \"my comment vanished\", \"the count went down\", \"there's a reply to a message I can't see\" — three complaints, three different missing promises."
         },
         {
@@ -247,7 +247,7 @@
           "id": "cm-3-0",
           "type": "concept",
           "title": "Users report symptoms, and the clue that names the bug is usually *whose* read it was",
-          "body": "Nobody files a ticket saying \"read-your-writes is missing\". They say: \"my photo still shows the old one — but my friend can see the new one.\" That second clause is the diagnosis. The write landed and spread, so nothing is broken except which replica *their own* read hit. Read every complaint for who saw what, and when.",
+          "body": "Nobody files a ticket saying \"read-your-writes is missing\". They say: \"the like count went *down*.\" The shape of the complaint is the diagnosis. The write landed and spread, so nothing is broken except which replica *their own* read hit. Read every complaint for who saw what, and when.",
           "note": "Rule out latency first. Stale is wrong-but-fast; slow is right-but-late. In a ticket they read identically — \"the site is bad\" — and they need opposite fixes."
         },
         {

@@ -224,13 +224,14 @@
               },
               {
                 "id": "h",
+                "sub": "look up Bob",
                 "col": 1,
                 "hole": true
               },
               {
                 "id": "m",
                 "label": "Message Store",
-                "col": 2,
+                "col": 1,
                 "kind": "db"
               }
             ],
@@ -240,8 +241,9 @@
                 "to": "h"
               },
               {
-                "from": "h",
-                "to": "m"
+                "from": "c",
+                "to": "m",
+                "dash": true
               }
             ]
           },
@@ -363,7 +365,7 @@
             ]
           },
           "body": "The only party who knows Bob has the message is Bob's client. Everything upstream — the socket accepted the write, nothing errored — is your own process reporting on itself. So the ticks in every chat UI aren't decoration: each is an acknowledgement from a *different* party, which is why they arrive at different times and why 'delivered' can sit for hours.",
-          "note": "Ordering has the same shape. Two messages sent one after the other can arrive in either order, and no clock in the system is trustworthy enough to settle it — so order has to be *assigned* by somebody, never observed."
+          "note": "Two messages from *different* senders can land in either order — one socket keeps its own bytes ordered, but nothing orders two independent pipelines, and no clock here is trustworthy enough to settle it."
         },
         {
           "id": "chat-3-1",

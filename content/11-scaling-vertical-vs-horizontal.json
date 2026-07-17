@@ -186,46 +186,46 @@
           "viz": {
             "nodes": [
               {
-                "id": "s1",
+                "id": "s",
                 "label": "Server",
                 "sub": "2 vCPU",
                 "col": 0,
                 "kind": "server"
               },
               {
-                "id": "s2",
+                "id": "m",
                 "label": "Bigger",
                 "sub": "8 vCPU",
                 "col": 1,
                 "kind": "server"
               },
               {
-                "id": "s3",
-                "label": "Biggest",
+                "id": "l",
+                "label": "Biggest `m5`",
                 "sub": "96 vCPU",
                 "col": 2,
                 "kind": "server"
               },
               {
-                "id": "w",
-                "label": "Nothing larger to buy",
-                "sub": "the ceiling",
-                "col": 3
+                "id": "x",
+                "label": "The largest made",
+                "sub": "then nothing",
+                "col": 3,
+                "kind": "server"
               }
             ],
             "edges": [
               {
-                "from": "s1",
-                "to": "s2"
+                "from": "s",
+                "to": "m"
               },
               {
-                "from": "s2",
-                "to": "s3"
+                "from": "m",
+                "to": "l"
               },
               {
-                "from": "s3",
-                "to": "w",
-                "dash": true
+                "from": "l",
+                "to": "x"
               }
             ]
           },

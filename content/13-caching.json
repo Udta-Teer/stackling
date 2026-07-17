@@ -52,7 +52,7 @@
               }
             ]
           },
-          "body": "A cache sits in front of expensive work — a database query, an API call, a disk read — and keeps a copy of the answer. Ask the same question again and it replies from memory instead of redoing the work. That is the entire mechanism. Everything hard about caching comes from one fact: that copy is allowed to be out of date.",
+          "body": "A cache sits in front of expensive work — a slow database query, an API call, a disk read — and keeps a copy of the answer. Ask the same question again and it replies from memory instead of redoing the work. That is the entire mechanism. Everything hard about caching comes from one fact: that copy is allowed to be out of date.",
           "note": "So the bet only pays off if the question really does repeat. Cache something asked once and you have bought a component, a failure mode and a staleness bug for nothing."
         },
         {
@@ -272,12 +272,14 @@
               },
               {
                 "id": "h1",
+                "sub": "1 · ask first",
                 "col": 1,
                 "hole": true
               },
               {
                 "id": "h2",
-                "col": 2,
+                "sub": "2 · only on miss",
+                "col": 1,
                 "hole": true
               }
             ],
@@ -287,8 +289,9 @@
                 "to": "h1"
               },
               {
-                "from": "h1",
-                "to": "h2"
+                "from": "a",
+                "to": "h2",
+                "dash": true
               }
             ]
           },

@@ -274,7 +274,7 @@
               {
                 "id": "s",
                 "label": "Full table scan",
-                "sub": "~10s",
+                "sub": "reads every row",
                 "col": 2
               }
             ],
@@ -440,7 +440,7 @@
               }
             ]
           },
-          "body": "When a database answers `INSERT` with success, it has already forced a record of that change onto disk. That is *durability*, and it is why the word committed means anything. The trick is the write-ahead log: before touching the real data pages, the database appends what it is about to do to one sequential file and flushes that.",
+          "body": "When a database answers `INSERT` with success, it has, by default, already forced a record of that change onto disk. That is *durability*, and it is why the word committed means anything. The trick is the write-ahead log: before touching the real data pages, the database appends what it is about to do to one sequential file and flushes that.",
           "note": "Appending to one file is fast. Scattering random writes across a huge data file is not. The data pages can be updated whenever, because after a crash the log can always replay them."
         },
         {

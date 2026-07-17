@@ -142,23 +142,26 @@
               {
                 "id": "r",
                 "label": "Root page",
-                "sub": "~500 keys",
+                "sub": "~400 keys",
                 "col": 0
               },
               {
                 "id": "a",
                 "label": "Internal",
+                "sub": "~400 keys",
                 "col": 1
               },
               {
                 "id": "b",
                 "label": "Internal",
+                "sub": "~400 keys",
                 "col": 1
               },
               {
-                "id": "c",
-                "label": "Internal",
-                "col": 1
+                "id": "w",
+                "label": "Leaf",
+                "sub": "row ptrs",
+                "col": 2
               },
               {
                 "id": "x",
@@ -189,8 +192,8 @@
                 "to": "b"
               },
               {
-                "from": "r",
-                "to": "c"
+                "from": "a",
+                "to": "w"
               },
               {
                 "from": "a",
@@ -201,7 +204,7 @@
                 "to": "y"
               },
               {
-                "from": "c",
+                "from": "b",
                 "to": "z"
               }
             ]
@@ -451,7 +454,7 @@
           "id": "idx-4-0",
           "type": "concept",
           "title": "An index earns its keep by narrowing, and matching 95% of the table narrows nothing",
-          "body": "*Selectivity* is the fraction of rows a lookup eliminates. `WHERE email = 'x@y.com'` leaves one row out of ten million: superb. `WHERE is_active = true`, where 95% of rows are true, leaves 95% — and reaching 95% of a table through an index is *slower* than scanning it, because you'd jump around the disk to fetch nearly every row anyway.",
+          "body": "*Selectivity* is the fraction of rows a lookup matches, and low is what you want. `WHERE email = 'x@y.com'` matches one row in ten million: superb. `WHERE is_active = true`, where 95% of rows are true, matches 95% — and reaching 95% of a table through an index is *slower* than scanning it, because you'd jump around the disk to fetch nearly every row anyway.",
           "note": "Selectivity belongs to the query, not the column. That same `is_active` index is excellent for `WHERE is_active = false` — 5% of rows, highly selective. One column, two opposite verdicts."
         },
         {

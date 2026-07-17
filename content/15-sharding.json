@@ -122,7 +122,7 @@
             },
             {
               "left": "Sharding scales",
-              "right": "Writes, and total data size"
+              "right": "Writes, reads, and total data size"
             }
           ],
           "why": "They solve different problems and compose rather than compete: shard to divide the write load and the data, then replicate each shard so losing a machine doesn't lose that slice. Real systems at scale do both, because sharding alone gives you no redundancy — it just gives you more single points of failure."

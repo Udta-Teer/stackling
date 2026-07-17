@@ -110,7 +110,7 @@
           "type": "concept",
           "title": "ACID is four unrelated promises wearing one acronym",
           "body": "*Atomicity*: the whole unit lands or none of it does. *Consistency*: the constraints you declared — `UNIQUE`, foreign keys, checks — still hold. *Isolation*: what concurrent transactions can see of each other's unfinished work. *Durability*: once committed, it survives a crash. Four separate promises. The acronym flatters them into a set.",
-          "note": "Two of them are dials you can turn down: isolation has levels, and durability has switches like `synchronous_commit`. Atomicity has no setting at all, and C is mostly your own declared constraints doing the work."
+          "note": "That flattening costs you, because the four aren't equally interesting. One is barely the database's doing, and at least one is a dial you're turning without knowing it. Which is which is the rest of this lesson."
         },
         {
           "id": "txn-2-1",
@@ -218,48 +218,6 @@
           "id": "txn-3-0",
           "type": "concept",
           "title": "Your database is running a weaker isolation level than you think it is",
-          "viz": {
-            "nodes": [
-              {
-                "id": "ru",
-                "label": "Read Uncommitted",
-                "sub": "weakest",
-                "col": 0
-              },
-              {
-                "id": "rc",
-                "label": "Read Committed",
-                "sub": "PG default",
-                "col": 1
-              },
-              {
-                "id": "rr",
-                "label": "Repeatable Read",
-                "sub": "MySQL dflt",
-                "col": 2
-              },
-              {
-                "id": "s",
-                "label": "Serializable",
-                "sub": "strongest",
-                "col": 3
-              }
-            ],
-            "edges": [
-              {
-                "from": "ru",
-                "to": "rc"
-              },
-              {
-                "from": "rc",
-                "to": "rr"
-              },
-              {
-                "from": "rr",
-                "to": "s"
-              }
-            ]
-          },
           "body": "Isolation decides what one transaction can see of another's unfinished work. Stronger rungs forbid more anomalies and cost more — more locking, more coordination, more transactions aborted and retried. So you get to pick. Postgres defaults to Read Committed, where each *statement* takes a fresh snapshot; MySQL's InnoDB defaults to Repeatable Read.",
           "note": "And the names lie across engines: Postgres's \"Repeatable Read\" is really snapshot isolation, and Postgres quietly treats Read Uncommitted as Read Committed — you cannot get a dirty read out of it however hard you ask."
         },

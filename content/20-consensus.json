@@ -199,53 +199,53 @@
         {
           "id": "cons-3-0",
           "type": "concept",
-          "title": "Consensus is expensive, so you spend it once — on the question *who decides?*",
+          "title": "Consensus buys you an order-giver, not an escape from the majority",
           "viz": {
             "nodes": [
               {
-                "id": "c",
+                "id": "w",
                 "label": "Writes",
                 "col": 0,
                 "kind": "client"
               },
               {
-                "id": "l",
+                "id": "lead",
                 "label": "Leader",
-                "sub": "elected",
+                "sub": "orders them",
                 "col": 1,
                 "kind": "server"
               },
               {
                 "id": "f1",
                 "label": "Follower",
-                "sub": "copies its log",
+                "sub": "must ack",
                 "col": 2,
                 "kind": "server"
               },
               {
                 "id": "f2",
                 "label": "Follower",
-                "sub": "copies its log",
+                "sub": "must ack",
                 "col": 2,
                 "kind": "server"
               }
             ],
             "edges": [
               {
-                "from": "c",
-                "to": "l"
+                "from": "w",
+                "to": "lead"
               },
               {
-                "from": "l",
+                "from": "lead",
                 "to": "f1"
               },
               {
-                "from": "l",
+                "from": "lead",
                 "to": "f2"
               }
             ]
           },
-          "body": "Agreeing on every single write means every write waits on a majority. So you run the expensive protocol once, to settle one question: who is the leader? After that, one node puts writes in order by itself and the others copy. You buy agreement rarely, at an election, and get cheap ordering in between.",
+          "body": "Without a leader, every write needs its own negotiation — several trips just to settle whose write goes first. So you run that protocol once, to agree *who leads*. After that the leader assigns order alone, and a write costs one round trip to a majority instead of an argument. You never stopped paying a majority. You stopped arguing about order.",
           "note": "Which is why a dead leader is a small *outage*, not a small delay. With nobody entitled to order writes, writes stop until an election finishes — usually hundreds of milliseconds."
         },
         {

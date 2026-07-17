@@ -274,7 +274,7 @@
             "It queries the leader constantly"
           ],
           "answer": 1,
-          "why": "The leader sends an ordered stream of changes and the follower replays them in that exact order, arriving at the same state. That's the write-ahead log from unit 6 doing a second job: it exists for crash recovery, but an ordered record of every change turns out to be exactly what you'd want to ship to another machine — so replication rides on a log the database already had to write anyway."
+          "why": "The leader sends an ordered stream of changes and the follower replays them in that exact order, arriving at the same state. In Postgres that's the write-ahead log from unit 6 doing a second job: it exists for crash recovery, but an ordered record of every change turns out to be exactly what you'd want to ship to another machine — so replication rides on a log the database already had to write anyway."
         },
         {
           "id": "rep-2-4",

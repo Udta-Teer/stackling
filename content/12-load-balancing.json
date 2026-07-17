@@ -369,7 +369,7 @@
             ]
           },
           "body": "Nothing announces its own crash. So the balancer probes every server on a schedule — a `GET /health` every few seconds — and pulls whichever stop answering out of rotation. That's an *active* health check. The passive alternative watches real traffic and notices the failures, which costs no probes but only ever learns by hurting real users first.",
-          "note": "The probe asks a yes/no question: are you answering? So a server replying in 8 seconds passes and keeps taking your users' requests. *Up* and *healthy* are not the same word, and that gap is where this lesson lives."
+          "note": "The probe asks a yes/no question: are you answering? So a server replying in 800ms passes and keeps taking your users' requests. *Up* and *healthy* are not the same word, and that gap is where this lesson lives."
         },
         {
           "id": "lb-3-1",
