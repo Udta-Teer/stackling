@@ -53,7 +53,7 @@
             ]
           },
           "body": "A weather app owns no satellites. A checkout page doesn't run a bank. They work by asking someone else's server, over the network, in a format that server has agreed to accept. That agreement is the API — Application Programming Interface: a published list of what you may ask, how to ask it, and what comes back. A contract between two programs.",
-          "note": "The contract is the part they can't take back. Their database, their language, their servers can all change tomorrow and you'd never notice — but change the contract and every app built on it breaks at once."
+          "note": "The contract is the part they can't take back. Once strangers build on it, it stops being yours to edit — an API you published in 2015 is an API you are still honouring today, bug for bug."
         },
         {
           "id": "api-1-1",
@@ -154,8 +154,8 @@
           "id": "api-2-0",
           "type": "concept",
           "title": "In REST the URL is a noun, because the verb is already in the method",
-          "body": "`GET /users/42`. The method says what you're doing; the path says what you're doing it to. That split is the whole idea of REST: give every *resource* an address, then let the HTTP verbs act on it. `/getUser?id=42` says 'get' twice and names nothing — which is why it reads wrong to anyone who knows the convention.",
-          "note": "A small fixed set of verbs, unlimited nouns. That's why a good REST API is guessable: if you've seen `GET /users/42`, you can already work out how to fetch invoice 7 without opening the docs."
+          "body": "`GET /invoices/7`. The method says what you're doing; the path says what you're doing it to. That split is the whole idea of REST: give every *resource* an address, then let the HTTP verbs act on it. Put the action back into the path and you've said it twice — the method already carried the verb, and now the URL names nothing.",
+          "note": "A small fixed set of verbs, unlimited nouns. That's why a good REST API is guessable: see one resource addressed properly and you can work out the rest of them without opening the docs."
         },
         {
           "id": "api-2-1",
@@ -260,7 +260,7 @@
           "id": "api-3-0",
           "type": "concept",
           "title": "An endpoint that returns 'all of them' is fine right up until there are a lot of them",
-          "body": "`GET /users` looks harmless against 100 rows. At 50 million it is a completely different endpoint: a query that walks the whole table, a response measured in gigabytes, a request that times out, and memory blowing up on both ends at once. None of the code changed. Only the size of the data did — and that's the shape of most scale bugs.",
+          "body": "`GET /users` looks harmless. It's one line, it takes no parameters, and it sails through review. What it actually promises is: *however many users exist, I will return all of them.* None of the code changes as your table grows. Only the size of the data does — and that's the shape of most scale bugs.",
           "note": "Which is exactly why it ships. Your dev database has 100 rows and production has 50 million, so the endpoint passes every test it will ever face before it meets the data that kills it."
         },
         {
@@ -354,7 +354,7 @@
         {
           "id": "api-4-0",
           "type": "concept",
-          "title": "A screen that needs twenty things can cost you twenty-one trips",
+          "title": "A list is one call — then the screen needs one more for every row in it",
           "viz": {
             "nodes": [
               {
@@ -372,7 +372,7 @@
               {
                 "id": "u",
                 "label": "`GET /users/{id}`",
-                "sub": "2 · ×20 more",
+                "sub": "2 · once per row",
                 "col": 1
               }
             ],

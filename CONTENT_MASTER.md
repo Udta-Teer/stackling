@@ -236,11 +236,35 @@ Rules that keep a card from becoming goDeeper 2.0:
 - **Don't define neighbouring concepts.** Each card does one job.
 - **Max 3 per lesson**, and a lesson of only concept cards is rejected — it's a slide deck.
 
+#### The card teaches the MECHANISM; the exercise supplies the INSTANCE
+
+The failure mode a teaching card invites: teach so literally that the test becomes a memory check. Ask of every exercise — *could a learner get this right by recalling a sentence from the card, without reasoning?* If yes, the card spoiled it.
+
+| | |
+|---|---|
+| ✅ **Healthy** — `rl-3-0` → `rl-3-1` | Card: a counter in one server's memory limits *per server*. Exercise: 10 servers × 1,000 rps — what's the real limit? The card never states 10,000. **The learner applies it.** |
+| ❌ **Broken** — `rl-2-0` → `rl-2-1` | Card: *"100 requests at 10:00:59 plus 100 more at 10:01:00 is 200 in one second."* Exercise: exactly that, and the answer is that sentence. |
+
+Spoiled means: the card states the answer (paraphrase counts); works the same example; enumerates all the correct options; names the distractor; or prints a number the learner is asked to compute.
+
+**Not** spoiled: naming the concept (a caching card must say "cache"; a `fill_blank` answered "cache" is a vocabulary check), or making exercise 1 answerable — that's the card's *job*. Exercise 1 should be answerable by *reasoning from* the card, not by recalling a sentence in it.
+
+Fix by moving the instance into the exercise and keeping the principle on the card; or by teaching on instance A and testing on instance B.
+
+**`scripts/check-spoilers.py` catches only copy-paste, and its own docstring says so.** Calibrated against confirmed cases: `scale-4-0` → `scale-4-5` ("a complete pre-answer") scores **0%**, while the *healthy* `rl-3-0` → `rl-3-1` scores **25%**. The healthy card scores higher than the worst offender, because real spoilers are semantic. A clean run means "nobody copy-pasted" and nothing more — judging this needs a reader.
+
 **Checkpoints (units 28–32) are the deliberate exception**: a checkpoint is a test *by design*, mixing units the learner has already been taught. No cards there.
 
 ### 6.2 Review status
 
-Units 1–27 have all had an adversarial review pass. Units 1–11 were reviewed on 2026-07-17 (23 fixes landed, then 6 more to repair defects those fixes introduced — the reviewer caught `txn-2-5` still contradicting the `txn-2-4` fix, which is the fix-two-of-three pattern to watch for). **Units 28–32 (the checkpoints) have NOT been adversarially reviewed.** They were authored on 2026-07-17 and only self-checked plus arithmetic-verified. Every unit that only I have reviewed has later turned out to contain errors, so treat that as a known debt, not a clean bill.
+All 32 units have now had an independent adversarial review (2026-07-17), including the checkpoints.
+
+- **Units 1–11**: 23 fixes, then 6 more to repair defects those fixes introduced. The reviewer caught `txn-2-5` still contradicting the `txn-2-4` fix — the fix-two-of-three pattern.
+- **All 108 concept cards**: 38 fixes. Real errors, e.g. `cons-3-0` taught that a leader removes the per-write majority (it doesn't — it amortizes the argument about *order*), `idx-4-0` defined selectivity inverted, `idx-2-0`'s B-tree diagram had one child per node.
+- **Checkpoints 28–32**: first independent pass found a `spot_bottleneck` with a **tie** (two nodes at 5k, so the answer wasn't derivable) and three `why`s citing "Option 3" when the UI renders A–D.
+- **De-spoiling pass**: all 108 cards rewritten so the card teaches the mechanism and the exercise supplies the instance. Verified: all 725 graded exercises byte-identical afterwards.
+
+**The pattern to internalise: my own review finds ~zero; independent reviewers find many, every single time.** And my *fixes* introduce new errors at a steady rate — three in one batch, and the de-spoiling pass caught a fourth (a partial fix to `cm-3-0` had labelled "the like count went down" a read-your-writes symptom, contradicting `cm-3-6`'s key, which says it's monotonic reads). **Never ship a batch of fixes without an independent pass over the fixes themselves.**
 
 ---
 

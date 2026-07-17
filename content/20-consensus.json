@@ -18,8 +18,8 @@
           "id": "cons-1-0",
           "type": "concept",
           "title": "You cannot tell a dead machine from a slow one — every hard part of consensus grows from that",
-          "body": "You send a message and hear nothing back. Is the peer dead? Slow? Was your message lost, or its reply? From the outside these are *identical*, and no cleverness makes silence speak. That is why machines can't simply vote and be done: a vote you never heard might have been cast, and might arrive a second from now.",
-          "note": "Consensus is the machinery that squeezes one decision out of that fog anyway. Notice what it can promise: agreement, never speed. Nothing can guarantee both while a message is allowed to vanish."
+          "body": "You send a message and hear nothing back. Is the peer dead? Slow? Was your message lost, or was its reply? From the outside these are *identical*, and no cleverness makes silence speak: a reply you're still waiting for and a reply that will never come look exactly the same — right up until one of them arrives, or doesn't.",
+          "note": "Consensus squeezes one decision out of that fog anyway. Before you read a single algorithm, ask what it could honestly promise — and what nothing could promise while a message is still allowed to vanish."
         },
         {
           "id": "cons-1-1",
@@ -113,8 +113,8 @@
           "id": "cons-2-0",
           "type": "concept",
           "title": "A majority cannot happen twice at once — that's arithmetic, not policy",
-          "body": "Require more than half the nodes to agree before anything counts. Now split the cluster however you like: two groups that don't overlap cannot both hold more than half. So at most one side can ever proceed. Split brain isn't made *unlikely* by a majority rule. It's made impossible, by counting.",
-          "note": "The bill is honest. Split 5 nodes into 2, 2 and 1 and nobody can reach 3 — every node is healthy and the cluster does nothing at all. That's what choosing consistency costs on a bad day."
+          "body": "Require more than half the nodes to agree before anything counts. That one rule does something stronger than it looks. Split the cluster any way you like, and split brain doesn't become *unlikely*. It becomes impossible. Not by policy, not by trust, not by anyone behaving well. By counting. Do the arithmetic yourself and you have the whole idea.",
+          "note": "A trap in the counting: a majority means a majority of the *configured* members, not of the nodes still alive. Lowering the bar means a config change — which itself needs a quorum you no longer have."
         },
         {
           "id": "cons-2-1",
@@ -245,8 +245,8 @@
               }
             ]
           },
-          "body": "Without a leader, every write needs its own negotiation — several trips just to settle whose write goes first. So you run that protocol once, to agree *who leads*. After that the leader assigns order alone, and a write costs one round trip to a majority instead of an argument. You never stopped paying a majority. You stopped arguing about order.",
-          "note": "Which is why a dead leader is a small *outage*, not a small delay. With nobody entitled to order writes, writes stop until an election finishes — usually hundreds of milliseconds."
+          "body": "Without a leader, every write needs its own negotiation — several round trips spent settling whose write goes first. Notice what's expensive there: not the storing, the arguing. And notice exactly what a leader does and doesn't remove. It ends the argument about order. It does not excuse one write from reaching a majority. You still pay that, every time.",
+          "note": "And an order-giver comes with a ceiling: every write funnels through one machine, so the leader's capacity is the cluster's write capacity. More nodes buy durability and fault tolerance — never write throughput."
         },
         {
           "id": "cons-3-1",
@@ -336,8 +336,8 @@
           "id": "cons-4-0",
           "type": "concept",
           "title": "The right amount of consensus to implement yourself is none",
-          "body": "Raft reads like something you could build in a weekend. It isn't. The bugs live in interleavings you'd never think to test — a node pausing at exactly the wrong instant, a message arriving after you assumed it couldn't — and they don't crash anything. They quietly fork your data. Use etcd, ZooKeeper, or your database's built-in election.",
-          "note": "So the real decision was never \"which algorithm\". It's \"does this even need agreement?\" Two answers to *who is the leader* is a catastrophe. Two answers to *the page-view count* is a Tuesday."
+          "body": "Raft reads like something you could build in a weekend. It isn't. The bugs live in interleavings you'd never think to test — a node pausing at exactly the wrong instant, a message arriving after you assumed it couldn't. And they don't crash anything, which is the horror. They quietly fork your data, and you find out months later, from a customer.",
+          "note": "So the real decision was never \"which algorithm\". It's \"does this even need agreement?\" — and the test is what two different answers would actually cost you. Most data fails that test, which is the good news."
         },
         {
           "id": "cons-4-1",

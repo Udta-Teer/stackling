@@ -18,8 +18,8 @@
           "id": "cap-1-0",
           "type": "concept",
           "title": "A partition leaves a node exactly two options, and both of them are bad",
-          "body": "A *partition* is nodes alive but unable to reach each other — the link between two datacenters drops while both keep serving users. A write lands in A. B can't hear about it and can't tell that it happened, so B either answers with data it knows might be stale, or refuses to answer at all. There is no third option. That's the theorem.",
-          "note": "Which is why *pick two of three* is the wrong reading. Partition tolerance was never on the menu — networks fail whether or not you approve. During a split you choose C or A; a 'CA system' just means one node."
+          "body": "The link between two datacenters drops. Every machine is up; every user still reaches one side or the other. That's a *partition*, and it puts a node in a strange position: its own copy is now the only evidence it has, and it cannot tell whether the world has moved on without it. Then a read arrives. It has two possible answers, and only two.",
+          "note": "So the theorem is narrower than the slogan. It isn't offering three properties to shop among — it describes one node's options at a moment when the network has already decided something for you."
         },
         {
           "id": "cap-1-1",
@@ -119,9 +119,9 @@
         {
           "id": "cap-2-0",
           "type": "concept",
-          "title": "A CP system turns a network problem into an outage, on purpose",
-          "body": "Choosing consistency means choosing to refuse. When the network splits, the side that can't confirm it holds the latest data stops answering — errors and timeouts, served by machines that are perfectly healthy. Nobody reads a wrong value because nobody on that side reads at all. That isn't the design failing; it *is* the design.",
-          "note": "How does a node know it's the side that should stop? A *quorum*: only the side holding a majority may proceed. In a 5-node cluster split 3 and 2, the 3 continue and the 2 stand down — two sides can't both be a majority."
+          "title": "A CP system would rather be down than be wrong",
+          "body": "Choosing consistency means choosing to refuse. When the network splits, a node that cannot confirm it holds the latest data has exactly one honest move left, and it is not to guess. So perfectly healthy machines stop serving. Nobody reads a wrong value there because nobody reads at all. That isn't the design failing; it *is* the design.",
+          "note": "But *which* side stops? Both look identical from the inside, so the rule can't rely on either one knowing it's the odd one out. It has to be a test that only one side of any split can pass — arithmetic, not judgement."
         },
         {
           "id": "cap-2-1",
@@ -215,8 +215,8 @@
           "id": "cap-3-0",
           "type": "concept",
           "title": "An AP system always has an answer — it just might not be *the* answer",
-          "body": "Choosing availability means choosing to answer anyway. Both sides of a split keep serving from their own copies, so nobody gets an error and some people get data missing the other side's writes. The real cost isn't the stale read. It's what lands when the network heals and two divergent versions of the same record meet.",
-          "note": "No library can decide that merge. *Last write wins* is one line of config and silently destroys an edit; keeping both versions pushes the choice to the user. Only your domain knows: carts merge, 'set quantity' doesn't."
+          "body": "Choosing availability means choosing to answer anyway. Both sides of a split keep serving from their own copies, so nobody gets an error and some people get data missing the other side's writes. The real cost isn't the stale read, though. It's whatever the two sides have quietly accumulated by the time the network comes back.",
+          "note": "And you will have a merge rule whether you write one or not. Every system has a default — and defaults are chosen by whoever wrote the library, never by whoever understands what your data actually means."
         },
         {
           "id": "cap-3-1",
@@ -320,9 +320,9 @@
         {
           "id": "cap-4-0",
           "type": "concept",
-          "title": "CAP has nothing to say about your system while the network is healthy",
-          "body": "The theorem is a statement about partitions, and only about partitions. No split, no forced choice: a healthy cluster can be consistent *and* available at the same time. So what shapes your system the rest of the time — which is nearly all of the time? Coordination. To answer consistently, a node must check with the others first.",
-          "note": "And that check costs a round trip on every operation. So the trade you actually pay daily is latency against consistency. The full form has a name — PACELC: if Partition, then A or C; *else*, Latency or C."
+          "title": "The theorem describes a rare emergency, not the system you run every day",
+          "body": "CAP is a statement about partitions, and only about partitions. That should bother you more than it does: your network is fine almost all of the time, so for almost your system's whole life the theorem is silent. So what constrains you the rest of the time? Something has to make a node's answer *correct*, and that something has a price.",
+          "note": "That something is coordination: a node can't know it holds the latest write without asking someone who might. How far the ask goes, how many it waits for — that's the design you operate. CAP is what you rehearse for."
         },
         {
           "id": "cap-4-1",

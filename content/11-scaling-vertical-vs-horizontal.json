@@ -182,7 +182,7 @@
         {
           "id": "scale-2-0",
           "type": "concept",
-          "title": "Vertical scaling doesn't die of price — it dies because there is a biggest machine",
+          "title": "Every instance family is a ladder, and every ladder has a top step",
           "viz": {
             "nodes": [
               {
@@ -229,8 +229,8 @@
               }
             ]
           },
-          "body": "Folklore says twice the machine costs more than twice the money. Inside a mainstream cloud family it doesn't: AWS `m5` charges about the same per vCPU at `m5.large` as at `m5.24xlarge`, so 2× the size is roughly 2× the bill. What actually runs out is the range — there is a largest instance, and you can reach it.",
-          "note": "A price premium is real at the top specialty tiers, but that's the same place the ceiling is, so it's a late argument for scaling out, not an early one. Paying for a peak you're idle through at 3am bites at any size."
+          "body": "Cloud compute comes in families of fixed sizes, each with a published price. AWS `m5` runs from `m5.large` — 2 vCPU, about $0.10/hr on demand — up to `m5.24xlarge` at 96 vCPU, about $4.61/hr. Then it stops: there is no `m5.48xlarge`. Other families climb higher, and every one of those stops too. Scaling up is walking a ladder someone else built.",
+          "note": "The whole price list is public and the arithmetic is one division. Worth doing yourself before you accept received wisdom about what large machines cost — it's a number repeated far more often than it's checked."
         },
         {
           "id": "scale-2-1",
@@ -352,14 +352,14 @@
               {
                 "id": "a",
                 "label": "Server A",
-                "sub": "has session",
+                "sub": "has their file",
                 "col": 2,
                 "kind": "server"
               },
               {
                 "id": "b",
                 "label": "Server B",
-                "sub": "no session",
+                "sub": "doesn't",
                 "col": 2,
                 "kind": "server"
               }
@@ -379,7 +379,7 @@
               }
             ]
           },
-          "body": "A second server only helps if either machine can serve any request. That holds right up until something a user needs exists on only one box — their session in local memory, their upload on local disk. Now half their requests land on a stranger. The machines aren't interchangeable, and *add another box* quietly stops working.",
+          "body": "A second server only helps if either machine can serve any request. That holds right up until something a user needs exists on only one box — the file they uploaded, sitting on that machine's local disk. Now half their requests land on a stranger. The machines aren't interchangeable, and *add another box* quietly stops working.",
           "note": "Which is why 1 → 2 is the hardest scaling step there is, and it's the first one. Every assumption you made about there being one machine surfaces at once, and nobody ever wrote them down. 2 → 200 is boring after it."
         },
         {
@@ -525,9 +525,9 @@
         {
           "id": "scale-4-0",
           "type": "concept",
-          "title": "Scale up until you have a named reason not to",
-          "body": "Scaling up is a config change you can undo this afternoon. Scaling out is a one-way door: split the work across machines and every bug becomes a distributed bug, every local test needs the whole cast running. That complexity bills you daily. The scale it buys arrives someday, maybe. Take the reversible option until evidence says you can't.",
-          "note": "Three reasons qualify, and they're real: you're near the largest machine, your uptime target needs a second box, or traffic is spiky enough that paying for peak around the clock hurts. *We read an article* isn't one."
+          "title": "One of these two moves you can undo; the other one you cannot",
+          "body": "Resize a box and you can resize it back on Friday — nothing else in your system noticed it happened. Split the work across machines and there is no undo: the split is now in your code, your tests, your deploys and your on-call rotation, permanently. Two options that look equally reasonable on a diagram are not equally reasonable when only one is reversible.",
+          "note": "So the bar for going out is evidence, and evidence has a shape: a constraint you can name and a number that says so. Anything you can't measure isn't a reason — it's a preference that learned to sound like one."
         },
         {
           "id": "scale-4-1",

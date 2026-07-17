@@ -163,8 +163,8 @@
               }
             ]
           },
-          "body": "Your CPU's L1 cache answers in roughly 1 nanosecond. Main memory — RAM, the thing we all call fast — takes roughly 100. That isn't 'a bit slower', it's about 100 times slower. And the ladder keeps descending: SSD, then the network, then another continent. Each step down is a cliff rather than a slope.",
-          "note": "Treat these as orders of magnitude, not measurements — hardware moves, the ratios barely do. Nobody cares whether RAM is 80ns or 120ns. Everybody should care that it's ~100 L1 hits."
+          "body": "Your CPU's L1 cache answers in roughly 1 nanosecond. Main memory — RAM, the thing we all call fast — takes roughly 100. Put those two numbers side by side and count the zeros: that isn't 'a bit slower', it's a different scale. And the ladder keeps descending: SSD, then the network, then another continent. Each step down is a cliff rather than a slope.",
+          "note": "Treat these as orders of magnitude, not measurements — hardware moves, the ratios barely do. Nobody cares whether RAM is 80ns or 120ns. Everybody should care how many L1 hits it's worth."
         },
         {
           "id": "lat-2-1",

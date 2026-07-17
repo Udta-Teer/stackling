@@ -74,8 +74,8 @@
               }
             ]
           },
-          "body": "A replica is a full copy, so every replica must apply every write — adding them adds writers, not write capacity. Sharding splits the rows instead: each machine holds only its slice, so it stores less, writes less and reads less. That is the only way past one machine's write and storage ceiling. Reads get cheaper too.",
-          "note": "It is also the decision you can't quietly undo. The shard key decides where every row physically lives, so changing your mind later means relocating the whole dataset while still serving traffic."
+          "body": "A replica is a full copy. Every copy must therefore apply every write — that is what makes it a copy, and it is why adding replicas adds machines without dividing the writing. Sharding does the other thing: each machine holds only its own slice of the rows, and only ever hears the traffic that names its keys. Work out what that divides, and what it doesn't.",
+          "note": "It is also the decision you can't quietly undo. The shard key isn't a setting you tune later — it is the rule that decides which machine every row physically sits on, and everything downstream inherits that choice."
         },
         {
           "id": "shard-1-1",
@@ -184,10 +184,10 @@
             "nodes": [
               {
                 "id": "u",
-                "label": "New users",
+                "label": "Router",
                 "col": 0,
-                "kind": "client",
-                "sub": "ids 2.4M+"
+                "kind": "gw",
+                "sub": "reads the key"
               },
               {
                 "id": "a",
@@ -214,12 +214,20 @@
             "edges": [
               {
                 "from": "u",
+                "to": "a"
+              },
+              {
+                "from": "u",
+                "to": "b"
+              },
+              {
+                "from": "u",
                 "to": "c"
               }
             ]
           },
-          "body": "The shard key is the column the rule reads to decide where a row lives. Two ways to map it. *Range*: ids 1–1M on shard A, 1M–2M on B — ordered slices, so a scan of neighbouring keys stays on one machine. *Hash*: hash the key, take the remainder — spreads rows evenly and destroys that ordering. Neither is free.",
-          "note": "Range plus an auto-incrementing id is the classic trap: every new row has the highest id, so every insert lands on the newest shard. One machine takes all the writes while the rest sit idle."
+          "body": "The shard key is the column the rule reads to decide where a row lives. Two ways to map it. *Range*: ids 1–1M on shard A, 1M–2M on B, and so on — the rule preserves the key's order. *Hash*: hash the key and take the remainder — the rule deliberately throws that order away. Every bill either one sends you is a consequence of that single difference.",
+          "note": "And the choice between them matters less than the column you feed them. Range or hash decides *how* a key is mapped; the key itself decides which questions your system can still answer cheaply, and which it can't."
         },
         {
           "id": "shard-2-1",
@@ -324,14 +332,14 @@
             "nodes": [
               {
                 "id": "c",
-                "label": "Celebrity",
+                "label": "One popular key",
                 "col": 0,
                 "kind": "client",
-                "sub": "200M fans"
+                "sub": "most of the reads"
               },
               {
                 "id": "o",
-                "label": "Everyone else",
+                "label": "Everything else",
                 "col": 0,
                 "kind": "client"
               },
@@ -376,8 +384,8 @@
               }
             ]
           },
-          "body": "A hash spreads *rows* evenly. It promises nothing about how often those rows are asked for. One account with 200 million followers is a single row on a single shard — and that shard now serves a wildly disproportionate share of the reads and writes while its neighbours idle. Even data, uneven heat: a hot shard.",
-          "note": "You can't rebalance your way out. The key put that row on that machine, and no reshuffle splits one key. The fixes are different in kind: cache the hot row, or split the key itself into `celeb_id:bucket`."
+          "body": "A hash spreads *rows* evenly. It promises nothing whatsoever about how often those rows get asked for. And rows are never equally popular — traffic follows attention, and attention has never been uniformly distributed. So an immaculate split of the data can sit underneath a grotesque split of the work, with no hash function able to prevent it.",
+          "note": "You can't rebalance your way out, either. The key put that row on that machine, and no reshuffle splits a single key. The fixes differ in kind — cache the hot row, or make the key finer so one hot thing becomes many."
         },
         {
           "id": "shard-3-1",
@@ -533,8 +541,8 @@
               }
             ]
           },
-          "body": "Ask something the key can't locate — *who signed up today?* — and the router queries every shard and merges the answers. You now wait for the *slowest* of them. Across 16 shards, if each is slow 1% of the time, `1 - 0.99^16` ≈ 15% of these queries hit at least one slow shard, and the median fan-out lands near one shard's p96.",
-          "note": "Which is why the key is chosen from your read patterns, not your data model: a query carrying the shard key touches one machine, and every query that doesn't touches all of them."
+          "body": "A query naming the shard key goes to one machine. A query that doesn't — *which accounts are over quota?* — can't be routed, so the router asks every shard and merges what comes back. That's a *scatter-gather*, and its cost isn't the average shard's latency: you can't finish until the last one replies. Every shard you add is another draw from the tail.",
+          "note": "Which is why the key is chosen from your read patterns and not from your data model. The key is the only thing that lets the router skip a machine, so every query that doesn't carry one pays for all of them."
         },
         {
           "id": "shard-4-1",

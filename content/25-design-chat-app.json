@@ -51,8 +51,8 @@
               }
             ]
           },
-          "body": "Every system so far had the client ask first. Chat's defining event — someone messaged *you* — originates elsewhere and arrives unprompted, and HTTP gives a server no way to speak until it's spoken to. So chat either fakes it by asking over and over, or changes the connection itself. Everything hard in this unit descends from that inversion.",
-          "note": "Short polling, long polling, Server-Sent Events, WebSocket: four points on one line, answering two questions — how long does a connection live, and who is allowed to speak on it. Chat needs both sides talking."
+          "body": "Every system so far had the client ask first. Chat doesn't fit that shape. The event you need to know about — someone messaged *you* — doesn't happen where you are; it happens elsewhere, at a moment you didn't choose, and it arrives unprompted. Hold that against the request/response model you've used for twenty-four units and see what breaks.",
+          "note": "Short polling, long polling, Server-Sent Events, WebSocket — four points on one line, not four unrelated technologies. Work out what that line measures and they stop being a list to memorize."
         },
         {
           "id": "chat-1-1",
@@ -324,28 +324,24 @@
               {
                 "id": "a",
                 "label": "Alice sends",
-                "sub": "pending",
                 "col": 0,
                 "kind": "client"
               },
               {
                 "id": "s",
                 "label": "Server stores it",
-                "sub": "✓ sent",
                 "col": 1,
                 "kind": "server"
               },
               {
                 "id": "b",
                 "label": "Bob's client",
-                "sub": "✓✓ delivered",
                 "col": 2,
                 "kind": "client"
               },
               {
                 "id": "e",
                 "label": "Rendered on screen",
-                "sub": "✓✓ read",
                 "col": 3
               }
             ],
@@ -364,8 +360,8 @@
               }
             ]
           },
-          "body": "The only party who knows Bob has the message is Bob's client. Everything upstream — the socket accepted the write, nothing errored — is your own process reporting on itself. So the ticks in every chat UI aren't decoration: each is an acknowledgement from a *different* party, which is why they arrive at different times and why 'delivered' can sit for hours.",
-          "note": "Two messages from *different* senders can land in either order — one socket keeps its own bytes ordered, but nothing orders two independent pipelines, and no clock here is trustworthy enough to settle it."
+          "body": "The only party who knows Bob has the message is Bob's client. Everything upstream — the socket accepted the write, nothing errored — is your own process reporting on itself, not evidence about Bob. So the ticks in a chat UI aren't decoration. They're the only honest thing it can show: each is somebody, somewhere, confirming something. Work out who, and what.",
+          "note": "And notice this only settles *whether* Bob got it, never *when* relative to anything else. Delivery and ordering are two separate problems, and solving one buys you nothing at all on the other."
         },
         {
           "id": "chat-3-1",
@@ -483,8 +479,8 @@
               },
               {
                 "id": "c",
-                "label": "1,000 contacts watching",
-                "sub": "×1,000 pushes",
+                "label": "Everyone watching",
+                "sub": "must all be told",
                 "col": 2,
                 "kind": "client"
               }
@@ -500,8 +496,8 @@
               }
             ]
           },
-          "body": "Presence looks free and isn't. It's high-churn, low-value data: mobile connections flap constantly, and every flap has to reach everyone watching — so a user with 1,000 contacts generates 1,000 notifications each time their signal drops, and 1,000 more when it returns. You're paying unit 24's celebrity price for a dot nobody remembers seeing.",
-          "note": "Group chat is the same bill under a different name: one message to 100,000 members is one write and 100,000 pushes across your whole fleet. Both problems end the same way — stop pushing to people who aren't looking."
+          "body": "Presence looks free and isn't. Start with the data itself: it's high-churn and low-value — mobile connections flap constantly, every trip through a tunnel is a state change, and none of it matters much. Now ask who has to hear about each flap. That's the whole problem, and you already met it in unit 24 wearing a more glamorous costume.",
+          "note": "And presence is only the cheap version of this. Anything where one event has an audience bills you by the size of that audience — a sentence worth keeping, since it's now come up in three units under three names."
         },
         {
           "id": "chat-4-1",

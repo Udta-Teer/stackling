@@ -168,8 +168,8 @@
               }
             ]
           },
-          "body": "*Key-value*: get and put a value by one key, and nothing else — sessions, carts. *Document*: a self-contained record you fetch whole — a product with its own odd attributes. *Wide-column*: enormous tables read by a partition key — events, time-series. *Graph*: the relationships are the data — \"friends of friends, three hops out\".",
-          "note": "Each is fast at exactly one access pattern and awkward at every other. Ask a key-value store \"which sessions are from Berlin?\" and it has no answer available but to read every key it holds."
+          "body": "Four families, four questions they're fast at. *Key-value*: you know the exact key and will never ask anything else. *Document*: you want one whole self-contained record, and records needn't match each other. *Wide-column*: colossal tables, always entered through a partition key. *Graph*: your question is about the connections themselves.",
+          "note": "Each family is fast at one access pattern and clumsy at every other. Ask a key-value store which of its values mention Berlin and it has nothing to offer but reading every key it holds. The narrowness *is* the speed."
         },
         {
           "id": "nosql-2-1",
@@ -302,9 +302,9 @@
         {
           "id": "nosql-3-0",
           "type": "concept",
-          "title": "Relational lets you decide the questions later; most NoSQL makes you decide them first",
-          "body": "In a relational database you normalize — each fact once — and a join assembles whatever answer you need, including answers to questions nobody has asked yet. Most NoSQL stores cannot join. So you work backwards: list the queries your screens make, then store the data pre-assembled in exactly the shape you will read it in.",
-          "note": "Which is why NoSQL feels wonderful for six months. You built precisely the shapes your product needed. The bill arrives the day the product needs a shape you didn't build."
+          "title": "The join is an escape hatch, and most NoSQL stores don't have one",
+          "body": "A relational database normalizes: each fact once, and a `JOIN` assembles it into whatever answer you ask for — including answers to questions nobody has thought of yet. The join is the escape hatch. Most NoSQL stores don't have one. Take away the ability to assemble at read time and something has to happen at write time instead.",
+          "note": "Storing a fact in more than one place, on purpose, has a name: *denormalization*. It isn't sloppiness — it's the only way to answer a question you can't assemble at read time. The design turns on doing it deliberately."
         },
         {
           "id": "nosql-3-1",
@@ -396,9 +396,9 @@
         {
           "id": "nosql-4-0",
           "type": "concept",
-          "title": "Nobody made the join scale across machines — they deleted it",
-          "body": "A join is cheap when both rows sit on one machine and brutal when they sit on two, because every match becomes a network round trip. A transaction spanning machines is worse: someone must coordinate the commit and wait. So a store that spreads over 50 machines usually got there by dropping the features that don't cross a network.",
-          "note": "That makes \"which one scales better\" the wrong question — the scaling came from a subtraction. The right question is which half you're buying, because people notice the achievement immediately and the loss a year later."
+          "title": "What makes a join cheap is that nothing has to cross a network",
+          "body": "Matching two rows is nearly free when they sit on one machine and brutal when they sit on two, because every match becomes a network round trip. Agreeing on a commit across machines is worse: someone must ask every participant, wait for every participant, and hold everything still until the slowest one answers. Distance isn't a detail here. It's the cost.",
+          "note": "When a store advertises spreading across 50 machines, that's the *result* of a decision, not the decision. Ask what got dropped to make it possible — people notice the achievement immediately and the loss a year later."
         },
         {
           "id": "nosql-4-1",

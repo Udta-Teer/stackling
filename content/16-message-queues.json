@@ -31,7 +31,7 @@
                 "label": "API Server",
                 "col": 1,
                 "kind": "server",
-                "sub": "~25ms"
+                "sub": "responds now"
               },
               {
                 "id": "q",
@@ -45,7 +45,7 @@
                 "label": "Worker",
                 "col": 3,
                 "kind": "server",
-                "sub": "~2s, later"
+                "sub": "on its own clock"
               },
               {
                 "id": "e",
@@ -74,8 +74,8 @@
               }
             ]
           },
-          "body": "A handler runs top to bottom, and every line finishes before the response is sent. Create the account (20ms), call the email provider (2s), respond — the user waits for all of it, including work they will never look at. A queue breaks the chain: write down *send this email*, respond now, let a separate worker do it later.",
-          "note": "The catch arrives with the speed. You answered `200 OK` when the email was merely *scheduled*, so if it fails an hour later the user has already been told it worked, and the failure has nowhere to go."
+          "body": "A handler runs top to bottom, and every line of it finishes before the response is sent. So if one of those lines calls something slow — a third-party API, say — that call is sitting in the user's path, and they are paying for work they will never look at. A queue breaks the chain: write down *send this email*, respond now, let a separate worker do it later.",
+          "note": "The test for what can move isn't how slow the work is. It's whether the user needs the result in order to continue. Slow work they're waiting on has to stay. Slow work nobody is watching can go."
         },
         {
           "id": "mq-1-1",
@@ -223,8 +223,8 @@
               }
             ]
           },
-          "body": "The *producer* puts a message on the queue and moves on. The queue stores it durably. A *consumer* — a worker — pulls it off, does the work, then sends an *acknowledgement*: done, delete it. Until that ack arrives the message is still the queue's problem, which is why a worker dying mid-job doesn't lose the work.",
-          "note": "A queue absorbs a *spike* because a burst ends and the workers catch up. If arrivals beat your workers on average, the same queue quietly hides a deficit instead — a backlog growing for six hours was never a burst."
+          "body": "The *producer* puts a message on the queue and moves on. The queue stores it durably. A *consumer* — a worker — pulls it off, does the work, then sends an *acknowledgement*: done, delete it. Look closely at that last step. The queue learns nothing about the work itself, only that one signal — and only ever from a worker that lived long enough to send it.",
+          "note": "That buffer is what makes a spike survivable: arrivals may exceed the workers for a while, because a while ends. Everything here rests on that last clause, and the queue will never tell you when it stopped being true."
         },
         {
           "id": "mq-2-1",
@@ -324,9 +324,9 @@
         {
           "id": "mq-3-0",
           "type": "concept",
-          "title": "The queue can't tell 'the work is done' apart from 'the ack got lost' — so it sends the message again",
-          "body": "A worker acks to say *done, delete it*. If no ack arrives, the queue cannot know whether the worker died before the work or after it — from outside, those are identical. So it redelivers. That is *at-least-once*: nothing is lost, and some things happen twice. Acking first doesn't fix it; it just trades duplicates for losses.",
-          "note": "'Exactly-once' is about *effects*: at-least-once plus a consumer safe to run twice. The idempotency key must travel to whoever performs the side effect — a dedup table beside the work is a second write that can fail."
+          "title": "The queue can't tell 'the work is done' apart from 'the ack got lost'",
+          "body": "A worker acks to say *done, delete it*. When no ack arrives, the queue is left holding a question it has no way to answer: did that worker die before doing the work, or after? From the outside those are identical. So it has to pick an assumption — and whichever one it picks, a particular kind of accident becomes possible forever, by design.",
+          "note": "Whatever a queue guarantees, it guarantees about *delivery* — the message arriving. Your worker's side effects are elsewhere, on another machine, with their own idea of 'happened'. No queue has an opinion on those."
         },
         {
           "id": "mq-3-1",
@@ -434,28 +434,28 @@
                 "label": "Queue",
                 "col": 0,
                 "kind": "queue",
-                "sub": "A, then B"
+                "sub": "in order"
               },
               {
                 "id": "w1",
                 "label": "Worker 1",
                 "col": 1,
                 "kind": "server",
-                "sub": "takes A"
+                "sub": "takes the 1st"
               },
               {
                 "id": "w2",
                 "label": "Worker 2",
                 "col": 1,
                 "kind": "server",
-                "sub": "takes B"
+                "sub": "takes the 2nd"
               },
               {
                 "id": "d",
                 "label": "Database",
                 "col": 2,
                 "kind": "db",
-                "sub": "ends at A"
+                "sub": "whichever lands last"
               }
             ],
             "edges": [
@@ -477,8 +477,8 @@
               }
             ]
           },
-          "body": "Even a queue that hands messages out in order loses that order the instant two workers run at once. *Set email to A* and *set email to B* get pulled a millisecond apart by different workers, and whichever writes last wins. The older value can be the one that sticks — permanently, with no error anywhere to tell you.",
-          "note": "The fix isn't 'add ordering', it's *partition by key*: route every message for one user to one partition read by one worker. That user's messages stay in order while different users still run in parallel."
+          "body": "Even a queue that hands messages out in order loses that order the instant two workers run at once. Two updates to the same row get pulled a millisecond apart by different workers, and each one finishes when it finishes. *Last write wins* means the last write to *land* — which need not be the last one you sent.",
+          "note": "And nothing anywhere reports it. No error, no retry, no alert: the row simply holds a value, the pipeline is 'healthy', and your only evidence that anything went wrong is a user insisting they changed it."
         },
         {
           "id": "mq-4-1",

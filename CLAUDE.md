@@ -58,6 +58,10 @@ python3 scripts/build-prototype.py --check     # exit 1 if the embed is stale
 # Run the prototype in a REAL headless browser (setup: npm install && npx playwright install chromium)
 npm test
 
+# Find concept cards that copy-paste their own lesson's graded answers
+python3 scripts/check-spoilers.py            # report
+python3 scripts/check-spoilers.py --strict   # exit 1 if any exercise 2..N is spoiled
+
 npm run check   # build --check + validate + browser test, in one go
 
 # Preview the lesson loop

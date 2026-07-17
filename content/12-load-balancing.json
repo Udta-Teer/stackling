@@ -17,7 +17,7 @@
         {
           "id": "lb-1-0",
           "type": "concept",
-          "title": "A load balancer sells indirection, and indirection is what makes a machine disposable",
+          "title": "What a load balancer really sells is indirection",
           "viz": {
             "nodes": [
               {
@@ -72,7 +72,7 @@
             ]
           },
           "body": "Users can't be asked to know your machines. So one thing sits out front, owns the single address the world talks to, and hands each request to a server behind it. That's a load balancer. The distribution is the obvious part; the valuable part is that the outside now talks to one stable thing instead of to your servers.",
-          "note": "Which is what you're really buying: machines behind a stable address can be added, restarted, or destroyed mid-afternoon and nobody outside notices. Disposable machines are what horizontal scaling actually cashes in."
+          "note": "The address is where your promises to the world stop and your freedom starts. Outside it, one name that never changes. Inside it, an arrangement that is nobody's business but yours."
         },
         {
           "id": "lb-1-1",
@@ -219,8 +219,8 @@
               }
             ]
           },
-          "body": "Something must pick a server for every request, and no rule for picking is neutral. *Round robin* — A, then B, then C, then A — takes turns, which spreads request COUNTS evenly. That only spreads LOAD evenly while requests cost about the same. Let one request in fifty be a 30-second report and turn-taking will deal three onto one machine.",
-          "note": "The other algorithms are answers to that flaw: *least connections* looks at who's actually busy, *weighted* gives bigger machines a larger share, and *hashing* ignores load to send the same key to the same server."
+          "body": "Something must pick a server for every request, and no rule for picking is neutral — each one is a bet about your traffic, made once in a config file and then never looked at again. *Round robin* is the plain one: A, then B, then C, then A. It takes turns, so it spreads request COUNTS across the pool perfectly evenly. Perfectly.",
+          "note": "So the useful question about an algorithm isn't what it does — that's one sentence — it's what it refuses to look at. Round robin looks at nothing: not the server, not the request, not its own last decision. It counts."
         },
         {
           "id": "lb-2-1",
@@ -462,7 +462,7 @@
         {
           "id": "lb-4-0",
           "type": "concept",
-          "title": "You didn't remove the single point of failure — you moved it into the load balancer",
+          "title": "A single point of failure is something you relocate, not something you delete",
           "viz": {
             "nodes": [
               {
@@ -516,8 +516,8 @@
               }
             ]
           },
-          "body": "Every request now flows through one box whose entire job was to stop one box from taking you down. Real setups run several balancers and share the address between them — DNS handing out multiple IPs, a floating IP that jumps to a standby, or anycast. The question is never *is there a single point of failure*, it's *where is it and how fast is it replaced*.",
-          "note": "It's the same picture as lesson 1, read differently. Everything you added to survive a machine dying now depends on a machine that can die."
+          "body": "Every request now flows through one box. Real setups run several balancers and share the address between them — DNS handing out multiple IPs, a floating IP that jumps to a standby, or anycast. None of those deletes the last shared thing; they shrink it and shorten how long it's broken. The question is never *whether*, but *where, and how fast it's replaced*.",
+          "note": "Notice where those mitigations live: not one of them is inside the balancer. Each pushes the shared thing further out — into DNS, into a routing table — until what's left is small and dumb enough to be trusted."
         },
         {
           "id": "lb-4-1",

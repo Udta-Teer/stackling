@@ -163,7 +163,7 @@
           "id": "csh-2-0",
           "type": "concept",
           "title": "Every request says what it wants done in one word, before it says to what",
-          "body": "An HTTP request opens with a verb. `GET /users/42` reads user 42. `POST /users` creates one. `PUT` replaces one, `DELETE` removes one. The path names the thing; the method says what to do with it. That verb isn't decoration — browsers, caches and crawlers all decide how to treat a request by reading it alone.",
+          "body": "An HTTP request opens with a verb, and only then says what it's for: `GET /users/42`, `POST /users`, `PUT /users/42`, `DELETE /users/42`. The path names the thing; the method declares your intent toward it. That verb isn't decoration — browsers, caches and crawlers all decide how to treat a request by reading it alone.",
           "note": "`GET` is meant to be *safe* — read-only — so the web fires them at you unasked: crawlers, prefetchers, link previews. Hide a delete behind a `GET` and something will eventually crawl your data away."
         },
         {
@@ -276,7 +276,7 @@
           "id": "csh-3-0",
           "type": "concept",
           "title": "The first digit of a status code tells you whose fault it is",
-          "body": "Every HTTP response opens with a three-digit verdict, and you read the first digit rather than memorize the rest. `2xx`: it worked. `3xx`: go look somewhere else. `4xx`: your request was wrong. `5xx`: the server broke trying. So `200 OK` is success, `404` is you asked for something that isn't there, `500` is the server falling over.",
+          "body": "Every HTTP response opens with a three-digit verdict, and you read the first digit rather than memorize the rest. `2xx`: it worked. `3xx`: go look somewhere else. `4xx`: your request was wrong. `5xx`: the server broke trying. Learn those four classes and you can read a code you've never seen before — the last two digits only narrow down the reason.",
           "note": "That first digit is a blame line, and monitoring lives on it: a spike in `5xx` wakes an engineer at 3am, while a spike in `4xx` means your callers are confused, misconfigured — or attacking you."
         },
         {
@@ -405,7 +405,6 @@
               {
                 "id": "s2",
                 "label": "App Server 2",
-                "sub": "any will do",
                 "col": 2,
                 "kind": "server"
               },
@@ -435,7 +434,7 @@
               }
             ]
           },
-          "body": "Each HTTP request arrives as a complete stranger. The server reads it, answers it, and keeps no memory of the conversation. Your next request could land on a different machine in a different building and the result is identical. That's what *stateless* means — and it isn't a limitation, it's what lets one address hide a thousand servers.",
+          "body": "Each HTTP request arrives as a complete stranger. The server reads it, answers it, and keeps no memory of the conversation — everything it needed to answer was inside the request itself. That's what *stateless* means. It sounds like a limitation. It's the opposite: it's the property that decides how far a system can grow.",
           "note": "Which raises the obvious question: if the server forgets you the instant it replies, how are you still logged in? Something has to re-prove who you are on *every* request — and it can't be the server's memory."
         },
         {

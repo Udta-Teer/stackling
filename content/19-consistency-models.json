@@ -55,7 +55,7 @@
             ]
           },
           "body": "Put data on more than one machine and the copies disagree for a while. Your read lands on one of them. A consistency model is the rulebook for that gap: it states exactly which values a read is *allowed* to come back with. *Strong* forbids nearly every surprise. *Eventual* forbids almost nothing. Both are contracts, not quality levels.",
-          "note": "So \"stronger\" never means \"more correct\" — it means fewer legal surprises, bought with a coordination round trip on every operation, and paid for again during a partition by refusing to answer at all."
+          "note": "So \"stronger\" never means \"more correct\" — it means fewer legal surprises. And every surprise a model forbids has to be prevented by some machinery, which is why nothing on the menu is free."
         },
         {
           "id": "cm-1-1",
@@ -145,8 +145,8 @@
           "id": "cm-2-0",
           "type": "concept",
           "title": "Between strong and eventual sits a menu of narrow promises, each forbidding one specific insult",
-          "body": "Strong and eventual are only the two ends. The useful guarantees live between them and each bans exactly one anomaly. *Read-your-writes*: you always see your own writes. *Monotonic reads*: your view never moves backwards. *Causal consistency*: you never see an effect before its cause. Everything else stays legal — which is why they are cheap.",
-          "note": "Users never ask for these by name. They say \"my comment vanished\", \"the count went down\", \"there's a reply to a message I can't see\" — three complaints, three different missing promises."
+          "body": "Strong and eventual are only the two ends. The useful guarantees live between them — *read-your-writes*, *monotonic reads*, *consistent prefix*, *causal consistency* — and each one bans exactly one anomaly and leaves every other one legal. That narrowness is the whole point: it's why they cost so little. The names are literal, so read them closely.",
+          "note": "Users never ask for these by name. They describe a symptom and leave you to work out which promise went missing — so the skill is turning a complaint into the one guarantee that would have prevented it."
         },
         {
           "id": "cm-2-1",
@@ -247,8 +247,8 @@
           "id": "cm-3-0",
           "type": "concept",
           "title": "Users report symptoms, and the clue that names the bug is usually *whose* read it was",
-          "body": "Nobody files a ticket saying \"read-your-writes is missing\". They say: \"the like count went *down*.\" The shape of the complaint is the diagnosis. The write landed and spread, so nothing is broken except which replica *their own* read hit. Read every complaint for who saw what, and when.",
-          "note": "Rule out latency first. Stale is wrong-but-fast; slow is right-but-late. In a ticket they read identically — \"the site is bad\" — and they need opposite fixes."
+          "body": "Nobody files a ticket naming a guarantee. They report a symptom — and it's the details *around* the symptom that identify which promise went missing. So interrogate every complaint the same way: whose read was it, what had they done just before, what did everybody *else* see at that moment, and did it fix itself. The bug is usually named by who, not by what.",
+          "note": "Misdiagnosis is expensive because the fixes don't overlap: what cures one of these complaints does nothing at all for the next. Guess wrong and you ship real work, the ticket stays open, and you've learned nothing."
         },
         {
           "id": "cm-3-1",
@@ -341,9 +341,9 @@
         {
           "id": "cm-4-0",
           "type": "concept",
-          "title": "`W + R > N` buys you overlap, and overlap is not strong consistency",
-          "body": "A key lives on `N` replicas. A write waits for `W` of them to acknowledge it; a read asks `R` of them. If `W + R > N` the two sets *cannot* be disjoint — pigeonhole — so at least one replica you read holds the newest completed write. That is the entire guarantee: a fresh copy is somewhere in your read set.",
-          "note": "It does not tell you which of the returned values is newest, does not resolve a write still in flight, and is not linearizability. That needs a leader or consensus — unit 20. Arithmetic alone won't buy it."
+          "title": "Quorum arithmetic is real, and it buys far less than almost everyone assumes",
+          "body": "A key lives on `N` replicas. A write waits for `W` of them to acknowledge it; a read asks `R` of them. Now do the counting. If `W + R > N`, the write set and the read set are too big to fit inside `N` replicas without colliding — pigeonhole forces them to share a member. Work out what that shared member gives you and you have the entire quorum guarantee.",
+          "note": "And it stops there. The arithmetic won't tell you *which* of the values is newest, won't resolve a write still in flight, won't order concurrent writes. That's linearizability: it needs a leader or consensus — unit 20."
         },
         {
           "id": "cm-4-1",

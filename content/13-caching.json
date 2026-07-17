@@ -52,8 +52,8 @@
               }
             ]
           },
-          "body": "A cache sits in front of expensive work — a slow database query, an API call, a disk read — and keeps a copy of the answer. Ask the same question again and it replies from memory instead of redoing the work. That is the entire mechanism. Everything hard about caching comes from one fact: that copy is allowed to be out of date.",
-          "note": "So the bet only pays off if the question really does repeat. Cache something asked once and you have bought a component, a failure mode and a staleness bug for nothing."
+          "body": "A cache sits in front of expensive work — a slow database query, an API call, a disk read — and keeps a copy of the answer. Ask the same question again and it replies from memory instead of redoing the work. That is the entire mechanism. Notice what it is not: nothing got faster and no work got cheaper. You just stopped doing it.",
+          "note": "So the bet only pays off if the question really does repeat. Cache something asked once and you have bought a component, a failure mode and a whole new way to be wrong — for nothing."
         },
         {
           "id": "cache-1-1",
@@ -342,7 +342,7 @@
         {
           "id": "cache-3-0",
           "type": "concept",
-          "title": "Your database only ever sees the misses",
+          "title": "A cache doesn't reduce traffic — it splits it",
           "viz": {
             "nodes": [
               {
@@ -378,8 +378,8 @@
               }
             ]
           },
-          "body": "A cache doesn't reduce traffic, it absorbs part of it. 10,000 reads a second at a 95% hit rate means 9,500 answered from memory and 500 forwarded on. So the load arriving at your database is set by the *miss* rate and nothing else — and *is my cache good enough* is really one question: is the leftover small enough for whatever is behind it?",
-          "note": "That's also the eviction problem in a sentence. The cache is finite, so it lives permanently deciding what to forget, and every thing it forgets wrongly becomes one more request the database has to answer."
+          "body": "10,000 reads a second arrive. At a 95% hit rate, 9,500 are answered from memory and 500 continue, unchanged — same query, same cost, just fewer of them. Whatever sits behind the cache only ever has to survive that leftover. So *is my cache good enough* was never a question about the cache. It's a question about what the leftover does to the thing behind it.",
+          "note": "A cache is smaller than the data behind it, often by a factor of a thousand — and everything else in this lesson follows from that one inconvenient ratio."
         },
         {
           "id": "cache-3-sim",
@@ -557,7 +557,7 @@
         {
           "id": "cache-4-0",
           "type": "concept",
-          "title": "Invalidation is hard because nothing tells you which keys a change touched",
+          "title": "Your data flows into cache keys, and nothing in your system can trace it back",
           "viz": {
             "nodes": [
               {
@@ -614,8 +614,8 @@
               }
             ]
           },
-          "body": "Deleting a key takes a millisecond. The hard part is the question before it: one product's price changing might invalidate the product page, three category listings, a search result, and a homepage module — and nothing in your system knows that list. It lives in your head, it was written once, and it is already out of date.",
-          "note": "And the failure is silent. A missed invalidation raises no error and appears in no log — it just serves a wrong answer, confidently, until something else happens to evict it. Bugs that page you are the easy ones."
+          "body": "Your code turns source data into cached values all day: read the product row, render the page, store it under a key. That derivation only ever runs forwards. Nothing records which rows fed which keys — no index, no log, no foreign key. There is a list, it lives in one engineer's head, and it was accurate once.",
+          "note": "And the list decays. Every new feature reading that row adds a key, and nothing links the new read to the old invalidation code — so a cache that was right on Tuesday is wrong by Friday, and nobody touched the caching."
         },
         {
           "id": "cache-4-1",

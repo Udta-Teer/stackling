@@ -17,7 +17,7 @@
         {
           "id": "rep-1-0",
           "type": "concept",
-          "title": "Copies multiply your reads and do nothing whatsoever for your writes",
+          "title": "A read can be answered by any copy; a write has to be applied by all of them",
           "viz": {
             "nodes": [
               {
@@ -73,8 +73,8 @@
               }
             ]
           },
-          "body": "*Replication* means keeping full copies of your database on other machines. Any copy can answer a read, so N copies give you roughly N times the read capacity. But every copy must apply every write, so copies never reduce write load. At 100 reads per write that's transformative; at 1 read per write it buys you almost nothing.",
-          "note": "The second reason is survival: a copy on another machine is a machine you can promote when the first one dies at 3am. Read scaling is why people add replicas; failover is why they keep them."
+          "body": "*Replication* means keeping full copies of your database on other machines. A read is a question, and any complete copy can answer it. A write is a change, and every copy must apply it or it stops being a copy. That asymmetry is the whole of replication: reading is work you can spread out, writing is work you have to repeat.",
+          "note": "There's a second reason to keep copies, and it has nothing to do with capacity: a copy is a machine that still has your data after the first stops existing. Read scaling is why replicas get added; that is why they stay."
         },
         {
           "id": "rep-1-1",
@@ -167,7 +167,7 @@
         {
           "id": "rep-2-0",
           "type": "concept",
-          "title": "Exactly one copy may accept writes — that avoids the conflict rather than solving it",
+          "title": "There is no arbiter, so somebody has to be the authority",
           "viz": {
             "nodes": [
               {
@@ -223,7 +223,7 @@
               }
             ]
           },
-          "body": "Let any copy take writes and two of them can accept different values for the same row, with nothing on earth to arbitrate. Single-leader replication dodges that by construction: one copy — the *leader* — accepts every write. The rest are *followers*, read-only copies that receive the leader's ordered stream of changes and replay it in that order.",
+          "body": "Every copy in a replicated system is equally real and equally ignorant: it knows what it was told, and nothing about what the others were told at the same instant. Nobody can referee. So the standard design doesn't referee — it removes the need for one. Nominate one copy, the *leader*, as the only one allowed to accept a write; the rest are *followers*.",
           "note": "Postgres ships its write-ahead log, the crash-recovery log it already had to write. MySQL writes a *separate* binlog purely for replication — an extra write per transaction. Same idea, different bill."
         },
         {
@@ -364,8 +364,8 @@
               }
             ]
           },
-          "body": "Under asynchronous replication the leader answers the client *before* the followers have the change. So there's a window where the leader holds your write and a follower doesn't. Read from that follower inside the window and you get the state from before your own write — your change appears not to have saved. That window is *replication lag*.",
-          "note": "Lag isn't a constant you can look up. It's write throughput against how fast a follower applies — which is why it's near zero in staging with no traffic, and seconds long in the middle of your spike."
+          "body": "Under asynchronous replication the leader answers the client *before* the followers have the change. So every write opens a window: for some interval the leader has it and the followers don't. A read routed to a follower inside that window is answered by a database that hasn't heard the news. That window is *replication lag*.",
+          "note": "Lag isn't a constant you can look up or a number you can design around. It's a race between how fast the leader produces changes and how fast a follower applies them — so it isn't the number it was a minute ago."
         },
         {
           "id": "rep-3-1",
@@ -458,9 +458,9 @@
         {
           "id": "rep-4-0",
           "type": "concept",
-          "title": "Failover asks you which mistake you would rather make",
-          "body": "The leader dies; you promote a follower. That's *failover*. Under asynchronous replication the leader had already told clients \"done\" for writes it hadn't shipped yet — and those die with it: acknowledged, then gone. Wait longer before promoting and you lose availability instead. You aren't choosing whether it hurts, only where.",
-          "note": "There's no third option because from the outside a dead leader and a slow one look identical. Every failover is a timeout guessing which it is — and guessing \"dead\" about a live leader gives you two of them."
+          "title": "Failover is decided by two facts you don't get to change",
+          "body": "The leader dies; you promote a follower. That's *failover*, and two facts you can't change decide everything about it. First: under asynchronous replication, \"the leader said done\" and \"a follower has it\" are different statements, separated by the lag window. Second: a dead leader and a merely slow one send you the same signal, which is none.",
+          "note": "So a failover policy is a timeout, and a timeout is a guess dressed as a config value. It's the same guess in every distributed system you'll touch: how long is too long to wait for something that might never answer?"
         },
         {
           "id": "rep-4-1",

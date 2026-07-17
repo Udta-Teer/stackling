@@ -30,13 +30,13 @@
               {
                 "id": "n",
                 "label": "Where they are now",
-                "sub": "dead in 4s",
+                "sub": "one fact, always changing",
                 "col": 1
               },
               {
                 "id": "h",
                 "label": "Trip trace",
-                "sub": "durable, late",
+                "sub": "every fact, kept",
                 "col": 1
               }
             ],
@@ -51,8 +51,8 @@
               }
             ]
           },
-          "body": "Every driver reports where they are, constantly, and each report makes the previous one garbage. That's ephemeral state by definition: you'd be buying durability for a value you're about to overwrite, about a fact every driver would re-tell you within seconds of you losing it. Unit 5's question answers itself here, loudly.",
-          "note": "But 'location' is two requirements wearing one word: a live position that must be fast and disposable, and a trip trace for receipts that must be durable and can arrive late. Design them as one and you get both wrong."
+          "body": "Every driver reports where they are, constantly. Ask what one of those reports is actually worth, and for how long — because the next one is four seconds behind it, and the fact it describes will have moved on. Unit 5's question, the one about where state lives and why, is sitting right here, and it has never had a clearer answer.",
+          "note": "And 'location' is two requirements wearing one word: where a driver is *now*, and where they have *been*. Those two want opposite things from you in almost every respect. Design them as one and you'll get both wrong."
         },
         {
           "id": "ride-1-1",
@@ -184,21 +184,15 @@
               {
                 "id": "b",
                 "label": "Index on `(lat, lng)`",
-                "sub": "lat first",
+                "sub": "lat first, then lng",
                 "col": 1,
                 "kind": "db"
               },
               {
                 "id": "n",
-                "label": "Every driver at that latitude",
-                "sub": "worldwide",
+                "label": "Rows it narrows to",
+                "sub": "how many?",
                 "col": 2
-              },
-              {
-                "id": "f",
-                "label": "Filter by longitude",
-                "sub": "by hand",
-                "col": 3
               }
             ],
             "edges": [
@@ -209,15 +203,11 @@
               {
                 "from": "b",
                 "to": "n"
-              },
-              {
-                "from": "n",
-                "to": "f"
               }
             ]
           },
-          "body": "A composite index on `(lat, lng)` sorts by `lat` first, and by `lng` only *within* an identical `lat`. So a 2km box around a rider narrows to a latitude band — every driver at that latitude, all the way around the Earth — and everything after that is filtering by hand. Unit 8's leftmost-prefix rule, biting somewhere new.",
-          "note": "Which is why geohashing and its relatives exist: they turn a 2D position into a *single* sortable key, so 'nearby' becomes a prefix match. Geohash, S2 and H3 differ mainly in cell shape."
+          "body": "A composite index on `(lat, lng)` sorts by `lat` first, and by `lng` only *within* an identical `lat`. That's it — that's the whole mechanism, and it's just unit 8's leftmost-prefix rule you already know. Now draw a 2km box around a rider and trace what the index can actually do with it. The answer is worse than you'd like.",
+          "note": "Which is why geohashing and its relatives exist — Geohash, S2, H3, differing mainly in cell shape. They don't build a cleverer index. They change the question into one the index you already have was always good at."
         },
         {
           "id": "ride-2-1",
@@ -372,8 +362,8 @@
               }
             ]
           },
-          "body": "Two riders, two matchers, one nearby driver. Both read 'available', both decide, both write — and the second write quietly wins. It's unit 6's check-then-act, except the loser here isn't a dropped counter increment: it's a real car pulling up to a kerb with two people expecting it. So the store has to adjudicate, not your application logic.",
-          "note": "It doesn't take a consensus system to settle. *Set this driver to assigned if still available* is one atomic operation any decent store does natively — and a double-booking, unlike a split brain, you can reassign."
+          "body": "Two riders, two matchers, one nearby driver. Both matchers look, and both see the same thing: available. You've met this shape before — unit 6, and again in the rate limiter — so you know how it ends. What's different is the blast radius. A lost counter increment is a number. This one is a real car pulling up to a kerb with two people standing at it.",
+          "note": "This is where the system stops being about data. A stale marker or a late receipt you fix quietly, and nobody finds out. An assignment leaves the building on four wheels, and no state management calls it back."
         },
         {
           "id": "ride-3-1",
@@ -473,21 +463,21 @@
               {
                 "id": "l",
                 "label": "Trip state + money",
-                "sub": "strong",
+                "sub": "wrong for a second?",
                 "col": 1,
                 "kind": "db"
               },
               {
                 "id": "m",
                 "label": "Car on the map",
-                "sub": "seconds stale",
+                "sub": "wrong for a second?",
                 "col": 1,
                 "kind": "cache"
               },
               {
                 "id": "e",
                 "label": "Receipt email",
-                "sub": "minutes late",
+                "sub": "wrong for a second?",
                 "col": 1,
                 "kind": "queue"
               }
@@ -507,8 +497,8 @@
               }
             ]
           },
-          "body": "The trip's state and the money are commitments: charge twice and it's a refund, a complaint and a support ticket. The marker on the map can be a second stale and nobody alive notices. Unit 19's rule applies per *dataset*, not per company — so the ledger buys strong guarantees and the map stays eventually consistent, in one product, on one screen.",
-          "note": "And atomicity stops at your database: `ROLLBACK` can't un-charge a card. The idempotency key must travel *to the provider* — keep it in a local dedup table and you've built the dual write you were avoiding."
+          "body": "One trip throws off several kinds of data, and the temptation is to treat them alike because they came from one event. Resist it. Ask of each what it costs you to be wrong about it for a second — the answers aren't close to each other, they're orders of magnitude apart. Unit 19's rule applies per *dataset*, not per company, and this is where you feel it.",
+          "note": "And when the money moves, your idempotency key has to travel *to the provider*. Keep it in a local dedup table and you've quietly rebuilt the exact dual-write problem you were avoiding, with real money in the gap."
         },
         {
           "id": "ride-4-1",

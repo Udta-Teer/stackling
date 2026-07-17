@@ -17,8 +17,8 @@
         {
           "id": "txn-1-0",
           "type": "concept",
-          "title": "Half a transfer is worse than no transfer",
-          "body": "Subtract $100 from A. Add $100 to B. Two writes that are only correct together. Crash between them and $100 has left the world — no error, no log line, and neither account can tell by looking. A *transaction* is the answer: wrap both writes in `BEGIN` … `COMMIT` and the pair becomes indivisible. All of it happens, or none of it does.",
+          "title": "Some pairs of writes have no valid halfway point",
+          "body": "Take one seat off the flight's remaining count. Insert the booking row. Two writes with no valid state between them: stop after the first and a seat is gone that nobody is sitting in — no error, nothing looking wrong on its own. A *transaction* removes the between: wrap both in `BEGIN` … `COMMIT` and there is no point where one landed and the other didn't.",
           "note": "That all-or-nothing property is *atomicity*, the A in ACID, and it's the one with no middle setting. There is no \"partly atomic\" — either the whole unit landed, or the database acts as though you never asked."
         },
         {
@@ -110,7 +110,7 @@
           "type": "concept",
           "title": "ACID is four unrelated promises wearing one acronym",
           "body": "*Atomicity*: the whole unit lands or none of it does. *Consistency*: the constraints you declared — `UNIQUE`, foreign keys, checks — still hold. *Isolation*: what concurrent transactions can see of each other's unfinished work. *Durability*: once committed, it survives a crash. Four separate promises. The acronym flatters them into a set.",
-          "note": "That flattening costs you, because the four aren't equally interesting. One is barely the database's doing, and at least one is a dial you're turning without knowing it. Which is which is the rest of this lesson."
+          "note": "Coined in 1983 to describe what a transaction *is*, not to certify a product — which is why \"we're ACID\" settles fewer arguments than people assume. The four letters have very different characters."
         },
         {
           "id": "txn-2-1",
@@ -218,7 +218,7 @@
           "id": "txn-3-0",
           "type": "concept",
           "title": "Your database is running a weaker isolation level than you think it is",
-          "body": "Isolation decides what one transaction can see of another's unfinished work. Stronger rungs forbid more anomalies and cost more — more locking, more coordination, more transactions aborted and retried. So you get to pick. Postgres defaults to Read Committed, where each *statement* takes a fresh snapshot; MySQL's InnoDB defaults to Repeatable Read.",
+          "body": "Isolation decides what one transaction may see of another's unfinished work. Forbidding more of it means doing more: holding locks for longer, or watching for conflicts and aborting whoever loses. Postgres defaults to Read Committed, a fresh snapshot per *statement*; MySQL's InnoDB to Repeatable Read. Neither is the strongest available.",
           "note": "And the names lie across engines: Postgres's \"Repeatable Read\" is really snapshot isolation, and Postgres quietly treats Read Uncommitted as Read Committed — you cannot get a dirty read out of it however hard you ask."
         },
         {
@@ -318,9 +318,9 @@
         {
           "id": "txn-4-0",
           "type": "concept",
-          "title": "Two transactions can each be holding exactly what the other is waiting for",
-          "body": "Locks are one way a database keeps transactions out of each other's way: touch a row, hold it until commit. Now T1 holds row A and asks for B, while T2 holds B and asks for A. Neither can move and neither will let go. That's a *deadlock* — and real databases detect the cycle and kill one, so a transaction gets an error out of nowhere.",
-          "note": "It's a cycle, so you prevent it by never letting one form: take locks in a fixed order — always the lower account id first — and two transactions can't end up waiting on each other's tail."
+          "title": "A lock is held until you commit, not until you're done with it",
+          "body": "Locks are one way a database keeps transactions apart: touch a row and you hold it until you commit, whether you're still using it or not. So a transaction wanting two rows takes one and waits for the other — still holding the first. Databases know this can knot into a *deadlock*, so they watch for a cycle of waiters and abort somebody when they find one.",
+          "note": "It's a cycle, so you prevent it by never letting one form: take every lock in a fixed order — always the lower id first — and two transactions can't end up waiting on each other's tail."
         },
         {
           "id": "txn-4-1",

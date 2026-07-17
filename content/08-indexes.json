@@ -17,7 +17,7 @@
         {
           "id": "idx-1-0",
           "type": "concept",
-          "title": "An index is a second, sorted copy of one column that says where the row is",
+          "title": "Sorted data can be searched; unsorted data can only be read",
           "viz": {
             "nodes": [
               {
@@ -28,7 +28,7 @@
               {
                 "id": "i",
                 "label": "Index on `email`",
-                "sub": "~24 steps",
+                "sub": "sorted",
                 "col": 1
               },
               {
@@ -50,8 +50,8 @@
               }
             ]
           },
-          "body": "The index at the back of a book is separate from the text, sorted, and much smaller — so you find \"sharding\" by flipping to S rather than reading 1,000 pages. A database index is that same object: a sorted structure mapping one column's values to row locations. Sorted means you can bisect, and bisecting 10 million rows is ~24 steps.",
-          "note": "Everything in an index also exists in the table, so an index is derived data — drop one and you lose no rows, only speed. Unless it's a `UNIQUE` index, which is also enforcing a rule you'd be dropping with it."
+          "body": "Ten million rows in no order hide everything: to know whether your value is in there, you must look at all of them. Sortedness changes the question. Check the middle of a sorted list and whichever half you aren't in stops existing. Check the middle of what's left. Every step deletes half the candidates.",
+          "note": "Keeping values sorted is what makes them searchable, and nothing keeps itself sorted. Every row you insert has to be threaded into the right place in that order — by someone, at some cost. Lesson 3 is the invoice."
         },
         {
           "id": "idx-1-1",
@@ -209,8 +209,8 @@
               }
             ]
           },
-          "body": "A disk hands you a whole page — say 8KB — however little of it you wanted. A binary tree would spend one page read per comparison, narrowing the search only by half each time. A B-tree makes each node a page holding hundreds of keys, so one read narrows it hundreds of times. A billion rows end up only ~3–4 levels deep.",
-          "note": "In RAM, a binary tree is perfectly good. The B-tree exists because disks deal in blocks rather than bytes — a structure whose whole design is a response to hardware it never mentions."
+          "body": "A disk hands you a whole page — say 8KB — however little of it you asked for. So on disk, the thing you're spending isn't comparisons, it's *reads*, and a read costs the same whether you use one byte of the page or all 8,192. Any structure that spends a read to learn a single fact is throwing away a whole page of answers it already paid for.",
+          "note": "In RAM none of this would matter: a binary tree is perfectly good there, because a comparison is the only thing you spend. Move the same structure onto a disk and the arithmetic changes completely."
         },
         {
           "id": "idx-2-1",
@@ -310,13 +310,13 @@
         {
           "id": "idx-3-0",
           "type": "concept",
-          "title": "Every index you add is another structure the database must write on every change",
+          "title": "An index is a copy, and copies don't keep themselves true",
           "viz": {
             "nodes": [
               {
                 "id": "w",
                 "label": "One `INSERT`",
-                "sub": "4 writes",
+                "sub": "reaches all of them",
                 "col": 0
               },
               {
@@ -360,8 +360,8 @@
               }
             ]
           },
-          "body": "An index is a copy, and a copy has to be kept true. `INSERT` one row into a table carrying three indexes and the database does four writes: the row, plus an entry in each index — every one of them landing in a sorted structure that may have to split a page to make room. The reads got faster. The writes paid for them.",
-          "note": "So a write's cost scales with how many indexes sit on the table — and nobody notices, because the query you sped up is the one you were watching."
+          "body": "An index is a copy of a column, kept in sorted order. Nothing about that is free after you create it: the order has to stay true through every `INSERT`, `UPDATE`, and `DELETE`, which means threading each new entry into exactly the right place — sometimes splitting a full page to make room. The database does this silently, on every write.",
+          "note": "Nobody notices this bill, because the query you sped up is the one you were watching. The index you added has a name and a ticket; the writes it taxed are spread thinly across everything else you do."
         },
         {
           "id": "idx-3-1",
@@ -453,9 +453,9 @@
         {
           "id": "idx-4-0",
           "type": "concept",
-          "title": "An index earns its keep by narrowing, and matching 95% of the table narrows nothing",
-          "body": "*Selectivity* is the fraction of rows a lookup matches, and low is what you want. `WHERE email = 'x@y.com'` matches one row in ten million: superb. `WHERE is_active = true`, where 95% of rows are true, matches 95% — and reaching 95% of a table through an index is *slower* than scanning it, because you'd jump around the disk to fetch nearly every row anyway.",
-          "note": "Selectivity belongs to the query, not the column. That same `is_active` index is excellent for `WHERE is_active = false` — 5% of rows, highly selective. One column, two opposite verdicts."
+          "title": "An index is only worth using when it eliminates almost everything",
+          "body": "*Selectivity* is the fraction of rows a lookup matches, and low is what you want. One row in ten million is superb. Matching most of the table is worse than useless: the index gives you a pointer per matching row, and following nearly all of them means jumping randomly around the disk — when the planner could read the whole table straight through, faster.",
+          "note": "Selectivity belongs to the query, not the column. The same index can be brilliant for one value in a column and worthless for another — so \"should I index this?\" has no answer until you say what you'll ask of it."
         },
         {
           "id": "idx-4-1",

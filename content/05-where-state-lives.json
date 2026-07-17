@@ -28,14 +28,14 @@
               },
               {
                 "id": "r",
-                "label": "Image resizer",
+                "label": "Markdown renderer",
                 "sub": "no memory",
                 "col": 1,
                 "kind": "server"
               },
               {
                 "id": "p",
-                "label": "Profile store",
+                "label": "Comment store",
                 "sub": "holds data",
                 "col": 1,
                 "kind": "db"
@@ -52,8 +52,8 @@
               }
             ]
           },
-          "body": "Some code only transforms: same input tomorrow, same answer, nothing kept in between. That's compute, and it's the easy kind — run a hundred copies, kill any of them, nobody notices, because no copy has to agree with any other. *State* is the opposite: data the system must remember. Copies of it have to agree, and that is where the hard problems live.",
-          "note": "Watch what falls out of 'remembers nothing': you can deploy it mid-traffic, autoscale it at 3am, kill it at random, run it on hardware that vanishes without warning. Disposability is the whole prize."
+          "body": "Some code only transforms: same input tomorrow, same answer, nothing kept in between. That's compute, the easy kind — run as many copies as you like, kill any of them, nobody notices, because no copy has to agree with any other. *State* is the opposite: data the system must remember. Copies of it have to agree, and that's where the hard problems live.",
+          "note": "Remembering nothing doesn't mean touching nothing — a renderer can chew through a 50MB file. It means nothing is *kept*: when the request ends, that copy is exactly as it was before it started."
         },
         {
           "id": "state-1-1",
@@ -163,28 +163,28 @@
               {
                 "id": "c",
                 "label": "Client",
-                "sub": "untrusted",
+                "sub": "the user's device",
                 "col": 0,
                 "kind": "client"
               },
               {
                 "id": "s",
                 "label": "App server",
-                "sub": "volatile",
+                "sub": "its own RAM",
                 "col": 1,
                 "kind": "server"
               },
               {
                 "id": "ca",
                 "label": "Shared cache",
-                "sub": "fast, shared",
+                "sub": "RAM, one hop away",
                 "col": 2,
                 "kind": "cache"
               },
               {
                 "id": "db",
                 "label": "Database",
-                "sub": "durable",
+                "sub": "on disk",
                 "col": 2,
                 "kind": "db"
               }
@@ -204,8 +204,8 @@
               }
             ]
           },
-          "body": "There are only a handful of places state can go, each with a personality. The client, in a cookie or token: travels with the user, and the user can edit it. Server RAM: fastest, and gone the moment the process restarts. A shared cache: fast, visible to every server, usually volatile. A database on disk: durable, authoritative, slowest of the four.",
-          "note": "Read the list again and notice what's missing: no single place is fast *and* durable *and* shared *and* trustworthy. Choosing where state lives always means deciding which of those you can do without."
+          "body": "State has to live somewhere, and there are only about four places: the client, a server's own RAM, a shared cache, a database on disk. Judge each on four axes: how fast, how durable (what survives a restart), who else can see it, and whether you can trust what comes back. Those four answers *are* the place's personality.",
+          "note": "Read those four axes again and notice what's missing: no single place is fast *and* durable *and* shared *and* trustworthy. Choosing where state lives always means deciding which of those you can do without."
         },
         {
           "id": "state-2-1",
@@ -446,7 +446,7 @@
           "type": "concept",
           "title": "Where state lives is decided by what you promised, not by what's fastest",
           "body": "Two questions settle nearly every placement. *If we lost this right now, what breaks?* — that sets how durable it has to be. *Who else needs to read it?* — that sets how shared it has to be. Answer both and the place picks itself. Notice that neither question is technical: they're about the promise you made, and the technology is just what keeps it.",
-          "note": "Run it on two examples. A computed value you can recalculate, that nobody else reads? Local memory, perfect. A payment record? Durable, replicated, shared. Same question, opposite answers."
+          "note": "The two answers are the design; everything after them — which database, which cache — is shopping. Get them wrong in the cheap direction and you don't find out from a test. You find out from a user, mid-incident."
         },
         {
           "id": "state-4-1",

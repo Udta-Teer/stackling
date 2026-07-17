@@ -17,9 +17,9 @@
         {
           "id": "rl-1-0",
           "type": "concept",
-          "title": "A server with no limit doesn't refuse the extra work — it accepts all of it and gets slow for everyone",
-          "body": "A server has a fixed capacity — say 1,000 requests/second. Send 50,000 and it doesn't bounce the excess; it queues it. Every request now waits behind a queue that can never drain, so latency climbs until things time out — including requests from clients doing nothing wrong. A limit is deciding *who* gets refused, before that happens.",
-          "note": "Which is why refusing fast beats serving slow. A rejection costs a header and no database call, and leaves the capacity for someone who can still be served inside their timeout."
+          "title": "A server with no limit doesn't refuse the extra work — it queues it, in a line everybody is standing in",
+          "body": "A server has a fixed capacity — some number of requests it can actually serve each second. Send more and it doesn't bounce the excess; it queues it. And the queue is shared: one client's flood joins the same line as everyone else's requests, ahead of some of them, and a line that can't drain ends in timeouts. A limit decides *who* gets refused, before that.",
+          "note": "A limit doesn't create capacity — it decides how the capacity you already have gets handed out. That's admission control, and every hard question in this unit is a version of the same one: who gets the yes?"
         },
         {
           "id": "rl-1-1",
@@ -113,8 +113,8 @@
           "id": "rl-2-0",
           "type": "concept",
           "title": "'100 per minute' means nothing until you say *which* minute",
-          "body": "The simplest counter resets at the top of each minute: count, reject past 100, zero it at `:00`. The rule is never broken and the guarantee is still a lie — 100 requests at 10:00:59 plus 100 more at 10:01:00 is 200 in one second, twice your limit, entirely within the rules. The window's edge is the hole.",
-          "note": "The alternatives differ in what they keep. A *sliding window* counts the last 60 seconds continuously, so there is no edge to sit on. A *token bucket* allows the burst on purpose: tokens accrue while you're idle."
+          "body": "The simplest counter resets at the top of each minute: count, reject past 100, zero it at `:00`. It tracks *how many* landed in the bucket and never *where* in the bucket they landed — and at `:00` it hands out a fresh allowance regardless of what happened a second earlier. The rule is never broken. The window's edge is the hole.",
+          "note": "Every alternative is a different answer to one question: how much burst will you tolerate? Some refuse bursts, some permit them deliberately, some flatten them away entirely. Naming that axis is most of the choice."
         },
         {
           "id": "rl-2-1",
@@ -272,7 +272,7 @@
             ]
           },
           "body": "Each server counts what it personally saw, and the load balancer sprays one client across all of them. Three servers each enforcing '100 per minute' let that client send 300 a minute while not one of them ever sees a violation. The counters multiply by your server count: 50 servers at 1,000 rps each is a real limit of 50,000 rps.",
-          "note": "Move the counter to a shared store and it becomes exact — and now every request pays a network round trip to a thing that can go down. When it does, you must choose: allow everything, or block everything."
+          "note": "The fix follows from the diagnosis: exactness needs one place to count, so the counter has to leave the servers and move somewhere they all share. Nothing in this unit is free, and that move is no exception."
         },
         {
           "id": "rl-3-1",
@@ -361,8 +361,8 @@
           "id": "rl-4-0",
           "type": "concept",
           "title": "A rejection is cheap — unless it comes straight back",
-          "body": "A `429` costs almost nothing to send: no auth, no database, just a header. That is the entire economics of rate limiting. But the cost is charged per rejection, and you don't control how fast the client returns. Retry instantly on every refusal and the limit becomes a tighter loop — you now handle *more* requests than before, all rejections.",
-          "note": "Politeness doesn't save you. Send `Retry-After: 60` to a thousand clients at once and all thousand return in the same instant — a thundering herd built of clients obeying you perfectly. The fix is jitter on the delay."
+          "body": "A `429` costs almost nothing to send: no auth, no database, just a header. That is the entire economics of rate limiting. But cheap is not free, the cost is charged once per rejection, and the one thing you don't control is how soon a refused client comes back. Your limit governs what you accept. It never governed what arrives.",
+          "note": "`Retry-After` is how you try to influence that: it tells a refused client exactly when to come back. Notice what it is — an instruction about *time*, given to all of them at once. Obedience isn't automatically good news."
         },
         {
           "id": "rl-4-1",

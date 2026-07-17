@@ -74,8 +74,8 @@
               }
             ]
           },
-          "body": "*Metrics*: is something wrong, and how much? A pre-aggregated number, costing about the same at ten requests or ten million. *Logs*: what exactly happened in this one case? Full detail, priced per event. *Traces*: where did the time go across services? One id followed through every hop. A metric wakes you, a trace narrows it, a log tells you what happened.",
-          "note": "All three are blind to whatever you never instrumented. A green CPU graph doesn't say the service is healthy — only that CPU isn't the constraint. The cause is sitting somewhere nobody measured."
+          "body": "These are not three formats of the same data. One is a number that has already been aggregated. One is a full record of a single event. One is a single id stitched through every hop of a request. Each exists because it answers a question the other two answer badly — and each shape falls straight out of its question. Read the shape backwards to the question.",
+          "note": "All three are blind to whatever you never instrumented. Which makes a green graph a weaker statement than it looks: it can only ever speak about the one thing it measures. Absence of a signal is not evidence of absence."
         },
         {
           "id": "obs-1-1",
@@ -271,8 +271,8 @@
           "id": "obs-3-0",
           "type": "concept",
           "title": "A metric's price is the number of distinct label combinations, not the number of requests",
-          "body": "A metric is pre-aggregated, so it costs roughly the same at ten requests or ten million. But every label value forks a new time series: `endpoint` × `status` is a few dozen. Add `user_id` and 10 million users, and you have just asked for millions of series — often more expensive than the service being watched.",
-          "note": "Hence the division of labour. Metrics want low-cardinality labels like `endpoint`. Per-user detail belongs in logs and traces, which are priced per event and looked up on demand rather than aggregated forever."
+          "body": "A metric is pre-aggregated, which is why it costs about the same at ten requests or ten million. But the aggregation happens per label combination, and each distinct combination is its own series — kept forever, scraped forever. So the question to ask of a new label isn't \"is this useful?\" It's \"how many distinct values can it take?\" Multiply. Then decide.",
+          "note": "And labels multiply rather than add: 5 endpoints × 4 statuses × 3 regions × 20 versions is 1,200 series from four innocent-looking dimensions. Nobody adds a cardinality explosion on purpose. They add a fourth label."
         },
         {
           "id": "obs-3-1",
@@ -365,7 +365,7 @@
           "id": "obs-4-0",
           "type": "concept",
           "title": "Alert on what users feel, not on what you guessed would hurt them",
-          "body": "High CPU at 2am while every user is served perfectly is not a problem. It's a number. CPU is a possible *cause*; a page should fire on a *symptom* — latency, errors, failed requests — because that's what harm looks like from outside. If nobody is suffering, the correct response to a busy machine is genuinely nothing.",
+          "body": "A page is an interrupt on someone's life at 2am, so it had better be earned. The distinction that does the earning is between a *cause* and a *symptom*. A cause is a condition that might hurt someone. A symptom is someone actually being hurt. Only one of those is visible from outside your system, and only one of them is, by itself, worth waking a human for.",
           "note": "Every false page teaches the on-call that the pager lies. Alert fatigue isn't weakness — it's the rational response to a noisy signal, and it's how the one real alert gets lost among fifty that weren't."
         },
         {

@@ -52,8 +52,8 @@
               }
             ]
           },
-          "body": "The shortener worked because one cached answer served everybody. A feed has no shared answer: 300 million users, 300 million different lists — and each person refreshes far more often than they post. Reads dominate, and no two people's feed is the same, which kills the playbook that rescued every system so far. One lever is left: *when* you build the list.",
-          "note": "Only two answers exist, and both are named. Build it when someone looks: fan-out on read, drawn above. Build it when someone posts: fan-out on write. This unit is the argument between them — and the winner is neither."
+          "body": "The shortener worked because one cached answer served everybody. A feed has no shared answer: 300 million users, 300 million different lists, and each person refreshes far more often than they post. Sit with what that does to your toolkit — it quietly kills the playbook that rescued every system so far. One lever is left: *when* you build the list.",
+          "note": "There are only two possible answers, and the lever tells you why — a list can be built at exactly two moments. This unit is the argument between them. Worth guessing now which wins, because the honest answer is neither."
         },
         {
           "id": "feed-1-1",
@@ -194,7 +194,7 @@
             ]
           },
           "body": "Posting stops being one write. The post is stored once, then its *id* is appended to the ready-made feed list of every follower — 200 followers, 200 appends. A read collapses to 'fetch my list': one lookup. You bought that with a write whose size is somebody else's follower count, and nobody chose that number.",
-          "note": "The queue isn't decoration. The post is live the moment it's stored, and the response goes out before a single append happens — nobody is waiting on those 200 writes, so making the author wait buys nothing."
+          "note": "The queue isn't decoration. Ask who is actually waiting on those 200 appends. Not the followers — they aren't looking yet. And work nobody is waiting on has no business sitting on the critical path of someone who is."
         },
         {
           "id": "feed-2-1",
@@ -333,8 +333,8 @@
               }
             ]
           },
-          "body": "Fan-out on write dies on huge follower counts. Fan-out on read dies on ordinary read volume. So you don't pick — you route: normal accounts fan out on write, accounts above a follower threshold don't, and a feed read becomes your precomputed list merged at read time with a live query for the few giants you follow.",
-          "note": "The merge stays cheap only because that second half is tiny: you follow a handful of accounts big enough to be excluded, not five hundred. Set it too low and you query live all day; too high and the storms come back."
+          "body": "Fan-out on write dies on huge follower counts. Fan-out on read dies on ordinary read volume. Now notice *where* each one dies — not the same place, not even close, and neither failure reaches into the other's healthy range. Two tools, each excellent exactly where the other is hopeless. There's an obvious move here, and refusing to pick is most of it.",
+          "note": "And it only works because of an accident of the follower distribution: accounts big enough to break fan-out are rare enough that you follow a handful, not five hundred. Change that fact and the hybrid stops being cheap."
         },
         {
           "id": "feed-3-1",
@@ -479,8 +479,8 @@
               }
             ]
           },
-          "body": "Chronological order is a property of the posts, so it can be baked in at write time. Relevance is a property of *you, right now* — this session, what you just scrolled past, what's happening this minute — so it can't. The precomputed list survives by demoting itself: it decides which posts you *might* see, and the order is decided when you look.",
-          "note": "Ranking at read time sounds like the expensive work you spent the unit avoiding. It isn't: you rank a few hundred candidates, not millions of posts. Fan-out didn't stop being useful — it stopped being the final word."
+          "body": "Ask what kind of thing an ordering is. Chronological order lives in the posts themselves — two posts have a fixed order and always will. Relevance doesn't live in the posts at all. It lives in *you, right now*: this session, what you just scrolled past, what's happening this minute. Two different kinds of fact, and only one of them can be settled in advance.",
+          "note": "Ranking at read time sounds like the expensive work you spent the unit avoiding. It isn't, and the reason is the candidate set: a few hundred posts, not millions. What ranking costs depends on how much you had to rank."
         },
         {
           "id": "feed-4-1",

@@ -62,8 +62,8 @@
               }
             ]
           },
-          "body": "What you limit on, the limit and its window, what happens on breach — those get answered. *How exact* doesn't. But 'exactly 100, never 101' and 'roughly 100' are different systems at different prices: one of them buys a round trip on every request and the other doesn't. Unit 17 gave you the algorithm. Choosing what it may get wrong is the design.",
-          "note": "The limiter also holds a position nothing else here has: in front of 100% of traffic, deciding before you know whether a request was worth serving. Its latency is everyone's latency; its outage is everyone's outage."
+          "body": "Ask for a rate limiter and you'll get a spec with three things. A fourth is almost never on the page: *how exact does this have to be?* 'Exactly 100, never 101' and 'roughly 100' are different systems at different prices — one buys a round trip on every request; the other doesn't. Unit 17 gave you the algorithm. Choosing what it may get wrong is the design.",
+          "note": "One honest observation: the limit number is nearly always invented. Somebody picked 1,000 because it's round. Fine, as long as you know it — *precision* of enforcement gets argued about far more than the number enforced."
         },
         {
           "id": "drl-1-1",
@@ -154,28 +154,28 @@
               {
                 "id": "c",
                 "label": "One API key",
-                "sub": "3,000/min",
+                "sub": "spread across all 50",
                 "col": 0,
                 "kind": "client"
               },
               {
                 "id": "s1",
                 "label": "Server 1",
-                "sub": "sees 60",
+                "sub": "counts only its own",
                 "col": 1,
                 "kind": "server"
               },
               {
                 "id": "s2",
                 "label": "Server 2",
-                "sub": "sees 60",
+                "sub": "counts only its own",
                 "col": 1,
                 "kind": "server"
               },
               {
                 "id": "s3",
                 "label": "Server 50",
-                "sub": "sees 60",
+                "sub": "counts only its own",
                 "col": 1,
                 "kind": "server"
               }
@@ -195,7 +195,7 @@
               }
             ]
           },
-          "body": "Your 50 API servers are interchangeable — that's the property that let them scale. A counter in each one's local memory is 50 fragments of a count: every server sees only the requests it happened to handle. Configure 1,000 a minute and each of the 50 waves through 60 of them without blinking. Unit 5's question, with a sharp edge.",
+          "body": "Your 50 API servers are interchangeable — that's the property that let them scale in the first place. But a counter in each one's local memory isn't a count. It's 50 separate fragments of one, and each server enforces its own fragment against the whole limit, having never heard of the other 49. Unit 5's question, with a sharp edge on it.",
           "note": "And the failure is silent. Nothing throws, no alert fires, your dashboard shows limits being enforced — the only party who ever learns the real number is the customer you were supposed to be stopping."
         },
         {
@@ -366,8 +366,8 @@
               }
             ]
           },
-          "body": "An exact check is a hop to a shared store, and you pay it on 100% of traffic — including the requests that were never anywhere near the limit. Unit 4's ladder prices one datacenter round trip at roughly 5,000 RAM reads. So exactness isn't free-and-obviously-right. It's a purchase, and its worth depends on what being wrong costs you.",
-          "note": "It gets stranger across regions. Split a 1,000/min budget three ways and a client hammering one region is cut off at 333 — lopsided traffic is *under*-served, not over-served, the opposite of what everyone guesses."
+          "body": "An exact check means asking a shared store, and asking is a network hop — unit 4's ladder prices one datacenter round trip at roughly 5,000 RAM reads. That's the price. The interesting question is who ends up paying it, and how often. Because exactness isn't free-and-obviously-right: it's a purchase, and its worth depends on what being wrong would cost you.",
+          "note": "And the bill gets stranger the further apart your servers are. Everything above assumed the shared store is next door. Put an ocean between them and 'exact' stops being merely expensive and starts being absurd."
         },
         {
           "id": "drl-3-1",
@@ -461,7 +461,7 @@
               {
                 "id": "c",
                 "label": "Two clients",
-                "sub": "100/min each",
+                "sub": "same request rate",
                 "col": 0,
                 "kind": "client"
               },
@@ -502,8 +502,8 @@
               }
             ]
           },
-          "body": "Your limiter counts requests. One endpoint returns a string from cache; another runs a 30-second report. Both clients above sit at 100 a minute and look identical to the limiter, while one of them is eating your fleet. The number you're enforcing has stopped describing the resource you meant to protect.",
-          "note": "There's a bigger version of the same gap: per-client limits sum to no bound at all. Ten thousand clients can each be perfectly compliant while the total flattens you. Fairness and total capacity are different questions."
+          "body": "Your limiter counts requests, which quietly assumes a request is a unit of something. Look at what's behind the door, though. The endpoints your clients call are not interchangeable, not remotely, and the limiter can't see any of it, because it's counting the one thing every request has in common. Whether that's fine depends on a number you haven't checked.",
+          "note": "And cost-weighting has a trap of its own: you must charge before you serve, which means pricing a request you haven't run yet. Sometimes the only honest move is to charge on the way out and settle the difference after."
         },
         {
           "id": "drl-4-1",

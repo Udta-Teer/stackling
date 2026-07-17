@@ -18,8 +18,8 @@
           "id": "idem-1-0",
           "type": "concept",
           "title": "A timeout tells you that you stopped waiting — nothing about what the server did",
-          "body": "You `POST` a payment. Nothing comes back. The request may never have arrived. Or it arrived, charged the card, and its reply died on the way home. From where you stand these look *exactly* the same. So you get a choice of mistakes: retry and maybe charge twice, or don't and maybe charge nobody.",
-          "note": "Idempotency dissolves the choice rather than answering it. Make a repeat harmless and you can always retry — \"did it happen?\" stops being a question you need answered."
+          "body": "A timeout is a fact about your patience, not about the server. You gave up at three seconds. Behind that silence the request may be queued, halfway done, finished with its reply lost on the road home, or never delivered at all — and every one of those looks *identical* from where you stand. Silence isn't information. It's the absence of it.",
+          "note": "Notice the shape of the trap: you're stuck because you need an answer you cannot get. There are only two ways out of a bind like that — get the answer, or arrange for it not to matter. One of those is impossible here."
         },
         {
           "id": "idem-1-1",
@@ -114,8 +114,8 @@
           "id": "idem-2-0",
           "type": "concept",
           "title": "An operation that names a final state repeats harmlessly; one that names a change does not",
-          "body": "\"Set the balance to 100\" can run five times and the balance is 100. \"Add 50\" runs five times and you're at 250. Absolute intents don't care what came before, so repetition is free; relative and creative intents compound. That's the whole split: `GET`, `PUT` and `DELETE` name an end state, and `POST` makes something new each call.",
-          "note": "*Atomic* and *idempotent* are different words. `UPDATE balance = balance - 10` is perfectly atomic — nothing can interleave with it — and running it twice still takes 20."
+          "body": "Some writes name the end state they want: *make it so*. They don't care what came before, so running one again re-asserts it and nothing moves. Other writes name a *change* — shift it by this much, make me a new one — relative to what already exists, so every repeat pushes the world on. The HTTP methods sort themselves this way, if you read what each says.",
+          "note": "And *atomic* is not *idempotent* — different words, different properties, and an operation can be one without the other. Which is how a write nothing can interleave with still does the wrong thing arriving twice."
         },
         {
           "id": "idem-2-1",
@@ -220,8 +220,8 @@
           "id": "idem-3-0",
           "type": "concept",
           "title": "An idempotency key names the *intent*, so every retry of one charge arrives under the same name",
-          "body": "The client mints a unique key before its first attempt and reuses it on every retry of that same intent. The server's first move — before any work — is to insert that key atomically, insert-if-absent. Win the insert: do the work, then store the result under the key. Lose it: the key is already claimed, so return what's stored.",
-          "note": "Look the key up and *then* decide, and you've written check-then-act. Two simultaneous retries both look, both find nothing, both charge. The store's unique constraint must pick the winner — not your `if`."
+          "body": "The client mints a unique key before its first attempt and sends the same one on every retry of that intent. Now the server has something it never had: a name for *this act*, stable across attempts that are otherwise indistinguishable. What the server does with that name is the whole design — and the order it does it in is where implementations go wrong.",
+          "note": "A key names one specific act, so the same key with a *different* body is a client bug, not a retry. Serious APIs reject it rather than returning the first result — otherwise a collision silently swallows a real request."
         },
         {
           "id": "idem-3-1",
@@ -328,14 +328,8 @@
               },
               {
                 "id": "e",
-                "label": "Email",
-                "sub": "not covered",
-                "col": 1
-              },
-              {
-                "id": "x",
-                "label": "Stripe call",
-                "sub": "not covered",
+                "label": "Everything else it did",
+                "sub": "outside the deal",
                 "col": 1
               }
             ],
@@ -347,15 +341,11 @@
               {
                 "from": "s",
                 "to": "e"
-              },
-              {
-                "from": "s",
-                "to": "x"
               }
             ]
           },
-          "body": "You deduplicated the charge. The confirmation email was never in the deal. A retry re-runs every side effect living outside the key's record — the email, the third-party call, the event you published. Your database can be spotless while the customer reads two receipts and a downstream service does the work twice.",
-          "note": "Anything that leaves your database can't be rolled back; the world remembers. Each side effect is its own promise: fire it once from the stored result, or hand it a key of its own."
+          "body": "The key covers exactly one thing: the record it guards. Everything the request *also* did — every effect that left your process on the way through — was never in the deal, and a retry runs it again. Which makes for the nastiest kind of incident: a database that reconciles perfectly, books that balance, and customers who can see that something went wrong.",
+          "note": "And the fix is per-effect, not per-endpoint. Each one is a separate promise and each needs deciding on purpose: fire it from the stored result exactly once, or give it a key of its own."
         },
         {
           "id": "idem-4-1",

@@ -41,7 +41,7 @@
               {
                 "id": "r2",
                 "label": "Router",
-                "sub": "10-20 hops",
+                "sub": "many hops",
                 "col": 2
               },
               {
@@ -75,7 +75,7 @@
               }
             ]
           },
-          "body": "There is no wire from your laptop to Google. Your data is chopped into small chunks called *packets*, each stamped with the destination's IP address — a number like `142.250.72.14` that identifies one machine on the internet. Each packet goes to a router, whose only job is to hand it on to another router closer to the target.",
+          "body": "There is no wire from your laptop to Google. Your data is chopped into small chunks called *packets*, each stamped with the destination's IP address — a number like `142.250.72.14` that identifies one machine on the internet. A packet carries an address but no map. It's handed to a router, then another, then another, until it arrives.",
           "note": "It's post, not a phone call. Each packet is addressed and travels alone, so two packets from the same page can take different routes and show up out of order."
         },
         {
@@ -276,7 +276,7 @@
           "id": "hiw-3-0",
           "type": "concept",
           "title": "A request can't start until it knows where it's going",
-          "body": "The order of a page load isn't a convention — it's forced. Each link needs the one before it: you need the server's IP address before you can open a connection, a connection before you can send a request, and a request before the server has anything to answer. Then the whole answer has to travel back before your browser can draw anything.",
+          "body": "The order of a page load isn't a convention — it's forced. Each step can only run on what the step before it produced, so the chain can't be shuffled or skipped: nothing can be sent to an address you don't have yet, and nothing can be answered before it's been asked. And nothing paints on your screen until the answer has finished travelling back.",
           "note": "Distance gets charged more than once. A fresh HTTPS connection can spend round trips on a DNS lookup, then the TCP handshake, then the TLS handshake — all before one byte of your actual page is sent."
         },
         {

@@ -62,7 +62,7 @@
               }
             ]
           },
-          "body": "'Design a URL shortener' is not a spec, it's an invitation to guess. Before you name a database, extract four things: what it must do, how many writes, how many reads, and the ratio between them. A shortener at 100 links a day and one at 100 million share a name and nothing else. The arithmetic tells you which of your problems are real.",
+          "body": "'Design a URL shortener' is not a spec. It's an invitation to guess, and guessing is where people lose. A shortener at 100 links a day and one at 100 million share a name and nothing else — different stores, different problems. So before you name a single technology, turn that sentence into something with numbers in it. Everything downstream follows.",
           "note": "Estimation isn't a warm-up ritual — it's how you find out which problems are imaginary. Most of what gets over-built here is defence against a bottleneck the numbers would have ruled out in thirty seconds."
         },
         {
@@ -191,7 +191,7 @@
             ]
           },
           "body": "Two families. Hash the long URL and keep 7 characters: the code is now a *function* of the input. Or keep a counter and hand out the next number, written in base62: the code is an *identity* you assign. Notice what the diagram is missing — no arrow from the URL to the counter. The counter never looks at what you're shortening.",
-          "note": "Collisions are the smaller objection — a clash is detectable, so you redraw. Determinism has no redraw: the same URL always yields the same code, so two customers shortening one link must share it, analytics and all."
+          "note": "Collisions get all the attention, but determinism is the objection with no escape: the same URL always yields the same code, so two customers shortening one link are handed the same one — sharing it, analytics and all."
         },
         {
           "id": "urls-2-1",
@@ -318,7 +318,7 @@
               }
             ]
           },
-          "body": "A short code points at one long URL forever. Nothing to invalidate, nothing that drifts, no write-back — the hard half of unit 13 doesn't exist here, because immutable data can be copied anywhere and still can't be wrong. So the question stops being *how* to serve 116,000 redirects a second. It becomes what you'd give up to make them cheap.",
+          "body": "A short code points at one long URL forever. Not usually, not mostly — forever. That one property is the most consequential fact in this design, and it's worth stopping to work out exactly what it buys you before you draw anything at all. So the question was never *how* to serve 116,000 redirects a second. It's what you'd have to give up to make them cheap.",
           "note": "Immutability was a choice, not luck: you decided a code points at one URL for life rather than letting people re-target a link later. Shorteners that sell an editable destination hand this whole chapter back."
         },
         {
@@ -475,7 +475,7 @@
               }
             ]
           },
-          "body": "A custom alias like `/launch` isn't a separate feature with its own storage. It's a row in the same map as every generated code — a key somebody chose rather than drew. So two parties now write into one namespace, neither of them coordinating, and `/launch` is free only if nothing ever generated it first.",
+          "body": "A custom alias isn't a separate feature with its own storage. It's a row in the same map as every generated code — a key somebody chose rather than drew. So two parties now write into one namespace with no idea the other exists: your generator, minting codes at 1,200 a second, and your users, picking words they like. Work out what that costs you.",
           "note": "Your own product lives in that namespace too: `/about`, `/pricing`, `/api`. A generator that emits one of those doesn't collide with a customer — it collides with your website. That's what reserved prefixes are for."
         },
         {
