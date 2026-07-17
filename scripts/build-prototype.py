@@ -42,6 +42,17 @@ TIER_LABEL = {
 }
 
 
+# Fields the renderer actually reads. The builder copies ONLY these into the
+# embed — so anything a content author adds outside this list silently never
+# reaches the learner, with every gate green. That has now happened twice
+# (`fieldTask`, then `subtitle`), so the allowlist is declared here and enforced
+# against the content below rather than being an implicit detail of lesson().
+LESSON_FIELDS = {"id", "title", "exercises", "fieldTask"}
+UNIT_FIELDS = {"unitId", "tier", "title", "subtitle", "objectives", "lessons"}
+# `tier` and `objectives` are read by the build/tracker, not shipped to the page.
+UNIT_NOT_EMBEDDED = {"tier", "objectives"}
+
+
 def unit_number(path):
     m = re.match(r"(\d+)", os.path.basename(path))
     return int(m.group(1)) if m else 0
@@ -77,6 +88,20 @@ def build_block():
                 out["fieldTask"] = l["fieldTask"]
             return out
 
+        # Fail loudly on a field nobody will ever see, instead of dropping it.
+        stray_u = set(d) - UNIT_FIELDS
+        if stray_u:
+            raise SystemExit(
+                f"{os.path.basename(f)}: unknown unit-level field(s) {sorted(stray_u)}. "
+                f"The builder only embeds {sorted(UNIT_FIELDS - UNIT_NOT_EMBEDDED)}, so this "
+                f"would never reach a learner. Add it to UNIT_FIELDS and to the embed if it should.")
+        for l in d.get("lessons", []):
+            stray_l = set(l) - LESSON_FIELDS
+            if stray_l:
+                raise SystemExit(
+                    f"{os.path.basename(f)}: lesson {l.get('id')!r} has unknown field(s) "
+                    f"{sorted(stray_l)}. lesson() would drop them silently.")
+
         unit = {
             "unitId": d.get("unitId"),
             "title": d.get("title"),
@@ -87,12 +112,32 @@ def build_block():
             "subtitle": d.get("subtitle"),
             "lessons": [lesson(l) for l in d.get("lessons", [])],
         }
+        blob = json.dumps(unit, ensure_ascii=False, separators=(",", ":"))
+
+        # json.dumps escapes neither `<` nor `/`, and this blob lands inside an
+        # inline <script>. The HTML parser ends that script at the first literal
+        # `</script>` REGARDLESS of JS string quoting — so one such sequence in a
+        # `why` (plausible: units 2 and 14 teach HTTP and CDNs) truncates the
+        # script, COURSE never gets defined, and the page renders zero units.
+        # Both Python gates reported PASS while the app was dead.
+        blob = blob.replace("</", "<\\/")
+
+        # Same class, different fuse: the region markers below are found with a
+        # non-greedy `.*?`, so a marker that ends up INSIDE the embed becomes the
+        # new end-of-region on the next build. The generator then appends a second
+        # copy of every unit — duplicate `const UNIT1` declarations, SyntaxError,
+        # dead page — and `--check` reports "stale" forever, with the remedy it
+        # prints doubling the damage each time it's followed.
+        for marker in (START, END):
+            if marker in blob:
+                raise SystemExit(
+                    f"{os.path.basename(f)}: content contains the generated-region "
+                    f"marker {marker!r}. Embedding it would make the next build "
+                    f"truncate at the wrong place and duplicate every unit."
+                )
+
         lines.append(f"/* ---- {os.path.basename(f)} ---- */")
-        lines.append(
-            f"const {var} = "
-            + json.dumps(unit, ensure_ascii=False, separators=(",", ":"))
-            + ";"
-        )
+        lines.append(f"const {var} = " + blob + ";")
 
     lines.append("")
     lines.append(f"const COURSE = [{', '.join(names)}];")

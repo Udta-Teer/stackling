@@ -61,6 +61,9 @@ const jumpTo = async (exId) => {
     return false;
   }, exId);
   await page.waitForTimeout(220);
+  // Fail HERE, naming the id. Returning silently meant a renamed exercise
+  // surfaced 30 seconds later as a Playwright timeout on an unrelated selector.
+  if (!found) { bad(`jumpTo: no exercise with id "${exId}" — did it get renamed?`); }
   return found;
 };
 
@@ -324,8 +327,21 @@ const sub = await page.locator('#pk-sub').textContent();
 is(/Mixing units/.test(sub), `the picker explains why there's no lesson ("${sub.slice(0,40)}...")`);
 await page.evaluate(() => { uidx=0; UNIT=COURSE[0]; bootUnits(); boot(); });
 await page.waitForTimeout(150);
-is(await page.locator('#pk-sub').isHidden() || (await page.locator('#pk-sub').textContent()) !== '',
-   'units without a subtitle hide the line rather than leave a gap');
+// Force the case rather than hoping a unit exhibits it: every unit has a
+// subtitle today, so the previous `A || B` here short-circuited true and never
+// tested anything. Proven by deleting the line it guards — still 102/102.
+//
+// exitToPicker() first, deliberately: page.goto() to a URL differing only by
+// hash is a same-document navigation and does NOT reload, so the picker was
+// still hidden from the previous jumpTo's startLesson() — and isHidden() is true
+// when any ANCESTOR is hidden, which would have made this assert the wrong thing.
+await page.evaluate(() => exitToPicker());
+await page.evaluate(() => { UNIT = {...COURSE[0], subtitle: null}; boot(); });
+await page.waitForTimeout(120);
+is(await page.locator('#pk-sub').isHidden(), 'a unit with no subtitle hides the line rather than leaving a gap');
+await page.evaluate(() => { UNIT = COURSE[0]; boot(); });
+await page.waitForTimeout(120);
+is(!(await page.locator('#pk-sub').isHidden()), 'and shows it again when there is one');
 
 console.log('\n── build_diagram: a wrong drop must be undoable ──');
 await jumpTo('cp5-2-2');
@@ -397,6 +413,155 @@ is(typeReport.length === 11, `all 11 exercise types covered (found ${typeReport.
 const graded = await page.evaluate(() => document.querySelector('#feedback').className);
 is(/ok/.test(graded), 'the last correct answer graded as correct, not just silent');
 
+
+console.log('\n── a stray second tap must not eat the `why` ──');
+await jumpTo('hiw-1-1');
+await page.locator('#stage .choice').first().click();
+await page.locator('#action').click();                 // Check -> feedback
+await page.waitForTimeout(30);
+const idxAfterCheck = await page.evaluate(() => idx);
+await page.locator('#action').click();                 // the stray second tap
+await page.waitForTimeout(120);
+is(await page.evaluate(() => idx) === idxAfterCheck, 'a fast second tap does not advance');
+is((await page.locator('.feedback p').count()) === 1, 'the `why` is still on screen');
+await page.waitForTimeout(420);                        // past the dead-time
+await page.locator('#action').click();
+await page.waitForTimeout(150);
+is(await page.evaluate(() => idx) === idxAfterCheck + 1, 'a deliberate tap still advances');
+// Check itself must NOT be dead-timed — answering fast is legitimate
+await jumpTo('hiw-1-1');
+await page.locator('#stage .choice').first().click();
+await page.locator('#action').click();
+await page.waitForTimeout(80);
+is((await page.locator('.feedback p').count()) === 1, 'Check works immediately (no dead-time on Check)');
+
+console.log('\n── a slider you never touched is not an answer ──');
+await jumpTo('cache-4-6');
+is(await page.locator('#action').isDisabled(), 'Check is disabled until the slider moves');
+is(await page.evaluate(() => current) === null, 'current starts null, not 50');
+await page.locator('#stage input[type=range]').fill('70');
+await page.waitForTimeout(80);
+is(!(await page.locator('#action').isDisabled()), 'moving it enables Check');
+
+console.log('\n── estimate cannot brick Continue ──');
+await jumpTo('lat-2-3');
+await page.locator('#stage .est input').fill('500');
+await page.locator('#action').click();
+await page.waitForTimeout(150);
+is((await page.locator('.feedback').count()) === 1, 'it grades');
+is((await page.locator('#est-reveal').count()) === 1, 'and reveals the number');
+const rev = await page.locator('#est-reveal').textContent();
+is(/Answer:/.test(rev), `the answer is shown ("${rev.trim().slice(0,42)}...")`);
+await page.locator('#stage .est input').fill('');       // the brick: clear after grading
+await page.waitForTimeout(120);
+is(!(await page.locator('#action').isDisabled()), 'clearing the field after grading does NOT kill Continue');
+
+console.log('\n── order_steps reveals the sequence ──');
+await jumpTo('cache-2-1');
+await page.locator('#action').click();
+await page.waitForTimeout(150);
+is((await page.locator('#stage .order .row.ok, #stage .order .row.bad').count()) > 0, 'rows are marked after Check');
+const shownOrder = await page.locator('#stage .order .lbl').allTextContents();
+const trueOrder  = await page.evaluate(() => ex.steps.map(s => s.replace(/[`*]/g,'')));
+is(JSON.stringify(shownOrder.map(t=>t.trim())) === JSON.stringify(trueOrder), 'the CORRECT sequence is displayed, in order');
+
+console.log('\n── losing is not winning ──');
+await page.goto(FILE); await page.waitForTimeout(300);   // no #review -> hearts bite
+await page.evaluate(() => { setTeach(false); uidx=0; UNIT=COURSE[0]; bootUnits(); boot(); startLesson(0); });
+await page.waitForTimeout(200);
+for (let i = 0; i < 8 && await page.evaluate(() => hearts) > 0; i++) {
+  await page.evaluate(() => {
+    // A WRONG answer must still be a WELL-FORMED one — `current = -999` for
+    // every type just crashes match_pairs' grader and tests nothing.
+    const x = lesson.exercises[idx], t = x.type;
+    if (t === 'concept') { next(); return; }
+    if (t === 'multiple_choice' || t === 'fill_blank' || t === 'spot_bottleneck')
+      current = (x.answer + 1) % (x.choices ? x.choices.length : document.querySelectorAll('.vn.pick').length);
+    else if (t === 'multi_select')
+      current = new Set([[0,1,2,3].find(i => !x.answer.includes(i))].filter(v => v !== undefined));
+    else if (t === 'order_steps')
+      current = x.steps.map((s,i) => ({s, i})).reverse();
+    else if (t === 'match_pairs') {
+      const rights = current.rights, map = {};
+      x.pairs.forEach((p,i) => { map[i] = (rights.indexOf(p.right) + 1) % rights.length; });
+      current = { pending: null, map, rights };
+    } else if (t === 'build_diagram') {
+      const wrongLab = x.palette.find(l => !Object.values(x.answer).includes(l));
+      current = {}; Object.keys(x.answer).forEach(h => { current[h] = wrongLab; });
+    } else if (t === 'estimate') current = x.answer + (x.tolerance || 0) + 1e6;
+    else if (t === 'tradeoff_slider' || t === 'simulate')
+      current = x.answerRange[0] > 0 ? 0 : 100;
+    check();
+  });
+  await page.waitForTimeout(60);
+  await page.evaluate(() => { if (checked) next(); });
+  await page.waitForTimeout(60);
+}
+is(await page.evaluate(() => hearts) === 0, 'ran out of hearts');
+is((await page.locator('#done-title').textContent()) === 'Out of hearts', 'the screen says Out of hearts, not "Lesson complete!"');
+is(!(await page.locator('#done-sub').isHidden()), 'and explains what to do next');
+is(/again/i.test(await page.locator('#nextbtn').textContent()), 'the button offers a retry, not "Next lesson"');
+is((await page.locator('.ftask').count()) === 0, 'no field task on a failed run — nothing was banked to reward');
+// and the retry actually restarts the lesson with hearts back
+await page.locator('#nextbtn').click();
+await page.waitForTimeout(200);
+is(await page.evaluate(() => hearts) === 5, 'the retry refills hearts');
+// NOT `idx === 0`: teaching is off in this block, so startLesson correctly
+// skips the concept card and lands on the first thing the learner SEES.
+// `total` is the honest signal that the run reset.
+is(await page.evaluate(() => total) === 0 && !(await page.locator('#stage').isHidden()),
+   'and starts the run over with a clean slate');
+await page.evaluate(() => setTeach(true));
+
+console.log('\n── the ghost stage ──');
+await page.goto(FILE + '#review'); await page.reload(); await page.waitForTimeout(350);
+await page.locator('#lessonpick .choice').first().click();
+await page.waitForTimeout(200);
+await page.locator('#closebtn').click();                 // exit without answering
+await page.waitForTimeout(150);
+is(await page.evaluate(() => lesson === null), 'exiting drops the lesson');
+await page.locator('#teachbtn').click();                 // used to render a dead exercise over the picker
+await page.waitForTimeout(200);
+is(await page.locator('#stage').isHidden(), 'the stage stays hidden — no exercise stapled over the picker');
+is(!(await page.locator('#picker').isHidden()), 'the picker is still the picker');
+
+console.log('\n── the arrowheads are solid, and coloured by state ──');
+await jumpTo('cache-1-0');
+const head = await page.evaluate(() => {
+  const m = document.querySelector('marker#ah path'); const cs = getComputedStyle(m);
+  return { fill: cs.fill, stroke: cs.stroke };
+});
+is(head.fill !== 'none', `arrowhead is filled, not hollow (${head.fill})`);
+is(head.stroke === 'none', 'and not stroked by the edge rule');
+is((await page.evaluate(() => document.querySelectorAll('.edges > path').length)) === 2,
+   '".edges > path" selects only the 2 real edges, not the marker');
+
+console.log('\n── diagrams reach their own left edge on a small phone ──');
+for (const W of [375, 360]) {
+  const p2 = await browser.newPage({ viewport: { width: W, height: 900 } });
+  await p2.goto(FILE + '#review'); await p2.waitForTimeout(300);
+  await p2.evaluate(() => { for (let u=0;u<COURSE.length;u++) for (let l=0;l<COURSE[u].lessons.length;l++) {
+    const i = COURSE[u].lessons[l].exercises.findIndex(e => e.id === 'cache-1-0');
+    if (i>=0) { uidx=u; UNIT=COURSE[u]; bootUnits(); boot(); startLesson(l); idx=i; render(); return; } } });
+  await p2.waitForTimeout(250);
+  const geo = await p2.evaluate(() => {
+    const wrap = document.querySelector('.vizwrap'), first = document.querySelector('.vn');
+    return { wrapLeft: Math.round(wrap.getBoundingClientRect().left),
+             firstLeft: Math.round(first.getBoundingClientRect().left) };
+  });
+  is(geo.firstLeft >= geo.wrapLeft - 1,
+     `${W}px: the first node is reachable (starts at x=${geo.firstLeft}, container at x=${geo.wrapLeft})`);
+  await p2.close();
+}
+
+console.log('\n── spot_bottleneck is answerable without a pointer ──');
+await jumpTo('cp5-2-4');
+await page.locator('#stage .vn').nth(2).focus();
+await page.keyboard.press('Enter');
+await page.waitForTimeout(80);
+is(await page.evaluate(() => current) === 2, 'Enter on a focused node selects it');
+is(!(await page.locator('#action').isDisabled()), 'and enables Check');
+
 console.log('\n── legacy types still work ──');
 await jumpTo('hiw-1-1');
 await page.locator('#stage .choice').first().click();
@@ -404,7 +569,11 @@ await page.locator('#action').click();
 await page.waitForTimeout(120);
 is((await page.locator('.feedback').count()) === 1, 'multiple_choice still grades');
 
-console.log(`\n${errors.length ? '\x1b[31mJS errors: ' + errors.slice(0,3).join(' | ') + '\x1b[0m' : 'no JS errors across the whole run'}`);
+// ASSERT, don't print. This was a bare console.log: an injected uncaught
+// TypeError showed up in red and the suite still exited 0, so `npm run check`
+// went green over a broken page. Printing an error is not catching it.
+is(errors.length === 0,
+   `no JS errors across the whole run${errors.length ? ': ' + errors.slice(0,3).join(' | ') : ''}`);
 console.log(`\n${pass} passed, ${fail} failed`);
 await browser.close();
 process.exit(fail ? 1 : 0);

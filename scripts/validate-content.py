@@ -162,6 +162,61 @@ def check_viz(unit_name, lesson_id, viz, who):
     return ids
 
 
+SLIDER_START = 50   # tradeoff_slider's neutral resting value — see slider() in the prototype
+
+
+def check_answer_range(unit_name, lesson_id, e):
+    """Validate an answerRange hard, and return it only if it's usable.
+
+    The old checks were guarded by `isinstance(rng, list)`, so a NON-list
+    silently skipped every one of them. That mattered: the prototype grades with
+    `current >= ex.answerRange[0] && current <= ex.answerRange[1]`, and for the
+    string "90" that indexes to "9" and "0" — so `90 >= "9" && 90 <= "0"` is
+    always false. Every learner answer graded wrong, a heart lost each time, and
+    the gate reported PASS. A type check that skips on the wrong type is not a
+    type check.
+    """
+    rng = e.get("answerRange")
+    if not isinstance(rng, list) or len(rng) != 2 or not all(isinstance(v, int) for v in rng):
+        err(unit_name, lesson_id,
+            f"answerRange must be a list of exactly 2 ints — got {rng!r} "
+            f"({type(rng).__name__}). The renderer indexes it, so a string or a "
+            f"float grades every answer wrong and says nothing.")
+        return None
+    if not (0 <= rng[0] <= rng[1] <= 100):
+        err(unit_name, lesson_id, f"answerRange not a valid 0-100 span: {rng}")
+        return None
+    return rng
+
+
+def embed_form(frag):
+    """How a content string actually appears inside the generated embed.
+
+    Mirrors build-prototype.py: JSON-escape, then `</` -> `<\\/` (the builder does
+    that because a literal `</script>` in content would end the inline <script>
+    and take the whole page down). If these two ever disagree, this check reports
+    drift that isn't there — or misses drift that is.
+    """
+    return json.dumps(frag, ensure_ascii=False)[1:-1].replace("</", "<\\/")
+
+
+def embed_fragments(e):
+    """EVERY learner-facing string on an exercise. Add new fields here."""
+    out = [e.get(k, "") for k in ("prompt", "why", "hint", "title", "body", "note",
+                                  "unit", "leftLabel", "rightLabel")]
+    out += list(e.get("choices") or [])
+    out += list(e.get("steps") or [])
+    out += list(e.get("palette") or [])
+    for p in e.get("pairs") or []:                      # the match_pairs answer key
+        out += [p.get("left", ""), p.get("right", "")]
+    for node in (e.get("viz") or {}).get("nodes", []) or []:
+        out += [node.get("label", ""), node.get("sub", "")]
+    sim = e.get("sim") or {}
+    out += [sim.get("inputLabel", ""), sim.get("watchLabel", "")]
+    out += [(sim.get("absorb") or {}).get("label", "")]
+    return [f for f in out if f]
+
+
 def sim_load(sim, pct):
     """Mirror of simCompute() in the prototype: load enters at `input` and flows
     down `chain`; the absorb node removes pct% of what reaches it.
@@ -279,6 +334,15 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
                     err(unit_name, lesson_id, f"answer for {h!r} not in palette: {lab!r}")
             if len(set(ans.values())) != len(ans):
                 err(unit_name, lesson_id, "the same component fills two holes")
+        # The renderer keys its chip lookup table by label. Duplicate labels would
+        # collapse to one entry, so only the last chip would grey out and the
+        # "used once" sweep would clear the wrong hole. Keying by text has now
+        # shipped as a bug twice (match_pairs, then this table), so gate it.
+        if len(set(pal)) != len(pal):
+            dupes = sorted({l for l in pal if pal.count(l) > 1})
+            err(unit_name, lesson_id,
+                f"palette has duplicate label(s) {dupes} — the renderer keys chips "
+                f"by label, so duplicates collapse into one and misbehave")
             # Without a distractor there is no decision to make.
             if len(pal) < len(holes) + 1:
                 err(unit_name, lesson_id,
@@ -310,29 +374,47 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
         for nid in (sim.get("capacity") or {}):
             if nid not in ids:
                 err(unit_name, lesson_id, f"sim capacity names unknown node {nid!r}")
-        if "answerRange" not in e:
-            err(unit_name, lesson_id, "simulate missing `answerRange`")
-            return
-        # The strong check: grade the graded answer against the model the
-        # learner actually manipulates. If the content claims 90% is the
-        # threshold and the simulation says 85%, the content is wrong — and
-        # this is exactly the class of defect (a key disagreeing with reality)
-        # that a human reviewer misses and arithmetic never does.
+        rng = check_answer_range(unit_name, lesson_id, e)
+        # `capacity` for the watched node is REQUIRED, not optional. It used to be
+        # read with `.get()` and the whole physics check sat behind
+        # `if cap is not None` — so deleting `capacity`, or supplying it for some
+        # other node, silently skipped the only gate that ties the answer key to
+        # the simulation, and the validator said PASS.
         cap = (sim.get("capacity") or {}).get(sim["watch"])
-        rng = e["answerRange"]
-        if cap is not None and isinstance(rng, list) and len(rng) == 2:
-            ok = [p for p in range(int(ab["min"]), int(ab["max"]) + 1)
-                  if sim_load(sim, p)[sim["watch"]] <= cap]
-            if not ok:
-                err(unit_name, lesson_id,
-                    f"simulate is unwinnable: no setting gets {sim['watch']!r} "
-                    f"under its capacity of {cap}")
-            else:
-                thresh = min(ok)
-                if not (rng[0] <= thresh <= rng[1]):
-                    err(unit_name, lesson_id,
-                        f"answerRange {rng} does not contain the real threshold "
-                        f"{thresh} — the simulation disagrees with the answer key")
+        if cap is None:
+            err(unit_name, lesson_id,
+                f"simulate needs `capacity` for the watched node {sim['watch']!r} — "
+                f"without it there is nothing to check the answerRange against")
+            return
+        if rng is None:
+            return
+        # Grade the answer key against the model the learner actually manipulates.
+        ok = [p for p in range(int(ab["min"]), int(ab["max"]) + 1)
+              if sim_load(sim, p)[sim["watch"]] <= cap]
+        if not ok:
+            err(unit_name, lesson_id,
+                f"simulate is unwinnable: no setting gets {sim['watch']!r} "
+                f"under its capacity of {cap}")
+            return
+        # BOTH directions. The old check only asked whether the range CONTAINED
+        # the threshold, never whether every value IN it actually passes — so
+        # answerRange [50,92] on a threshold of 90 validated clean, and a learner
+        # who set the slider to 50 watched the database glow red at 5x capacity
+        # and was told "✓ Nice!". CLAUDE.md claims this check "rejects an
+        # answerRange that disagrees with the physics the learner sees"; it only
+        # half did.
+        losing = [p for p in range(rng[0], rng[1] + 1) if p not in set(ok)]
+        if losing:
+            worst = sim_load(sim, losing[0])[sim["watch"]]
+            err(unit_name, lesson_id,
+                f"answerRange {rng} accepts {len(losing)} setting(s) that MELT "
+                f"{sim['watch']!r} — e.g. {losing[0]}{ab.get('unit','%')} sends {worst:,.0f} "
+                f"at a capacity of {cap:,}. The learner would watch it fail and be told they're right.")
+        thresh = min(ok)
+        if not (rng[0] <= thresh <= rng[1]):
+            err(unit_name, lesson_id,
+                f"answerRange {rng} does not contain the real threshold "
+                f"{thresh} — the simulation disagrees with the answer key")
     elif t == "spot_bottleneck":
         if e.get("viz"):
             ids = check_viz(unit_name, lesson_id, e["viz"], "spot_bottleneck")
@@ -353,9 +435,24 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
         for k in ("answerRange", "leftLabel", "rightLabel"):
             if k not in e:
                 err(unit_name, lesson_id, f"tradeoff_slider missing `{k}`")
-        rng = e.get("answerRange")
-        if isinstance(rng, list) and len(rng) == 2 and not (0 <= rng[0] < rng[1] <= 100):
-            err(unit_name, lesson_id, f"answerRange not a valid 0-100 span: {rng}")
+                return
+        rng = check_answer_range(unit_name, lesson_id, e)
+        if rng is None:
+            return
+        # The slider rests at 50. A range straddling it means the learner is
+        # correct having never touched the control — three shipped exercises did
+        # exactly that ([45,85], [30,70], [40,70]): read nothing, press Check,
+        # "✓ Nice!", +10 XP. The renderer now refuses to enable Check until the
+        # slider moves, which closes the blind-Check path — but an exercise whose
+        # answer sits on the default still can't tell a judgement from a shrug,
+        # so it's a warning the author has to look at rather than a hard fail on
+        # content that is otherwise honest.
+        if rng[0] <= SLIDER_START <= rng[1]:
+            warn(unit_name, lesson_id,
+                 f"answerRange {rng} contains the slider's resting value "
+                 f"({SLIDER_START}) — a learner who never moves it is 'correct'. "
+                 f"Move the range off-centre, or accept that this exercise "
+                 f"measures nothing.")
 
 
 # ---------- advisory heuristics (warnings only) ----------
@@ -483,16 +580,15 @@ def main():
                 # The embed stores each string as a JSON string literal, so compare against
                 # the escaped form — a raw compare false-positives on any content containing
                 # a double quote (e.g. unit 3's '{"error": "user not found"}').
-                fragments = [e.get("prompt", ""), e.get("why", ""),
-                             e.get("title", ""), e.get("body", ""), e.get("note", "")]
-                fragments += list(e.get("choices", []) or [])
-                fragments += list(e.get("steps", []) or [])
-                fragments += list(e.get("palette", []) or [])
-                # Diagram text ships to the learner too, so it drifts like any other string.
-                for node in (e.get("viz") or {}).get("nodes", []) or []:
-                    fragments += [node.get("label", ""), node.get("sub", "")]
-                for frag in fragments:
-                    if frag and json.dumps(frag, ensure_ascii=False)[1:-1] not in html:
+                #
+                # This list used to stop at prompt/why/title/body/note/choices/
+                # steps/palette/viz. Everything below it was invisible to the one
+                # gate that exists to catch drift — including `pairs`, which IS
+                # the match_pairs ANSWER KEY. An author could edit a pairing, run
+                # the documented per-change gate, get PASS, and ship a prototype
+                # still serving the old pairs and the old key.
+                for frag in embed_fragments(e):
+                    if frag and embed_form(frag) not in html:
                         err(name, lid, f"NOT IN PROTOTYPE EMBED: {frag[:70]!r}")
 
     if total_field_tasks[0] > FIELD_TASK_MAX_TOTAL:

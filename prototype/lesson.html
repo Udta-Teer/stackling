@@ -24,7 +24,6 @@
   body{margin:0;font-family:var(--body);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
     background-image:linear-gradient(rgba(76,176,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(76,176,255,.05) 1px,transparent 1px);background-size:28px 28px;}
   .mark{width:var(--s,32px);height:var(--s,32px);flex:none}
-  .brand{display:flex;align-items:center;gap:7px;font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:-.02em;color:var(--ink);}
   .app{max-width:600px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:16px;}
   /* top bar */
   .top{display:flex;align-items:center;gap:14px;margin-bottom:24px;}
@@ -81,9 +80,17 @@
   /* order list */
   .order{display:flex;flex-direction:column;gap:10px;}
   .order .row{display:flex;align-items:center;gap:10px;padding:14px;border:2px solid var(--line);border-bottom-width:4px;border-radius:12px;background:var(--card);font-weight:700;}
+  /* the revealed sequence: green where they had it, red where they didn't */
+  .order .row.ok{border-color:var(--green);background:var(--green-soft);}
+  .order .row.bad{border-color:var(--red);background:var(--red-soft);}
   .order .row .num{width:24px;height:24px;flex:none;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:13px;}
-  .order .arrows{margin-left:auto;display:flex;gap:6px;}
-  .order .arrows button{width:30px;height:30px;border-radius:8px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-weight:800;}
+  .order .row .lbl{flex:1;min-width:0;overflow-wrap:anywhere;}
+  .order .arrows{margin-left:auto;display:flex;gap:8px;}
+  /* 44px, not 30px. These arrows are the ONLY control on all 15 order_steps
+     exercises, they sit next to each other, and this ships to phones — a mis-tap
+     moves the wrong row. 44 is the Apple HIG / WCAG 2.5.5 floor. */
+  .order .arrows button{width:44px;height:44px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-weight:800;font-size:15px;}
+  .order .arrows button:disabled{opacity:.3;cursor:not-allowed;}
   /* match */
   .match{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .match .col{display:flex;flex-direction:column;gap:10px;}
@@ -111,8 +118,17 @@
      node label goes through md(). Edges are an SVG layer underneath.
      NOTE: .vn is a flex container, so a label must always be wrapped in .vl
      — md() output as a direct flex child shatters into one item per fragment. */
-  .vizwrap{overflow-x:auto;overflow-y:hidden;display:flex;justify-content:center;padding:2px 0 8px;margin-bottom:16px;}
-  .viz{position:relative;flex:none;}
+  /* `margin:auto` on the item, NOT `justify-content:center` on the container.
+     A centred flex item that overflows is centred by NEGATIVE offset, and
+     scrollable overflow only extends in the END direction — scrollLeft cannot go
+     below 0, so the left overflow is permanently unreachable. Measured on the
+     shipped build: at 375px a 398px diagram put its first node at x=-11 with
+     max scrollLeft 28, silently eating 27px of the leftmost node (the client —
+     the entry point of every diagram). At 360px it was 35px. Auto margins
+     resolve to 0 when free space is negative, so this centres when it fits and
+     left-aligns when it doesn't, which is what you actually want. */
+  .vizwrap{overflow-x:auto;overflow-y:visible;display:flex;justify-content:flex-start;padding:2px 0 8px;margin-bottom:16px;}
+  .viz{position:relative;flex:none;margin:0 auto;}
   .viz .edges{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
   .vn{position:absolute;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:2px;padding:5px 7px;border:2px solid var(--line);border-bottom-width:3px;border-radius:11px;
@@ -132,6 +148,7 @@
   .vn.bad{border-color:var(--red)!important;background:var(--red-soft)!important;color:var(--ink)!important;}
   .vn.pick{cursor:pointer;}
   .vn.pick:hover{border-color:var(--blue);transform:translateY(-1px);}
+  .vn.pick:focus-visible,.vn.hole:focus-visible{outline:3px solid var(--signal);outline-offset:2px;}
   .vn.pick.sel{border-color:var(--blue);background:rgba(76,176,255,.16);}
   /* drop targets */
   .vn.hole{border-style:dashed;border-color:var(--muted);color:var(--muted);background:rgba(255,255,255,.02);}
@@ -140,9 +157,33 @@
   /* simulate: a node over capacity is the whole point — make it unmissable */
   .vn.melt{border-color:var(--red);background:var(--red-soft);animation:melt .6s ease-in-out infinite;}
   @keyframes melt{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
-  .edges path{stroke:rgba(157,180,204,.45);stroke-width:1.6;fill:none;}
-  .edges path.live{stroke:var(--blue);stroke-width:2.2;stroke-dasharray:5 4;animation:flow .7s linear infinite;}
-  .edges path.dead{stroke:var(--red);}
+  /* Both animations are `infinite` and simulate() runs them for as long as the
+     learner sits with the slider — which is the whole point of that exercise, and
+     exactly the shape that triggers vestibular disorders. The state still reads:
+     melt keeps its red, live edges keep their dash. Only the movement stops. */
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+      transition-duration:.001ms!important;scroll-behavior:auto!important;}
+    .vn.melt{animation:none;}
+    .edges > path.live{animation:none;}
+  }
+  /* `.edges > path`, not `.edges path`. <defs> suppresses RENDERING, not selector
+     MATCHING — so `.edges path` also matched the arrowhead's <path> inside the
+     <marker>. Presentation attributes have specificity 0 and lose to every author
+     rule, so `fill:none` overrode the marker's fill="..." and `stroke:` overrode
+     its stroke="none": every arrowhead in all 89 diagrams rendered HOLLOW AND
+     STROKED instead of solid. Verified on the shipped build — computed fill was
+     `none`, computed stroke was the edge colour. The child combinator excludes
+     the marker; the marker's own paint now comes from CSS below. */
+  .edges > path{stroke:rgba(157,180,204,.45);stroke-width:1.6;fill:none;marker-end:url(#ah);}
+  .edges > path.live{stroke:var(--blue);stroke-width:2.2;stroke-dasharray:5 4;animation:flow .7s linear infinite;marker-end:url(#ahb);}
+  .edges > path.dead{stroke:var(--red);marker-end:url(#ahr);}
+  /* A marker can't inherit its referrer's colour, so a red `.dead` edge used to
+     end in a grey arrowhead — contradicting the exact signal the class exists to
+     send. One marker per state, selected by marker-end above. */
+  .edges marker path{fill:rgba(157,180,204,.5);stroke:none;}
+  .edges marker#ahb path{fill:var(--blue);}
+  .edges marker#ahr path{fill:var(--red);}
   @keyframes flow{to{stroke-dashoffset:-18}}
   /* dragging a component into a slot — pointer events, so touch works too */
   .chip.drag{touch-action:none;-webkit-user-select:none;user-select:none;}
@@ -156,7 +197,9 @@
   .cbody{font-size:15.5px;line-height:1.55;font-weight:500;color:var(--ink);
     border-left:3px solid var(--blue);padding-left:14px;margin:0;}
   .cnote{margin-top:14px;font-size:13.5px;line-height:1.5;color:var(--muted);font-weight:500;}
-  .cskip{max-width:290px;margin:22px auto 0;display:block;}
+  .btn.ghost.cskip{max-width:290px;margin:22px auto 0;display:block;}  /* .btn.ghost sets margin-top:10px at (0,2,0); a bare .cskip at (0,1,0)
+     loses the longhand and the 22px silently became 10px. Match specificity
+     rather than reach for !important. */
   /* ── simulate readouts ─────────────────────────────────────────────── */
   .simbar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:-4px 0 14px;}
   .simbar .m{border:1px solid var(--line);border-radius:10px;padding:7px 12px;background:var(--card);
@@ -167,6 +210,9 @@
   .est{display:flex;align-items:center;gap:10px;}
   .est input{font-size:22px;font-weight:800;padding:12px;width:130px;border:2px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);}
   .est .unit{font-weight:800;color:var(--muted);}
+  .est-reveal{margin:14px 0 0;font-size:15px;font-weight:600;color:var(--ink);}
+  .est-reveal b{color:var(--green);font-family:var(--disp);font-size:18px;}
+  .est-reveal .tol{color:var(--muted);font-weight:500;font-size:13px;}
   /* slider */
   .slider-wrap{margin:10px 0 4px;}
   .slider-labels{display:flex;justify-content:space-between;font-weight:800;font-size:13px;color:var(--muted);margin-bottom:10px;gap:10px;}
@@ -177,7 +223,6 @@
   .btn{width:100%;padding:15px;border:none;border-radius:14px;font-family:var(--disp);font-size:16px;font-weight:800;letter-spacing:.02em;
     text-transform:uppercase;cursor:pointer;color:#fff;background:var(--blueprint);border-bottom:4px solid var(--blueprint-dk);transition:.08s;}
   .btn:disabled{background:var(--line);color:var(--muted);border-bottom-color:var(--line);cursor:not-allowed;}
-  .btn.grey{background:var(--line);color:var(--muted);border-bottom-color:var(--line);}
   .btn.ghost{background:none;color:var(--muted);border:1px solid var(--line);border-bottom-width:1px;
     margin-top:10px;font-size:14px;text-transform:none;letter-spacing:0;}
   .btn.ghost:hover{color:var(--ink);border-color:var(--blue);}
@@ -188,12 +233,13 @@
   .feedback.ok h4{color:var(--green-dark);}
   .feedback.bad h4{color:var(--red);}
   .feedback p{margin:0 0 10px;font-weight:600;line-height:1.45;}
-  .deeper{background:rgba(28,176,246,.14);border-left:4px solid var(--blue);border-radius:8px;padding:10px 12px;font-size:14px;font-weight:600;line-height:1.45;}
-  .deeper b{color:var(--blue);}
   /* complete */
   .done{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;}
   .done .big{font-size:64px;}
   .done h2{margin:0;font-family:var(--disp);font-size:28px;font-weight:800;}
+  /* Losing has to look different from winning, or the screen lies to you. */
+  #complete.lost .done h2{color:var(--red);}
+  .done-sub{margin:0;max-width:420px;color:var(--muted);font-weight:500;line-height:1.5;font-size:14.5px;}
   .stat{display:flex;gap:12px;margin-top:10px;}
   .stat .box{border:1px solid var(--line);border-radius:14px;padding:12px 18px;font-family:var(--disp);font-weight:800;font-size:20px;background:var(--card);}
   .stat .box.xp{color:var(--signal);}
@@ -261,7 +307,8 @@
   <div id="complete" class="stage hidden">
     <div class="done">
       <div class="big"><svg class="mark" style="--s:104px"><use href="#stack"/></svg></div>
-      <h2>Lesson complete!</h2>
+      <h2 id="done-title">Lesson complete!</h2>
+      <p id="done-sub" class="done-sub hidden"></p>
       <div class="stat">
         <div class="box xp"><small>XP</small><span id="xp">0</span></div>
         <div class="box"><small>Accuracy</small><span id="acc">0%</span></div>
@@ -353,6 +400,7 @@ const TIERLABEL = ["Foundations","Foundations","Foundations","Foundations","Foun
 /* ---- engine ---- */
 let uidx=0, lidx=0, UNIT=COURSE[0];
 let hearts=5, xp=0, correct=0, total=0, idx=0, ex=null, lesson=null, checked=false, current=null;
+let failed=false;   // ran out of hearts — the completion screen must not congratulate you
 
 /* Review mode: unlimited hearts, so a wrong answer never ends a lesson early.
    For reviewing 676 exercises you need to be able to answer badly on purpose.
@@ -469,10 +517,19 @@ function progress(){
 }
 
 function render(){
+  /* Guard the index. next() and the teach handler both bounds-check before
+     rendering; this was the one call path that didn't, so a lesson that was
+     entirely concept cards (with teaching off) would walk idx past the end and
+     throw on `ex.type` with the picker already hidden and the stage blank.
+     Not reachable with today's content — it's one JSON file away. */
+  if(!lesson || idx>=lesson.exercises.length || idx<0) return finish();
   checked=false; ex=lesson.exercises[idx]; progress();
   $('feedback').innerHTML=''; $('feedback').className='';
-  const a=$('action'); a.className='btn'; a.textContent='Check'; a.disabled=true; a.onclick=check;
-  const s=$('stage'); s.className='stage';
+  const s=$('stage');
+  /* classList, not className='stage'. Assigning className wiped the `hidden`
+     class, so any render() that fired while the picker was showing stapled a
+     live exercise on top of the lesson list. */
+  s.classList.remove('hidden');
   /* A concept card is headed by a claim, not a question, and is not graded:
      no Check step, no heart at risk, and check() never runs — so it never
      touches `total` and cannot dilute the accuracy score. */
@@ -482,18 +539,57 @@ function render(){
      Say that in the kicker, or the learner meets a test with no lesson in front
      of it and concludes the teaching is missing rather than deliberately spent. */
   const cp     = isCheckpoint() ? '<span class="cp">Checkpoint</span>' : '';
-  const kick   = isCard ? 'Concept' : `${cp}${lesson.title} · ${gradedIdx()+1}/${gradedLen()}`;
+  // md() on the title too: it was the one content string reaching innerHTML raw,
+  // so unit 13's "Eviction & the hit rate that matters" went in unescaped, and a
+  // title with backticks rendered as <code> in the picker but literally here.
+  const kick   = isCard ? 'Concept' : `${cp}${md(lesson.title)} · ${gradedIdx()+1}/${gradedLen()}`;
   s.innerHTML=`<div class="kicker">${kick}</div><p class="prompt">${md(head)}</p><div id="body"></div>`;
-  ({multiple_choice:mc,fill_blank:mc,multi_select:ms,match_pairs:match,order_steps:order,
+  const fn = ({multiple_choice:mc,fill_blank:mc,multi_select:ms,match_pairs:match,order_steps:order,
     build_diagram:diagram,spot_bottleneck:bottleneck,estimate:estimate,tradeoff_slider:slider,
-    concept:concept,simulate:simulate})[ex.type]();
-  if(isCard){ a.textContent='Got it'; a.disabled=false; a.onclick=next; }
+    concept:concept,simulate:simulate})[ex.type];
+  // No silent `undefined()` on an unknown type — say which one.
+  if(!fn) throw new Error(`no renderer for exercise type "${ex.type}" (${ex.id})`);
+  bindAction('Check', check, {enabled:false});
+  fn();
+  if(isCard) bindAction('Got it', next);
 }
 function enable(){ $('action').disabled=false; }
 
+/* #action changes meaning IN PLACE — it is "Check" one moment and "Continue" the
+   next, in the same pixels, rebound synchronously inside check(). So the second
+   tap of a double-tap fires the NEW handler and skips the feedback entirely.
+   Measured on the shipped build at gaps of 0/40/80/150/300/600ms: every single
+   one skipped it. There is no window to race.
+
+   That silently destroys the only teaching this app has — goDeeper is retired,
+   so the `why` carries all of it (CONTENT_MASTER 3.1). Worst cases confirmed: a
+   wrong answer on your last heart loses the heart and skips the `why` on the way
+   to the completion screen; the final exercise of a lesson skips its `why` and
+   jumps to completion.
+
+   check()'s re-entry guard already protects the SCORE from this. It does nothing
+   for the ADVANCE, because that's a different handler on the same button.
+
+   So: a guarded handler ignores clicks landing within a beat of being armed.
+   Nobody reads a `why` in 400ms, so it's invisible to a reader and fatal to a
+   stray second tap.
+
+   The guard applies ONLY where the meaning changes mid-gesture — the
+   Check -> Continue swap inside check(). It must NOT apply to Check itself:
+   Check is bound disabled and enabled later by the renderer, so there is no
+   earlier handler to double-tap through, and guarding it would just refuse a
+   learner who answers quickly. Same for "Got it", which never changes. */
+const ACTION_DEADTIME = 400;
+function bindAction(label, fn, {enabled=true, guard=false}={}){
+  const a=$('action'), armed=performance.now();
+  a.textContent=label; a.disabled=!enabled;
+  a.onclick=()=>{ if(guard && performance.now()-armed < ACTION_DEADTIME) return; fn(); };
+  return a;
+}
+
 /* single-select (mc + fill_blank) */
 function mc(){
-  const opts=ex.type==='fill_blank'?ex.choices:ex.choices; current=null;
+  const opts=ex.choices; current=null;   // (was a ternary whose branches were identical)
   const w=$('body'); const c=document.createElement('div'); c.className='choices';
   opts.forEach((t,i)=>{
     const b=document.createElement('button'); b.className='choice';
@@ -585,16 +681,36 @@ function order(){
     const list=document.createElement('div'); list.className='order';
     current.forEach((it,pos)=>{
       const r=document.createElement('div'); r.className='row';
-      r.innerHTML=`<span class="num">${pos+1}</span> <span>${md(it.s)}</span>`;
+      // .lbl carries flex:1/min-width:0 — without it a long token can't shrink
+      // below min-content and pushes the row wide (see .choice .txt).
+      r.innerHTML=`<span class="num">${pos+1}</span><span class="lbl">${md(it.s)}</span>`;
       const ar=document.createElement('div'); ar.className='arrows';
-      const up=document.createElement('button'); up.textContent='↑'; up.onclick=()=>{if(checked||pos===0)return;[current[pos-1],current[pos]]=[current[pos],current[pos-1]];refresh();};
-      const dn=document.createElement('button'); dn.textContent='↓'; dn.onclick=()=>{if(checked||pos===current.length-1)return;[current[pos+1],current[pos]]=[current[pos],current[pos+1]];refresh();};
-      ar.appendChild(up);ar.appendChild(dn); r.appendChild(ar); list.appendChild(r);
+      const mk=(glyph,label,to,dead)=>{
+        const b=document.createElement('button');
+        b.textContent=glyph; b.setAttribute('aria-label',label); b.disabled=dead;
+        b.onclick=()=>{ if(checked||dead)return;
+          [current[to],current[pos]]=[current[pos],current[to]]; draw(); };
+        return b;
+      };
+      ar.appendChild(mk('↑','Move up',pos-1,pos===0));
+      ar.appendChild(mk('↓','Move down',pos+1,pos===current.length-1));
+      r.appendChild(ar); list.appendChild(r);
     });
     w.innerHTML=''; w.appendChild(list);
   }
-  function refresh(){draw();}
   draw();
+}
+/* Reveal the correct sequence. order_steps used to grade and stop — the learner
+   saw "✗ Not quite" over the wrong order they'd built, numbered 1..n, with the
+   right one never shown. Same defect match_pairs had, in a file whose own comment
+   claimed it was fixed "everywhere else". A discrete sequence is the most
+   revealable answer here: show it in order, and mark which rows they'd misplaced. */
+function revealOrder(body){
+  const list=body.querySelector('.order'); if(!list) return;
+  const wrong=new Set(current.map((it,pos)=>it.i===pos?null:it.i).filter(v=>v!==null));
+  list.innerHTML=ex.steps.map((s,i)=>
+    `<div class="row ${wrong.has(i)?'bad':'ok'}">`+
+    `<span class="num">${i+1}</span><span class="lbl">${md(s)}</span></div>`).join('');
 }
 /* spot the bottleneck — tap the component that constrains the pipeline */
 /* ══ diagram engine ═══════════════════════════════════════════════════
@@ -712,8 +828,14 @@ function bottleneck(){
        querying a class the renderer had stopped emitting. */
     [...el.classList].filter(c=>c.startsWith('k-')).forEach(c=>el.classList.remove(c));
     el.classList.add('pick');
-    el.onclick=()=>{ if(checked)return; current=i;
-      ids.forEach(x=>els[x].classList.remove('sel')); el.classList.add('sel'); enable(); };
+    // A div can't be tabbed to or activated by keyboard, so all 4 of these
+    // exercises were pointer-only. Make it a real control.
+    el.tabIndex=0; el.setAttribute('role','radio'); el.setAttribute('aria-checked','false');
+    const tap=()=>{ if(checked)return; current=i;
+      ids.forEach(x=>{ els[x].classList.remove('sel'); els[x].setAttribute('aria-checked','false'); });
+      el.classList.add('sel'); el.setAttribute('aria-checked','true'); enable(); };
+    el.onclick=tap;
+    el.onkeydown=e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); tap(); } };
   });
   const h=document.createElement('p'); h.className='vhint'; h.textContent='tap the constraint'; w.appendChild(h);
 }
@@ -769,12 +891,17 @@ function diagram(){
     let drag=null;
     c.addEventListener('pointerdown',e=>{
       if(checked||c.classList.contains('used'))return;
-      drag={id:e.pointerId,moved:false,ghost:null};
+      drag={id:e.pointerId,moved:false,ghost:null,x0:e.clientX,y0:e.clientY};
       try{ c.setPointerCapture(e.pointerId); }catch(_){}
     });
     c.addEventListener('pointermove',e=>{
       if(!drag||e.pointerId!==drag.id)return;
-      if(!drag.moved){ drag.moved=true;
+      if(!drag.moved){
+        // 6px of slop. Fingers and trackpads jitter; without a threshold the
+        // first stray pixel promoted a tap into a drag, pointerup landed on the
+        // chip instead of a hole, and nothing happened at all.
+        if(Math.hypot(e.clientX-drag.x0, e.clientY-drag.y0) < 6) return;
+        drag.moved=true;
         const g=c.cloneNode(true); g.className='chip ghost'; document.body.appendChild(g); drag.ghost=g; }
       drag.ghost.style.left=e.clientX+'px'; drag.ghost.style.top=e.clientY+'px';
       const over=holeUnder(e.clientX,e.clientY);
@@ -787,21 +914,39 @@ function diagram(){
       holes.forEach(id=>els[id].classList.remove('over'));
       drag=null; if(checked)return;
       if(moved){ if(tgt) place(tgt,label); return; }
-      if(holes.length===1) return place(holes[0],label);       // one hole: a tap is unambiguous
-      if(sel===label){ sel=null; c.classList.remove('sel'); return; }
-      sel=label; [...chips.children].forEach(x=>x.classList.remove('sel')); c.classList.add('sel');
+      selectChip(label,c);
     });
     c.addEventListener('pointercancel',()=>{
       if(drag&&drag.ghost)drag.ghost.remove(); drag=null;
       holes.forEach(id=>els[id].classList.remove('over'));
     });
+    // Enter/Space on a chip selects it — pointerup never fires for a keyboard.
+    c.addEventListener('keydown',e=>{
+      if(checked||(e.key!==' '&&e.key!=='Enter'))return;
+      e.preventDefault(); selectChip(label,c);
+    });
     chips.appendChild(c);
   });
-  holes.forEach(id=>els[id].addEventListener('click',()=>{
-    if(checked)return;
-    if(sel) place(id,sel);
-    else if(current[id]){ delete current[id]; refresh(); }        // tap a filled slot to clear
-  }));
+  function selectChip(label,c){
+    if(holes.length===1) return place(holes[0],label);       // one hole: unambiguous
+    if(sel===label){ sel=null; c.classList.remove('sel'); return; }
+    sel=label; [...chips.children].forEach(x=>x.classList.remove('sel')); c.classList.add('sel');
+  }
+  holes.forEach(id=>{
+    const el=els[id];
+    el.tabIndex=0; el.setAttribute('role','button');
+    el.setAttribute('aria-label','Empty slot — choose a component, then activate this slot');
+    const hit=()=>{
+      if(checked)return;
+      if(sel) place(id,sel);
+      else if(current[id]){ delete current[id]; refresh(); }      // tap a filled slot to clear
+    };
+    el.addEventListener('click',hit);
+    // Keyboard path: Tab to a chip, Enter to select it, Tab to a slot, Enter to
+    // place. Without this the hole was unreachable and the whole exercise was
+    // pointer-only for anyone with more than one slot to fill.
+    el.addEventListener('keydown',e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); hit(); } });
+  });
   w.appendChild(chips); refresh();
 }
 
@@ -870,7 +1015,10 @@ function simulate(){
       p.classList.toggle('dead', (sim.capacity||{})[e.to]!=null && l2>(sim.capacity||{})[e.to]);
     });
   }
-  r.addEventListener('input',paint);
+  // Post-grade exploration is the POINT of this exercise — the learner should be
+  // able to keep dragging and watch the origin melt after answering. But the
+  // graded value must freeze, or the verdict and the screen disagree.
+  r.addEventListener('input',()=>{ const g=checked?current:null; paint(); if(g!==null) current=g; });
   paint(); enable();
 }
 /* estimate */
@@ -878,19 +1026,47 @@ function estimate(){
   const w=$('body'); current=null;
   const box=document.createElement('div'); box.className='est';
   const inp=document.createElement('input'); inp.type='number'; inp.placeholder='?';
-  inp.oninput=()=>{ current=parseFloat(inp.value); $('action').disabled=isNaN(current); };
+  inp.setAttribute('aria-label', 'Your estimate'+(ex.unit?' in '+ex.unit:''));
+  /* `if(checked) return` — every other renderer's handler has it and this one
+     didn't. check()'s estimate branch does no DOM work, so the input stayed live
+     after grading: clear the field to redo the maths, oninput fires,
+     current=NaN, action.disabled=true — and NOTHING can re-enable it. enable()
+     is only bound to renderers and showFeedback() can't run twice, so Continue
+     was dead and the run unrecoverable except by forfeiting the lesson. */
+  inp.oninput=()=>{ if(checked) return;
+    current=parseFloat(inp.value); $('action').disabled=isNaN(current); };
   box.appendChild(inp); const u=document.createElement('span'); u.className='unit'; u.textContent=ex.unit||''; box.appendChild(u);
   w.appendChild(box);
+  const out=document.createElement('p'); out.className='est-reveal hidden'; out.id='est-reveal';
+  w.appendChild(out);
+}
+/* Show the number. estimate graded and stopped — your wrong figure just sat
+   there and `ex.answer` was never shown. Every `why` happens to contain a digit
+   today, so the answer was *probably* in the prose; "probably" isn't a reveal. */
+function revealEstimate(){
+  const out=$('est-reveal'); if(!out) return;
+  const tol=ex.tolerance||0, u=ex.unit?' '+ex.unit:'';
+  out.classList.remove('hidden');
+  out.innerHTML=`Answer: <b>${fmt(ex.answer)}${md(u)}</b>`+
+    (tol?` <span class="tol">(anything from ${fmt(ex.answer-tol)} to ${fmt(ex.answer+tol)} counts)</span>`:'');
 }
 /* tradeoff slider */
 function slider(){
-  const w=$('body'); current=50;
+  const w=$('body');
+  /* current stays null until the learner moves it. It used to be set to 50 with
+     enable() called immediately — so any answerRange straddling 50 was correct on
+     a blind Check: read nothing, press Check, "✓ Nice!", +10 XP. Three shipped
+     exercises had exactly that ([45,85], [30,70], [40,70]). A slider you never
+     touched is not an answer, so Check stays disabled until you move it. */
+  current=null;
   const wrap=document.createElement('div'); wrap.className='slider-wrap';
   wrap.innerHTML=`<div class="slider-labels"><span>◀ ${md(ex.leftLabel)}</span><span>${md(ex.rightLabel)} ▶</span></div>`;
   const r=document.createElement('input'); r.type='range'; r.min=0; r.max=100; r.value=50;
-  const val=document.createElement('div'); val.className='slider-val'; val.textContent='50 / 50';
-  r.oninput=()=>{ current=+r.value; val.textContent=`${100-current} / ${current}`; };
-  wrap.appendChild(r); wrap.appendChild(val); w.appendChild(wrap); enable();
+  r.setAttribute('aria-label', `${ex.leftLabel} to ${ex.rightLabel}`);
+  const val=document.createElement('div'); val.className='slider-val'; val.textContent='drag to choose';
+  r.oninput=()=>{ if(checked) return;
+    current=+r.value; val.textContent=`${100-current} / ${current}`; enable(); };
+  wrap.appendChild(r); wrap.appendChild(val); w.appendChild(wrap);
 }
 
 /* ---- checking ---- */
@@ -916,6 +1092,7 @@ function check(){
     [...current].forEach(i=>{if(!want.has(i))btns[i].classList.add('bad');});
   } else if(ex.type==='order_steps'){
     ok=current.every((it,pos)=>it.i===pos);
+    revealOrder(body);
   } else if(ex.type==='match_pairs'){
     // Grade on the VALUE the chosen slot holds, so either duplicate is accepted.
     ok=ex.pairs.every((p,i)=>current.rights[current.map[i]]===p.right);
@@ -968,6 +1145,7 @@ function check(){
     body.querySelectorAll('.chip').forEach(c=>{ if(wanted.has(c.dataset.label)) c.classList.add('ok'); });
   } else if(ex.type==='estimate'){
     ok=Math.abs(current-ex.answer)<=(ex.tolerance||0);
+    revealEstimate();
   } else if(ex.type==='tradeoff_slider'||ex.type==='simulate'){
     ok=current>=ex.answerRange[0]&&current<=ex.answerRange[1];
   }
@@ -977,9 +1155,21 @@ function check(){
 function showFeedback(ok){
   const f=$('feedback'); f.className='feedback '+(ok?'ok':'bad');
   f.innerHTML=`<h4>${ok?'✓ Nice!':'✗ Not quite'}</h4><p>${md(ex.why)}</p>`;
-  const a=$('action'); a.textContent = idx+1<lesson.exercises.length?'Continue':'Finish'; a.disabled=false;
-  a.className='btn'+(ok?'':' '); a.onclick=next;
-  if(hearts===0 && !unlimited){ a.textContent='Out of hearts — Finish'; }
+  /* "is this the last one" was computed here with different rules than next()
+     uses — next() does idx++ THEN skipTeaching(), so a tail of concept cards
+     with teaching off made this button promise "Continue" and then finish. Ask
+     next() itself rather than re-deriving it. */
+  const out = hearts===0 && !unlimited;
+  // guard:true — this is the one binding that replaces a live handler under the
+  // learner's finger, so it's the only one a stray second tap can fire.
+  bindAction(out ? 'Out of hearts — Finish' : (moreAfter(idx) ? 'Continue' : 'Finish'), next, {guard:true});
+}
+/* Is there anything the learner would actually SEE after position i? Single
+   source of truth for the button label and for next()'s finish decision. */
+function moreAfter(i){
+  for(let k=i+1;k<lesson.exercises.length;k++)
+    if(teach || lesson.exercises[k].type!=='concept') return true;
+  return false;
 }
 function next(){
   if(hearts===0 && !unlimited){ return finish(); }
@@ -997,6 +1187,13 @@ function exitToPicker(){
   $('complete').classList.add('hidden');
   $('picker').classList.remove('hidden');
   $('bar').style.width='0';
+  /* Drop the lesson. Leaving it set meant the app was still holding a live
+     exercise while showing the picker, and anything that called render() —
+     the teach toggle checks `lesson && !checked` — would staple that dead
+     exercise on top of the lesson list, three taps from a cold start. It also
+     let a stale lidx survive a unit switch, so unit 5's exercise could render
+     inside unit 21. Nothing owns a lesson once you've left it. */
+  lesson=null; ex=null; checked=false; current=null; failed=false;
   boot();
 }
 
@@ -1016,16 +1213,34 @@ function goNext(){
 }
 
 function finish(){
+  /* Running out of hearts is not finishing. It used to land on the identical
+     "Lesson complete!" screen — XP 0, Accuracy 0%, Hearts 0 — with a cheerful
+     "Next lesson" button. There was no fail state at all, so the app
+     congratulated you for losing. Say what happened and offer the retry. */
+  failed = hearts===0 && !unlimited;
   $('bar').style.width='100%';
   $('stage').classList.add('hidden'); $('foot').classList.add('hidden');
   $('complete').classList.remove('hidden');
+  $('complete').classList.toggle('lost', failed);
+  $('done-title').textContent = failed ? 'Out of hearts' : 'Lesson complete!';
+  $('done-sub').textContent = failed
+    ? "You've still got the lesson — nothing is lost but the run. Hearts refill when you retry."
+    : '';
+  $('done-sub').classList.toggle('hidden', !failed);
   $('xp').textContent=xp; $('acc').textContent=Math.round(correct/Math.max(1,total)*100)+'%'; $('hleft').textContent=heartsLabel();
   renderFieldTask();
 
-  // Primary action is to keep going — never make them navigate back to advance.
   const t=nextTarget(), nb=$('nextbtn');
-  if(t){ nb.textContent=t.label; nb.classList.remove('hidden'); }
-  else { nb.classList.add('hidden'); }
+  if(failed){
+    // Forward is the wrong offer when you just failed. Retry is.
+    nb.textContent='Try this lesson again'; nb.classList.remove('hidden');
+    nb.onclick=()=>startLesson(lidx);
+  } else {
+    // Primary action is to keep going — never make them navigate back to advance.
+    nb.onclick=goNext;
+    if(t){ nb.textContent=t.label; nb.classList.remove('hidden'); }
+    else { nb.classList.add('hidden'); }
+  }
 }
 
 /* A field task sends the learner out of the app, so it only ever appears AFTER
@@ -1035,6 +1250,11 @@ function renderFieldTask(){
   const host=$('ftask-host'); host.innerHTML='';
   const t=lesson.fieldTask;
   if(!t) return;
+  /* Not on a failed run. CONTENT_MASTER 3.3 says a field task appears "after the
+     XP is banked" — on an out-of-hearts finish nothing was banked, and offering
+     a side quest to someone who just lost is both a non-sequitur and an exit
+     handed to the learner at their least committed moment. */
+  if(failed) return;
   const el=document.createElement('div'); el.className='ftask';
   el.innerHTML=
     `<div class="ft-top"><span class="ft-tag">optional</span>`+

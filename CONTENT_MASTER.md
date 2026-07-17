@@ -289,7 +289,7 @@ See `content/01-how-the-internet-works.json` for a worked example. Every unit fi
 }
 ```
 
-Per-exercise required fields: `type`, `prompt`, the type-specific answer fields, and **`why`** (always — and it carries the depth, see §3.1). Optional: `hint`. **`goDeeper` is retired — do not add it** (it survives in units 1–11 only).
+Per-exercise required fields: `type`, `prompt`, the type-specific answer fields, and **`why`** (always — and it carries the depth, see §3.1). Optional: `hint`. **`goDeeper` is retired — do not add it.** The validator rejects it in every unit; there are zero left in the course.
 
 ---
 
