@@ -215,6 +215,111 @@ await jumpTo('cache-1-1');
 const k = await page.locator('#stage .kicker').textContent();
 is(/1\/\d+/.test(k), `first QUESTION reads as 1/n, not 2/n (got "${k}")`);
 
+
+console.log('\n── match_pairs: a wrong connection must be undoable ──');
+await jumpTo('csh-1-3');                       // 4 pairs, HTTP request anatomy
+const L = () => page.locator('#stage .match .col').nth(0).locator('.chip');
+const R = () => page.locator('#stage .match .col').nth(1).locator('.chip');
+is(await L().count() === 4 && await R().count() === 4, 'renders 4 + 4 chips');
+await L().nth(0).click(); await R().nth(0).click(); await page.waitForTimeout(80);
+is((await L().nth(0).getAttribute('class')).includes('paired'), 'the pair marks as paired');
+// the bug: a paired chip used to be pointer-events:none, so a wrong guess was permanent
+is(await L().nth(0).isEnabled(), 'a paired chip is still clickable (was inert)');
+const box = await L().nth(0).boundingBox();
+is(box !== null && box.width > 0, 'and still hit-testable');
+await L().nth(0).click(); await page.waitForTimeout(80);
+is(!(await L().nth(0).getAttribute('class')).includes('paired'), 'tapping the left half breaks the pair');
+is(!(await R().nth(0).getAttribute('class')).includes('paired'), 'and frees its right half too');
+// break from the right-hand side as well
+await L().nth(1).click(); await R().nth(1).click(); await page.waitForTimeout(60);
+await R().nth(1).click(); await page.waitForTimeout(80);
+is(!(await L().nth(1).getAttribute('class')).includes('paired'), 'tapping the right half also breaks it');
+// completing all four still enables Check, and breaking one disables it again
+for (let i = 0; i < 4; i++) { await L().nth(i).click(); await R().nth(i).click(); await page.waitForTimeout(30); }
+is(!(await page.locator('#action').isDisabled()), 'Check enables when all four are paired');
+await L().nth(2).click(); await page.waitForTimeout(80);
+is(await page.locator('#action').isDisabled(), 'and disables again once a pair is broken');
+
+console.log('\n── spot_bottleneck: colour must not answer the question ──');
+await jumpTo('cp5-2-4');                       // Postgres is the only kind:"db" node AND the answer
+const cls = await page.locator('#stage .vn').evaluateAll(ns => ns.map(n => n.className));
+is(cls.length === 4, 'renders 4 nodes');
+is(!cls.some(c => /\bk-/.test(c)), 'no node carries a kind colour — the odd one out was the answer');
+const uniq = new Set(cls.map(c => c.replace(/\s*sel\s*/, '').trim()));
+is(uniq.size === 1, `all nodes look identical until you read the numbers (${uniq.size} distinct style)`);
+
+
+console.log('\n── match_pairs must reveal the correct pairing when you get it wrong ──');
+await jumpTo('csh-1-3');
+const LL = () => page.locator('#stage .match .col').nth(0).locator('.chip');
+const RR = () => page.locator('#stage .match .col').nth(1).locator('.chip');
+// answer it deliberately badly: pair everything in shuffled order
+for (let i = 0; i < 4; i++) { await LL().nth(i).click(); await RR().nth(3-i).click(); await page.waitForTimeout(30); }
+await page.locator('#action').click(); await page.waitForTimeout(200);
+is((await page.locator('.feedback').getAttribute('class')).includes('bad'), 'a scrambled pairing grades wrong');
+is((await page.locator('#stage .match.revealed').count()) === 1, 'the grid switches to the revealed answer');
+is((await page.locator('#stage .mrow').count()) === 4, 'one row per correct pair');
+const rowText = await page.locator('#stage .mrow').nth(0).textContent();
+is(/→/.test(rowText), `each row shows left → right ("${rowText.trim().slice(0,44)}...")`);
+is((await page.locator('#stage .myours').count()) > 0, 'and tells you what you said instead');
+// the correct pairing must actually be on screen, not just a red box
+const pairs = await page.evaluate(() => ex.pairs.map(p => p.right));
+const shown = await page.locator('#stage .mrow .mr').allTextContents();
+is(pairs.every(r => shown.some(s => s.trim() === r.replace(/[`*]/g,''))),
+   'every correct answer is now visible on screen');
+
+console.log('\n── a correct pairing reveals as all-green ──');
+await jumpTo('csh-1-3');
+const want = await page.evaluate(() => ex.pairs.map(p => p.right));
+for (let i = 0; i < 4; i++) {
+  await LL().nth(i).click();
+  const rights = await RR().allTextContents();
+  const j = rights.findIndex(t => t.trim() === want[i].replace(/[`*]/g,''));
+  await RR().nth(j).click(); await page.waitForTimeout(30);
+}
+await page.locator('#action').click(); await page.waitForTimeout(200);
+is((await page.locator('.feedback').getAttribute('class')).includes('ok'), 'correct pairing grades right');
+is((await page.locator('#stage .mrow.ok').count()) === 4, 'all four rows green');
+is((await page.locator('#stage .myours').count()) === 0, 'no "you said" line when nothing was wrong');
+
+console.log('\n── checkpoints announce themselves ──');
+await jumpTo('cp5-2-4');
+is((await page.locator('#stage .kicker .cp').count()) === 1, 'a checkpoint lesson is badged Checkpoint');
+await jumpTo('cache-1-1');
+is((await page.locator('#stage .kicker .cp').count()) === 0, 'a normal lesson is not');
+await page.goto(FILE + '#review'); await page.waitForTimeout(250);
+await page.evaluate(() => { uidx=31; UNIT=COURSE[31]; bootUnits(); boot(); });
+await page.waitForTimeout(150);
+const sub = await page.locator('#pk-sub').textContent();
+is(/Mixing units/.test(sub), `the picker explains why there's no lesson ("${sub.slice(0,40)}...")`);
+await page.evaluate(() => { uidx=0; UNIT=COURSE[0]; bootUnits(); boot(); });
+await page.waitForTimeout(150);
+is(await page.locator('#pk-sub').isHidden() || (await page.locator('#pk-sub').textContent()) !== '',
+   'units without a subtitle hide the line rather than leave a gap');
+
+console.log('\n── build_diagram: a wrong drop must be undoable ──');
+await jumpTo('cp5-2-2');
+const dragTo = async (label, i) => {
+  const c = await page.locator(`.chip[data-label="${label}"]`).boundingBox();
+  const h = await page.locator('.vn.hole').nth(i).boundingBox();
+  await page.mouse.move(c.x+c.width/2, c.y+c.height/2); await page.mouse.down();
+  await page.mouse.move(h.x+h.width/2, h.y+h.height/2, {steps:10}); await page.mouse.up();
+  await page.waitForTimeout(120);
+};
+await dragTo('Message Queue', 0);                  // deliberately wrong
+is((await page.locator('.vn[data-id="h1"]').textContent()).includes('Message Queue'), 'a wrong component lands in the slot');
+await page.locator('.vn[data-id="h1"]').click(); await page.waitForTimeout(150);
+is((await page.locator('.vn[data-id="h1"]').textContent()).trim() === '?', 'tapping the filled slot clears it');
+is(!(await page.locator('.chip[data-label="Message Queue"]').getAttribute('class')).includes('used'),
+   'and the component returns to the palette');
+// the undo existed all along — it was the HINT that never mentioned it
+await dragTo('Cache', 0); await page.waitForTimeout(80);
+is(/take it back/.test(await page.locator('.vhint').textContent()),
+   'once a slot is filled, the hint says you can take it back');
+await page.locator('.vn[data-id="h1"]').click(); await page.waitForTimeout(100);
+is(/drag a component/.test(await page.locator('.vhint').textContent()),
+   'and reverts once the slots are empty again');
+
 console.log('\n── legacy types still work ──');
 await jumpTo('hiw-1-1');
 await page.locator('#stage .choice').first().click();

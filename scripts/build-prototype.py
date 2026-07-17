@@ -80,6 +80,11 @@ def build_block():
         unit = {
             "unitId": d.get("unitId"),
             "title": d.get("title"),
+            # The subtitle is the only place a checkpoint says WHY it has no
+            # teaching cards ("Mixing units 23-27..."). Dropping it made the
+            # exemption look like a bug — the reader lands on a test with no
+            # lesson and reasonably concludes the teaching is missing.
+            "subtitle": d.get("subtitle"),
             "lessons": [lesson(l) for l in d.get("lessons", [])],
         }
         lines.append(f"/* ---- {os.path.basename(f)} ---- */")
