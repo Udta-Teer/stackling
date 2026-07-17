@@ -143,17 +143,46 @@
           "id": "nosql-2-3",
           "type": "build_diagram",
           "prompt": "Sessions are read millions of times a second by one key, and can be rebuilt if lost. Add the right store, keeping Postgres as the source of truth.",
-          "slots": [
-            "App Servers",
-            "?",
-            "Postgres (source of truth)"
-          ],
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App Servers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "label": "Postgres",
+                "sub": "source of truth",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "h"
+              },
+              {
+                "from": "h",
+                "to": "p"
+              }
+            ]
+          },
           "palette": [
             "Redis (key-value)",
             "Neo4j (graph)",
             "A second Postgres"
           ],
-          "answer": "Redis (key-value)",
+          "answer": {
+            "h": "Redis (key-value)"
+          },
           "why": "Sessions are a single-key, rebuildable, extremely hot access pattern — exactly a key-value store's job — so Postgres keeps the durable truth while Redis absorbs the volume. Notice you didn't choose SQL OR NoSQL; you used both, each for what it's good at. That's polyglot persistence, and it's what most real systems actually look like: the question was never either/or."
         },
         {

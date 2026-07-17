@@ -51,18 +51,36 @@ ALLOWED_FIELDS = {
     "type", "prompt", "choices", "answer", "why", "hint",
     "pairs", "steps", "slots", "palette", "nodes",
     "tolerance", "unit", "leftLabel", "rightLabel", "answerRange",
+    "viz",                      # data-driven diagram: nodes + edges
+    "title", "body", "note",    # concept card
+    "sim",                      # simulate model
 }
 
 KNOWN_TYPES = {
     "multiple_choice", "fill_blank", "multi_select", "match_pairs",
     "order_steps", "build_diagram", "estimate", "tradeoff_slider",
-    "spot_bottleneck",
+    "spot_bottleneck", "concept", "simulate",
 }
+
+# A concept card is the ONLY place we teach before testing. It is also, exactly,
+# the shape that killed goDeeper: an unbounded prose field. goDeeper was retired
+# because every review finding in units 8-11 had landed in one — given room to
+# ramble, the author rambles. So the cap is mechanical, not a guideline:
+CONCEPT_BODY_MAX = 360        # ~55 words. One idea, stated once.
+CONCEPT_NOTE_MAX = 220        # optional second beat, tighter still
+CONCEPT_MAX_PER_LESSON = 3    # past this it's a textbook chapter, not a beat
+
+# A diagram wider than this scrolls sideways on a phone, which is where this ships.
+VIZ_MAX_COLS = 4
+VIZ_NODE_FIELDS = {"id", "label", "col", "kind", "sub", "hole"}
+VIZ_KINDS = {"client", "lb", "dns", "cdn", "gw", "server", "db",
+             "cache", "queue", "storage"}
 
 errors = []
 warnings = []
 seen_ids = set()
 total_field_tasks = [0]
+counts = {"concept": 0, "viz": 0}
 
 
 def err(unit, lesson, msg):
@@ -98,6 +116,60 @@ def check_field_task(unit_name, lesson_id, t):
             f"fieldTask `seconds` must be 1..{FIELD_TASK_MAX_SECONDS} — got {secs!r}")
 
 
+def check_viz(unit_name, lesson_id, viz, who):
+    """A diagram is data. Geometry is derived, so the only things worth checking
+    are that the data is coherent: unique ids, edges pointing at real nodes, and
+    a shape that still fits a phone screen."""
+    nodes = viz.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        err(unit_name, lesson_id, f"{who}: viz needs a non-empty `nodes` list")
+        return []
+    ids = []
+    for n in nodes:
+        if not isinstance(n, dict):
+            err(unit_name, lesson_id, f"{who}: every viz node must be an object")
+            continue
+        stray = set(n) - VIZ_NODE_FIELDS
+        if stray:
+            err(unit_name, lesson_id, f"{who}: viz node stray field(s): {sorted(stray)}")
+        if not n.get("id"):
+            err(unit_name, lesson_id, f"{who}: viz node missing `id`")
+        else:
+            ids.append(n["id"])
+        if not n.get("hole") and not n.get("label"):
+            err(unit_name, lesson_id, f"{who}: viz node {n.get('id')!r} needs a `label`")
+        if n.get("kind") and n["kind"] not in VIZ_KINDS:
+            err(unit_name, lesson_id,
+                f"{who}: unknown viz kind {n['kind']!r} — one of {sorted(VIZ_KINDS)}")
+        if "col" in n and not isinstance(n["col"], int):
+            err(unit_name, lesson_id, f"{who}: viz node `col` must be an int")
+    if len(set(ids)) != len(ids):
+        err(unit_name, lesson_id, f"{who}: duplicate viz node id(s)")
+    known = set(ids)
+    for edge in viz.get("edges") or []:
+        for end in ("from", "to"):
+            if edge.get(end) not in known:
+                err(unit_name, lesson_id,
+                    f"{who}: edge `{end}` points at unknown node {edge.get(end)!r}")
+    cols = {n.get("col", 0) for n in nodes if isinstance(n, dict)}
+    if len(cols) > VIZ_MAX_COLS:
+        warn(unit_name, lesson_id,
+             f"{who}: {len(cols)} columns — over {VIZ_MAX_COLS} the diagram "
+             f"scrolls sideways on a phone")
+    return ids
+
+
+def sim_load(sim, pct):
+    """Mirror of simCompute() in the prototype: load enters at `input` and flows
+    down `chain`; the absorb node removes pct% of what reaches it."""
+    load, cur = {}, float(sim["input"])
+    for nid in sim.get("chain") or []:
+        load[nid] = cur
+        if (sim.get("absorb") or {}).get("node") == nid:
+            cur = cur * (1 - pct / 100.0)
+    return load
+
+
 def check_exercise(unit_no, unit_name, lesson_id, e):
     t = e.get("type")
     if t not in KNOWN_TYPES:
@@ -108,7 +180,9 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
     if stray:
         err(unit_name, lesson_id, f"stray field(s): {sorted(stray)}")
 
-    if not e.get("why"):
+    # A concept card teaches instead of grading, so `body` carries what `why`
+    # carries elsewhere. Everything else must still explain itself.
+    if t != "concept" and not e.get("why"):
         err(unit_name, lesson_id, "missing or empty `why`")
 
     # Every exercise needs a stable id — the app tracks progress by it, and
@@ -148,16 +222,119 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
     elif t == "order_steps":
         if not isinstance(e.get("steps"), list) or len(e["steps"]) < 2:
             err(unit_name, lesson_id, "order_steps needs >=2 steps")
+    elif t == "concept":
+        for k in ("title", "body"):
+            if not e.get(k):
+                err(unit_name, lesson_id, f"concept missing `{k}`")
+        for k in ("answer", "choices", "hint"):
+            if k in e:
+                err(unit_name, lesson_id, f"concept is not graded — remove `{k}`")
+        body = e.get("body") or ""
+        if len(body) > CONCEPT_BODY_MAX:
+            err(unit_name, lesson_id,
+                f"concept `body` is {len(body)} chars, max {CONCEPT_BODY_MAX} — "
+                f"a teaching beat, not a chapter (this cap is why goDeeper died)")
+        note = e.get("note") or ""
+        if len(note) > CONCEPT_NOTE_MAX:
+            err(unit_name, lesson_id,
+                f"concept `note` is {len(note)} chars, max {CONCEPT_NOTE_MAX}")
+        title = (e.get("title") or "").strip()
+        if title.endswith("?"):
+            warn(unit_name, lesson_id,
+                 "concept `title` is a question — it should assert the idea, "
+                 "since this card is the one place we tell rather than ask")
+        if e.get("viz"):
+            check_viz(unit_name, lesson_id, e["viz"], "concept")
     elif t == "build_diagram":
-        if "?" not in (e.get("slots") or []):
-            err(unit_name, lesson_id, "build_diagram needs a '?' slot")
-        if e.get("answer") not in (e.get("palette") or []):
-            err(unit_name, lesson_id, "build_diagram answer must be in palette")
+        viz = e.get("viz")
+        if not isinstance(viz, dict):
+            err(unit_name, lesson_id, "build_diagram needs a `viz` (nodes + edges)")
+            return
+        check_viz(unit_name, lesson_id, viz, "build_diagram")
+        holes = [n["id"] for n in viz.get("nodes") or []
+                 if isinstance(n, dict) and n.get("hole") and n.get("id")]
+        if not holes:
+            err(unit_name, lesson_id, "build_diagram needs >=1 node with `hole: true`")
+        pal = e.get("palette") or []
+        ans = e.get("answer")
+        if not isinstance(ans, dict):
+            err(unit_name, lesson_id,
+                "build_diagram `answer` must map holeId -> label (it grades a "
+                "topology, not one chip)")
+        else:
+            if set(ans) != set(holes):
+                err(unit_name, lesson_id,
+                    f"answer keys {sorted(ans)} must match holes {sorted(holes)}")
+            for h, lab in ans.items():
+                if lab not in pal:
+                    err(unit_name, lesson_id, f"answer for {h!r} not in palette: {lab!r}")
+            if len(set(ans.values())) != len(ans):
+                err(unit_name, lesson_id, "the same component fills two holes")
+            # Without a distractor there is no decision to make.
+            if len(pal) < len(holes) + 1:
+                err(unit_name, lesson_id,
+                    f"palette has {len(pal)} for {len(holes)} hole(s) — needs "
+                    f"at least one wrong component to choose against")
+    elif t == "simulate":
+        viz = e.get("viz")
+        sim = e.get("sim")
+        if not isinstance(viz, dict) or not isinstance(sim, dict):
+            err(unit_name, lesson_id, "simulate needs both `viz` and `sim`")
+            return
+        ids = set(check_viz(unit_name, lesson_id, viz, "simulate"))
+        for k in ("input", "chain", "absorb", "watch"):
+            if k not in sim:
+                err(unit_name, lesson_id, f"simulate `sim` missing `{k}`")
+                return
+        for nid in sim["chain"]:
+            if nid not in ids:
+                err(unit_name, lesson_id, f"sim chain names unknown node {nid!r}")
+        if sim["watch"] not in (sim.get("chain") or []):
+            err(unit_name, lesson_id, f"sim `watch` {sim['watch']!r} is not in the chain")
+        ab = sim.get("absorb") or {}
+        for k in ("node", "label", "min", "max", "start"):
+            if k not in ab:
+                err(unit_name, lesson_id, f"sim `absorb` missing `{k}`")
+                return
+        if ab["node"] not in (sim.get("chain") or []):
+            err(unit_name, lesson_id, f"sim `absorb.node` {ab['node']!r} is not in the chain")
+        for nid in (sim.get("capacity") or {}):
+            if nid not in ids:
+                err(unit_name, lesson_id, f"sim capacity names unknown node {nid!r}")
+        if "answerRange" not in e:
+            err(unit_name, lesson_id, "simulate missing `answerRange`")
+            return
+        # The strong check: grade the graded answer against the model the
+        # learner actually manipulates. If the content claims 90% is the
+        # threshold and the simulation says 85%, the content is wrong — and
+        # this is exactly the class of defect (a key disagreeing with reality)
+        # that a human reviewer misses and arithmetic never does.
+        cap = (sim.get("capacity") or {}).get(sim["watch"])
+        rng = e["answerRange"]
+        if cap is not None and isinstance(rng, list) and len(rng) == 2:
+            ok = [p for p in range(int(ab["min"]), int(ab["max"]) + 1)
+                  if sim_load(sim, p)[sim["watch"]] <= cap]
+            if not ok:
+                err(unit_name, lesson_id,
+                    f"simulate is unwinnable: no setting gets {sim['watch']!r} "
+                    f"under its capacity of {cap}")
+            else:
+                thresh = min(ok)
+                if not (rng[0] <= thresh <= rng[1]):
+                    err(unit_name, lesson_id,
+                        f"answerRange {rng} does not contain the real threshold "
+                        f"{thresh} — the simulation disagrees with the answer key")
     elif t == "spot_bottleneck":
-        nodes = e.get("nodes")
-        if not isinstance(nodes, list) or len(nodes) < 2:
-            err(unit_name, lesson_id, "spot_bottleneck needs a `nodes` list of >=2")
-        elif not isinstance(e.get("answer"), int) or not (0 <= e["answer"] < len(nodes)):
+        if e.get("viz"):
+            ids = check_viz(unit_name, lesson_id, e["viz"], "spot_bottleneck")
+            n = len(ids)
+        else:
+            nodes = e.get("nodes")
+            if not isinstance(nodes, list) or len(nodes) < 2:
+                err(unit_name, lesson_id, "spot_bottleneck needs a `nodes` list of >=2 (or a `viz`)")
+                return
+            n = len(nodes)
+        if not isinstance(e.get("answer"), int) or not (0 <= e["answer"] < n):
             err(unit_name, lesson_id, f"spot_bottleneck answer index out of range: {e.get('answer')}")
     elif t == "estimate":
         for k in ("answer", "tolerance", "unit"):
@@ -257,7 +434,20 @@ def main():
 
         for lesson in d.get("lessons", []):
             lid = lesson.get("id", "<no id>")
-            for e in lesson.get("exercises", []):
+            exs = lesson.get("exercises", [])
+
+            n_concept = sum(1 for e in exs if e.get("type") == "concept")
+            counts["concept"] += n_concept
+            counts["viz"] += sum(1 for e in exs if e.get("viz"))
+            if n_concept > CONCEPT_MAX_PER_LESSON:
+                errors.append(f"{name} :: {lid} :: {n_concept} concept cards — max "
+                              f"{CONCEPT_MAX_PER_LESSON} per lesson. Teaching beats are "
+                              f"punctuation; past this the learner is reading, not playing.")
+            if n_concept and all(e.get("type") == "concept" for e in exs):
+                errors.append(f"{name} :: {lid} :: every card is a concept — a lesson "
+                              f"that never asks anything is a slide deck")
+
+            for e in exs:
                 total_ex += 1
                 check_exercise(n, name, lid, e)
                 if not quiet:
@@ -267,9 +457,14 @@ def main():
                 # The embed stores each string as a JSON string literal, so compare against
                 # the escaped form — a raw compare false-positives on any content containing
                 # a double quote (e.g. unit 3's '{"error": "user not found"}').
-                fragments = [e.get("prompt", ""), e.get("why", "")]
+                fragments = [e.get("prompt", ""), e.get("why", ""),
+                             e.get("title", ""), e.get("body", ""), e.get("note", "")]
                 fragments += list(e.get("choices", []) or [])
                 fragments += list(e.get("steps", []) or [])
+                fragments += list(e.get("palette", []) or [])
+                # Diagram text ships to the learner too, so it drifts like any other string.
+                for node in (e.get("viz") or {}).get("nodes", []) or []:
+                    fragments += [node.get("label", ""), node.get("sub", "")]
                 for frag in fragments:
                     if frag and json.dumps(frag, ensure_ascii=False)[1:-1] not in html:
                         err(name, lid, f"NOT IN PROTOTYPE EMBED: {frag[:70]!r}")
@@ -281,6 +476,10 @@ def main():
                       f"costing retention.")
 
     print(f"content: {len(files)} units, {total_lessons} lessons, {total_ex} exercises")
+    print(f"teaching: {counts['concept']} concept cards across {total_lessons} lessons "
+          f"({counts['concept'] * 100 // max(1, total_lessons)}% covered)")
+    print(f"visual:   {counts['viz']} exercises carry a diagram "
+          f"({counts['viz'] * 100 // max(1, total_ex)}% of all exercises)")
     print(f"goDeeper retired from unit {GODEEPER_RETIRED_FROM} onward")
     print(f"field tasks: {total_field_tasks[0]}/{FIELD_TASK_MAX_TOTAL} "
           f"(1 per ~{total_lessons // max(1, total_field_tasks[0])} lessons)")

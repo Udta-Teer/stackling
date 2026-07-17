@@ -344,17 +344,45 @@
           "id": "csh-4-3",
           "type": "build_diagram",
           "prompt": "Place the missing piece so any app server can serve any request without losing the user's session.",
-          "slots": [
-            "App Server 1",
-            "App Server 2",
-            "?"
-          ],
+          "viz": {
+            "nodes": [
+              {
+                "id": "a1",
+                "label": "App Server 1",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "a2",
+                "label": "App Server 2",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a1",
+                "to": "h"
+              },
+              {
+                "from": "a2",
+                "to": "h"
+              }
+            ]
+          },
           "palette": [
             "Shared Cache (Redis)",
             "A bigger CPU",
             "A second load balancer"
           ],
-          "answer": "Shared Cache (Redis)",
+          "answer": {
+            "h": "Shared Cache (Redis)"
+          },
           "why": "A shared store that every app server reads from keeps sessions out of local memory, so the servers stay stateless and interchangeable. This is the standard fix for 'randomly logged out' bugs: move session state to a shared cache and it stops mattering which server you land on."
         },
         {

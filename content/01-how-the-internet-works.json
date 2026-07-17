@@ -205,17 +205,45 @@
           "id": "hiw-3-3",
           "type": "build_diagram",
           "prompt": "Place the missing piece: your browser needs to turn `example.com` into an IP before reaching the server.",
-          "slots": [
-            "Browser",
-            "?",
-            "Web Server"
-          ],
+          "viz": {
+            "nodes": [
+              {
+                "id": "b",
+                "label": "Browser",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "w",
+                "label": "Web Server",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "h"
+              },
+              {
+                "from": "h",
+                "to": "w"
+              }
+            ]
+          },
           "palette": [
             "DNS",
             "Database",
             "Cache"
           ],
-          "answer": "DNS",
+          "answer": {
+            "h": "DNS"
+          },
           "why": "DNS sits between you and the server on that first step, translating the name so your browser knows where to connect."
         },
         {

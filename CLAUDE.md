@@ -31,7 +31,16 @@ content/*.json  ── the source of truth (lessons + exercises)
 
 ## Exercise types
 
-Nine types drive all content (defined in `SPEC.md` §3.2, usage guidance in `CONTENT_MASTER.md` §4): `multiple_choice`, `fill_blank`, `match_pairs`, `order_steps`, `multi_select`, `build_diagram`, `spot_bottleneck`, `tradeoff_slider`, `estimate`. Each is JSON-driven and has a matching renderer in `prototype/lesson.html`. Adding a new type means: define its JSON shape in the spec **and** add a renderer + a `check()` branch in the prototype.
+Eleven types drive all content (defined in `SPEC.md` §3.2, usage guidance in `CONTENT_MASTER.md` §4): `multiple_choice`, `fill_blank`, `match_pairs`, `order_steps`, `multi_select`, `build_diagram`, `spot_bottleneck`, `tradeoff_slider`, `estimate`, **`concept`**, **`simulate`**. Each is JSON-driven and has a matching renderer in `prototype/lesson.html`. Adding a new type means: define its JSON shape in the spec **and** add a renderer + a `check()` branch in the prototype.
+
+- **`concept`** — the only place we *teach* before testing. A claim-shaped `title`, an optional `viz`, a **hard-capped** `body` (360 chars) and optional `note` (220). Not graded: no `why`, no `answer`, no heart, no XP, and it never touches `total`, so it can't dilute accuracy. **The caps are load-bearing** — `goDeeper` died because an unbounded prose field is an invitation to ramble, and a concept card is the same shape. The validator enforces the cap and a max of 3 per lesson.
+- **`simulate`** — the learner drags one variable and watches load flow through the topology until something melts. `sim.input` enters and flows down `sim.chain`; `sim.absorb` removes the share the learner controls; `sim.capacity` decides what turns red. The validator **recomputes the threshold from the model and rejects an `answerRange` that disagrees with it**, so the answer key cannot drift from the physics the learner sees.
+
+## Diagrams: one engine, `viz`
+
+Any exercise may carry a `viz` — `nodes` (each with an `id`, a `label` and a **`col`**) plus `edges` (`{from, to}`). Layout is *derived*, never authored: nodes sharing a column stack and centre, so a diagram can't drift from its data. `col` is the only layout input and it covers essentially every system diagram we teach. Fan-out is native — which is why the old string hacks (`'[ App Server ×3 ]'`, `'[ Posts svc, Users svc ]'`) are gone. Node `kind` (`client`/`lb`/`db`/`cache`/`queue`/…) picks the colour, so a component reads the same everywhere. Keep to **≤4 columns** or it scrolls sideways on a phone.
+
+Nodes are HTML, not SVG `<text>` (SVG can't wrap, and labels go through `md()`); edges are an SVG layer underneath. **`.vn` is a flex container, so a label must always be wrapped in `.vl`** — `md()` output as a direct flex child shatters into one item per fragment. That's a real bug we shipped: see the `.choice .txt` comment.
 
 ## Commands
 
@@ -42,9 +51,21 @@ No build system yet (Expo app not scaffolded). Current workflow:
 python3 scripts/validate-content.py            # hard checks + advisory warnings
 python3 scripts/validate-content.py --quiet    # hard checks only
 
+# Regenerate the prototype's embedded content from content/*.json
+python3 scripts/build-prototype.py             # write
+python3 scripts/build-prototype.py --check     # exit 1 if the embed is stale
+
+# Run the prototype in a REAL headless browser (setup: npm install && npx playwright install chromium)
+npm test
+
+npm run check   # build --check + validate + browser test, in one go
+
 # Preview the lesson loop
-open prototype/lesson.html      # macOS; just open the file in any browser
+open prototype/lesson.html          # macOS; any browser
+open prototype/lesson.html#review   # unlimited hearts, for rapid content review
 ```
+
+`npm test` is not optional politeness — every renderer bug we've shipped (the `file://` localStorage crash, match_pairs keyed by text, the flex-shatter, a simulate that painted no numbers at all) was invisible to a Node stub and obvious in a browser within seconds. A stub's `querySelector` returns a truthy fake; a browser doesn't. **Don't simulate the renderer in Node — run the page.**
 
 `scripts/validate-content.py` is the real gate — don't hand-roll one-off checks instead of running it. Hard failures: invalid JSON, missing/empty `why`, out-of-range answer indices, missing type-specific fields, stray fields, **any `goDeeper` in units ≥12**, and source↔prototype-embed drift (it compares JSON-escaped, since the embed stores string literals). Advisory warnings (never fail; need human judgement): absolute technique claims with no in-sentence condition, and sentences naming one ACID property while asserting another's.
 

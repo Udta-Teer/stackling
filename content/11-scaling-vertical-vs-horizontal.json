@@ -246,17 +246,65 @@
           "id": "scale-3-3",
           "type": "build_diagram",
           "prompt": "You now run 3 identical app servers. Add the piece that spreads incoming traffic across them.",
-          "slots": [
-            "Clients",
-            "?",
-            "[ App Server ×3 ]"
-          ],
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "s1",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "s2",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "s3",
+                "label": "App Server",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h"
+              },
+              {
+                "from": "h",
+                "to": "s1"
+              },
+              {
+                "from": "h",
+                "to": "s2"
+              },
+              {
+                "from": "h",
+                "to": "s3"
+              }
+            ]
+          },
           "palette": [
             "Load Balancer",
             "A bigger app server",
             "A cache"
           ],
-          "answer": "Load Balancer",
+          "answer": {
+            "h": "Load Balancer"
+          },
           "why": "Something has to decide which machine each request goes to — that's a load balancer's entire job, and it's the piece that makes 'more machines' visible to the outside world as one service. Notice horizontal scaling immediately required a new component you didn't need before: that's the pattern, since scaling out doesn't remove work, it relocates it."
         },
         {

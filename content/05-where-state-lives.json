@@ -323,17 +323,45 @@
           "id": "state-4-2",
           "type": "build_diagram",
           "prompt": "Uploaded photos are saved on one app server's local disk — so only that server can serve them, and they die with it. Where should they live?",
-          "slots": [
-            "App Server 1",
-            "App Server 2",
-            "?"
-          ],
+          "viz": {
+            "nodes": [
+              {
+                "id": "a1",
+                "label": "App Server 1",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "a2",
+                "label": "App Server 2",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a1",
+                "to": "h"
+              },
+              {
+                "from": "a2",
+                "to": "h"
+              }
+            ]
+          },
           "palette": [
             "Object storage (S3)",
             "A bigger local disk",
             "A cookie"
           ],
-          "answer": "Object storage (S3)",
+          "answer": {
+            "h": "Object storage (S3)"
+          },
           "why": "Files on local disk are state trapped inside one server: peers can't serve them, and the machine can't be safely replaced — move them to shared object storage and your app servers become disposable again. This is one of the most common real-world migrations there is: 'it works on one server' quietly means state is hiding in the filesystem, and the day you add a second server, uploads mysteriously 404 half the time because the load balancer sent the read to the machine that doesn't have the file."
         },
         {

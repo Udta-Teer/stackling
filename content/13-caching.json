@@ -15,6 +15,47 @@
       "title": "Keep the answer close",
       "exercises": [
         {
+          "id": "cache-1-0",
+          "type": "concept",
+          "title": "A cache is a bet that you'll be asked the same question twice",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App Server",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "Cache",
+                "sub": "~1ms",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "~100ms",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "c"
+              },
+              {
+                "from": "c",
+                "to": "d"
+              }
+            ]
+          },
+          "body": "A cache sits in front of expensive work — a database query, an API call, a disk read — and keeps a copy of the answer. Ask the same question again and it replies from memory instead of redoing the work. That is the entire mechanism. Everything hard about caching comes from one fact: that copy is allowed to be out of date.",
+          "note": "So the bet only pays off if the question really does repeat. Cache something asked once and you have bought a component, a failure mode and a staleness bug for nothing."
+        },
+        {
           "id": "cache-1-1",
           "type": "multiple_choice",
           "prompt": "Your product page runs the same expensive database query 10,000 times a second. Every single run returns an identical result. What's the cheapest fix?",
@@ -114,6 +155,47 @@
       "title": "How it's wired",
       "exercises": [
         {
+          "id": "cache-2-0",
+          "type": "concept",
+          "title": "In cache-aside, your application owns the cache — the database has never heard of it",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App Server",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "Cache",
+                "sub": "1 · ask first",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "2 · only on miss",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "c"
+              },
+              {
+                "from": "a",
+                "to": "d"
+              }
+            ]
+          },
+          "body": "The app asks the cache first. On a miss it reads the database itself, then writes the answer back into the cache itself. Both arrows start at the app — the database has no idea the cache exists. That is why cache-aside works with any store, and why every cache bug is yours: your code decides what to cache, for how long, and when to throw it away.",
+          "note": "Read-through looks identical on a whiteboard but is not: there the cache calls the database for you. Who makes that second call is the whole distinction."
+        },
+        {
           "id": "cache-2-1",
           "type": "order_steps",
           "prompt": "Order a cache-aside read — the most common wiring.",
@@ -179,18 +261,47 @@
         {
           "id": "cache-2-5",
           "type": "build_diagram",
-          "prompt": "Place the missing piece: the app should check for a saved answer before doing the expensive database work.",
-          "slots": [
-            "App Server",
-            "?",
-            "Database"
-          ],
+          "prompt": "Build the read path: the app should check for a saved answer *before* doing the expensive work.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App Server",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "h1"
+              },
+              {
+                "from": "h1",
+                "to": "h2"
+              }
+            ]
+          },
           "palette": [
             "Cache",
-            "Load Balancer",
-            "Message Queue"
+            "Database",
+            "Message Queue",
+            "Load Balancer"
           ],
-          "answer": "Cache",
+          "answer": {
+            "h1": "Cache",
+            "h2": "Database"
+          },
           "why": "A cache goes on the read path, in front of whatever you want to do less of — that's the general shape, and it's why you'll see caches at every layer of a real system rather than at one 'correct' spot. The position is what makes it useful and dangerous at the same time: reads now consult a component that is explicitly allowed to be out of date."
         },
         {
@@ -225,6 +336,70 @@
       "id": "cache-3",
       "title": "Eviction & the hit rate that matters",
       "exercises": [
+        {
+          "id": "cache-3-0",
+          "type": "simulate",
+          "prompt": "Read traffic is 20,000 req/s. Your database tops out at 2,000 req/s before it falls over. Drag the hit rate to the *lowest* setting that keeps it alive.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App Servers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "cache",
+                "label": "Cache",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "db",
+                "label": "Database",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "cache"
+              },
+              {
+                "from": "cache",
+                "to": "db"
+              }
+            ]
+          },
+          "sim": {
+            "input": 20000,
+            "inputLabel": "Read traffic",
+            "chain": [
+              "cache",
+              "db"
+            ],
+            "capacity": {
+              "cache": 100000,
+              "db": 2000
+            },
+            "watch": "db",
+            "watchLabel": "Hitting the database",
+            "absorb": {
+              "node": "cache",
+              "label": "Cache hit rate",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            90,
+            92
+          ],
+          "why": "90% exactly: 20,000 × 10% miss = 2,000, right on the edge. Now notice what the slider did on the way there — the number that reaches your database is set by the MISS rate, not the hit rate. Going 90% → 99% sounds like a 9-point tweak and is really 2,000 → 200: a 10× cut. Going 99% → 99.9% is another 10×. That is why hit rate is quoted in nines, and why the last fraction of a percent is worth fighting for while the first 50% is nearly free."
+        },
         {
           "id": "cache-3-1",
           "type": "multiple_choice",

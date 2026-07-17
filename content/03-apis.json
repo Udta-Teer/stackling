@@ -375,17 +375,55 @@
           "id": "api-4-6",
           "type": "build_diagram",
           "prompt": "Your mobile app makes 21 chatty calls per screen. Add the piece that lets it make ONE call and get a tailored response.",
-          "slots": [
-            "Mobile App",
-            "?",
-            "[ Posts svc, Users svc ]"
-          ],
+          "viz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Mobile App",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "label": "Posts svc",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "u",
+                "label": "Users svc",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "h"
+              },
+              {
+                "from": "h",
+                "to": "p"
+              },
+              {
+                "from": "h",
+                "to": "u"
+              }
+            ]
+          },
           "palette": [
             "API Gateway / BFF",
             "Another database",
             "A second mobile app"
           ],
-          "answer": "API Gateway / BFF",
+          "answer": {
+            "h": "API Gateway / BFF"
+          },
           "why": "A gateway (or Backend-for-Frontend) sits in front, makes the many internal calls server-side, and returns one response shaped for that screen — turning 21 phone round trips into 1. The internal calls still happen, but over a fast datacenter network instead of a phone's 100ms hops. That's the BFF pattern: a thin server-side layer shaped for one specific client, giving you GraphQL-like tailoring while keeping plain REST services underneath."
         },
         {

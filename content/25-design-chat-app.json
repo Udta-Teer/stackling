@@ -122,17 +122,45 @@
           "id": "chat-2-2",
           "type": "build_diagram",
           "prompt": "Server 7 needs to know which server holds Bob's connection. Add the piece that tracks it.",
-          "slots": [
-            "Chat Servers",
-            "?",
-            "Message Store"
-          ],
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Chat Servers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "m",
+                "label": "Message Store",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h"
+              },
+              {
+                "from": "h",
+                "to": "m"
+              }
+            ]
+          },
           "palette": [
             "Connection registry (Redis)",
             "A CDN",
             "A second load balancer"
           ],
-          "answer": "Connection registry (Redis)",
+          "answer": {
+            "h": "Connection registry (Redis)"
+          },
           "why": "You need a shared map from user id to the server holding their connection, and every server must be able to read it — which is unit 5's answer exactly: state that all servers need goes in a shared store, not in any one server's memory. Redis fits because the lookup is by one key and the data is rebuildable when a connection drops."
         },
         {

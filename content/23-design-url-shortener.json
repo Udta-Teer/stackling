@@ -185,17 +185,46 @@
           "id": "urls-3-1",
           "type": "build_diagram",
           "prompt": "116,000 redirects/sec, and the same popular links are requested constantly. Add the piece that absorbs that read load.",
-          "slots": [
-            "Redirect Service",
-            "?",
-            "Database (source of truth)"
-          ],
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Redirect Service",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "source of truth",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "h"
+              },
+              {
+                "from": "h",
+                "to": "d"
+              }
+            ]
+          },
           "palette": [
             "Cache",
             "Message Queue",
             "A second load balancer"
           ],
-          "answer": "Cache",
+          "answer": {
+            "h": "Cache"
+          },
           "why": "Link mappings are perfect cache material: immutable once created, tiny, and massively skewed — a small number of links take most of the traffic. A cache in front of the database turns 116,000 database reads/sec into a few thousand, and the database keeps being the source of truth for everything that misses."
         },
         {

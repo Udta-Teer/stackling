@@ -111,17 +111,46 @@
           "id": "drl-2-2",
           "type": "build_diagram",
           "prompt": "You need one shared count across all 50 API servers. Add the piece.",
-          "slots": [
-            "API Servers ×50",
-            "?",
-            "Backend Services"
-          ],
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "API Servers",
+                "sub": "×50",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "label": "Backend Services",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "h"
+              },
+              {
+                "from": "h",
+                "to": "b"
+              }
+            ]
+          },
           "palette": [
             "Redis (shared counters)",
             "A read replica",
             "A message queue"
           ],
-          "answer": "Redis (shared counters)",
+          "answer": {
+            "h": "Redis (shared counters)"
+          },
           "why": "One shared, fast, atomic store is the only way 50 servers can agree on a count — and Redis fits because the operation is a single-key increment, which unit 7 identified as the cleanest key-value case there is. A replica can't help (stale reads defeat the check) and a queue is asynchronous, which is useless when you must decide right now."
         },
         {
