@@ -31,7 +31,11 @@
   .close{background:none;border:none;font-size:26px;color:var(--muted);cursor:pointer;line-height:1;}
   .bar{flex:1;height:16px;background:var(--line);border-radius:99px;overflow:hidden;}
   .bar>i{display:block;height:100%;width:0;background:var(--green);border-radius:99px;transition:width .3s ease;}
-  .hearts{display:flex;align-items:center;gap:4px;color:var(--red);font-weight:800;font-size:18px;}
+  .hearts{display:flex;align-items:center;gap:4px;color:var(--red);font-weight:800;font-size:18px;
+    background:none;border:none;cursor:pointer;padding:4px 6px;border-radius:8px;font-family:inherit;transition:.08s;}
+  .hearts:hover{background:rgba(255,92,122,.12);}
+  .hearts.inf{color:var(--signal);}
+  .hearts.inf:hover{background:rgba(255,176,32,.12);}
   /* body */
   .stage{flex:1;display:flex;flex-direction:column;}
   .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);font-weight:400;margin-bottom:8px;}
@@ -150,7 +154,7 @@
     <button class="close" onclick="location.reload()">✕</button>
     <svg class="mark" style="--s:26px"><use href="#stack"/></svg>
     <div class="bar"><i id="bar"></i></div>
-    <div class="hearts">♥ <span id="hearts">5</span></div>
+    <button class="hearts" id="heartbox" title="Click for unlimited hearts — review mode">♥ <span id="hearts">5</span></button>
   </div>
 
   <!-- lesson picker -->
@@ -253,6 +257,27 @@ const TIERLABEL = ["Foundations","Foundations","Foundations","Foundations","Foun
 /* ---- engine ---- */
 let uidx=0, UNIT=COURSE[0];
 let hearts=5, xp=0, correct=0, total=0, idx=0, ex=null, lesson=null, checked=false, current=null;
+
+/* Review mode: unlimited hearts, so a wrong answer never ends a lesson early.
+   For reviewing 676 exercises you need to be able to answer badly on purpose.
+   Persisted, because "Back to lessons" reloads the page. */
+let unlimited = localStorage.getItem('sl_unlimited')==='1';
+function heartsLabel(){ return unlimited ? '∞' : hearts; }
+function paintHearts(){
+  $('hearts').textContent = heartsLabel();
+  $('heartbox').classList.toggle('inf', unlimited);
+  $('heartbox').title = unlimited
+    ? 'Unlimited hearts ON (review mode) — click to go back to 5'
+    : 'Click for unlimited hearts — review mode';
+}
+function toggleUnlimited(){
+  unlimited = !unlimited;
+  localStorage.setItem('sl_unlimited', unlimited?'1':'0');
+  if(unlimited && hearts===0) hearts=5;   // rescue a lesson already lost
+  paintHearts();
+  // if the run had ended on 0 hearts, let them carry on
+  if(unlimited && checked) { const a=$('action'); if(a) a.textContent = idx+1<lesson.exercises.length?'Continue':'Finish'; }
+}
 const $=id=>document.getElementById(id);
 
 /* Inline markdown for content strings: `code` and *emphasis*.
@@ -291,7 +316,7 @@ function boot(){
 }
 function startLesson(i){
   lesson=UNIT.lessons[i]; idx=0; correct=0; total=0; hearts=5; xp=0;
-  $('hearts').textContent=hearts;
+  paintHearts();
   $('picker').classList.add('hidden'); $('complete').classList.add('hidden');
   $('stage').classList.remove('hidden'); $('foot').classList.remove('hidden');
   render();
@@ -463,7 +488,7 @@ function check(){
   } else if(ex.type==='tradeoff_slider'){
     ok=current>=ex.answerRange[0]&&current<=ex.answerRange[1];
   }
-  if(ok){correct++; xp+=10;} else {hearts=Math.max(0,hearts-1); $('hearts').textContent=hearts;}
+  if(ok){correct++; xp+=10;} else { if(!unlimited) hearts=Math.max(0,hearts-1); paintHearts(); }
   showFeedback(ok);
 }
 function showFeedback(ok){
@@ -471,10 +496,10 @@ function showFeedback(ok){
   f.innerHTML=`<h4>${ok?'✓ Nice!':'✗ Not quite'}</h4><p>${md(ex.why)}</p>`;
   const a=$('action'); a.textContent = idx+1<lesson.exercises.length?'Continue':'Finish'; a.disabled=false;
   a.className='btn'+(ok?'':' '); a.onclick=next;
-  if(hearts===0){ a.textContent='Out of hearts — Finish'; }
+  if(hearts===0 && !unlimited){ a.textContent='Out of hearts — Finish'; }
 }
 function next(){
-  if(hearts===0){ return finish(); }
+  if(hearts===0 && !unlimited){ return finish(); }
   idx++;
   if(idx>=lesson.exercises.length) return finish();
   render();
@@ -483,7 +508,7 @@ function finish(){
   $('bar').style.width='100%';
   $('stage').classList.add('hidden'); $('foot').classList.add('hidden');
   $('complete').classList.remove('hidden');
-  $('xp').textContent=xp; $('acc').textContent=Math.round(correct/Math.max(1,total)*100)+'%'; $('hleft').textContent=hearts;
+  $('xp').textContent=xp; $('acc').textContent=Math.round(correct/Math.max(1,total)*100)+'%'; $('hleft').textContent=heartsLabel();
   renderFieldTask();
 }
 
@@ -505,6 +530,9 @@ function renderFieldTask(){
   el.querySelector('.ft-skip').onclick=()=>el.remove();
   host.appendChild(el);
 }
+
+$('heartbox').onclick = toggleUnlimited;
+paintHearts();
 bootUnits(); boot();
 </script>
 </body>
