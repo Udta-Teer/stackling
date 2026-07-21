@@ -2,7 +2,7 @@
   "unitId": "checkpoint-foundations",
   "tier": 0,
   "title": "Checkpoint: Foundations",
-  "subtitle": "Mixing units 1–5 — can you still do this when nobody tells you which lesson it's from?",
+  "subtitle": "Apply networking, HTTP, API, latency, and state concepts without lesson-level cues",
   "objectives": [
     "Recall foundations cold, without the cue of knowing which unit a question came from",
     "Connect ideas across units: physics, protocols, contracts, and state",
@@ -14,6 +14,218 @@
       "title": "Mixed recall",
       "exercises": [
         {
+          "id": "cp1-change-1",
+          "type": "system_change",
+          "prompt": "Two stateless servers have enough capacity, but clients connect directly to one address. Put a load balancer in front so either server can answer.",
+          "actionLabel": "Add the shared entry point",
+          "beforeStatus": "SERVER A · overloaded · Server B · idle",
+          "afterStatus": "SERVER A · half traffic · Server B · half traffic",
+          "result": "Stateless servers became interchangeable capacity",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "all traffic",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "idle",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request",
+                "label": "all traffic"
+              },
+              {
+                "from": "c",
+                "to": "b",
+                "kind": "blocked",
+                "label": "no route"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Load balancer",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "half",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "half",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Stateless request handling lets the load balancer send a request to either server because required durable state is not trapped in one server's memory."
+        },
+        {
+          "id": "checkpoint-foundations-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Draw the failure path first; the disconnected or blocked part is evidence: Two stateless servers have enough capacity, but clients connect directly to one address. Put a load balancer in front so either server can answer.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "sub": "all traffic",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "idle",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request",
+                "label": "all traffic"
+              },
+              {
+                "from": "c",
+                "to": "b",
+                "kind": "blocked",
+                "label": "no route"
+              }
+            ]
+          },
+          "palette": [
+            "Server A",
+            "Server B",
+            "Load balancer",
+            "Profile Write API"
+          ],
+          "answer": {
+            "a": "Server A",
+            "b": "Server B"
+          },
+          "why": "The completed diagram contains these directed flows: Clients → Server A. That topology is the evidence for the answer: Stateless request handling lets the load balancer send a request to either server because required durable state is not trapped in one server's memory.",
+          "connectEdges": true
+        },
+        {
+          "id": "checkpoint-foundations-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: Two stateless servers have enough capacity, but clients connect directly to one address. Put a load balancer in front so either server can answer. Place Load balancer, Server A, Server B. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "sub": "half",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "half",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Load balancer",
+            "Server A",
+            "Server B",
+            "Profile Write API",
+            "Unrelated analytics worker"
+          ],
+          "answer": {
+            "l": "Load balancer",
+            "a": "Server A",
+            "b": "Server B"
+          },
+          "why": "The completed diagram contains these directed flows: Clients → Load balancer; Load balancer → Server A; Load balancer → Server B. That topology is the evidence for the answer: Stateless request handling lets the load balancer send a request to either server because required durable state is not trapped in one server's memory."
+        },
+        {
           "id": "cp1-1-1",
           "type": "multiple_choice",
           "prompt": "Your API server responds in 3ms. A user in Sydney says the app is slow. Your servers are in Virginia. What's the dominant cost?",
@@ -24,20 +236,20 @@
             "The user's browser"
           ],
           "answer": 1,
-          "why": "A 3ms server against a round trip of roughly 200ms means the server is a rounding error — you're paying the speed of light, which unit 1 established and unit 4 quantified. The only lever left is to stop making them cross the planet, which is why the answer to this problem is geographic rather than algorithmic."
+          "why": "The server contributes 3ms, while the Virginia–Sydney network round trip is roughly 200ms. Propagation distance therefore dominates the response time; moving computation closer to the user or reducing round trips can help, while optimizing a few milliseconds of server work cannot remove the network floor."
         },
         {
           "id": "cp1-1-2",
-          "type": "fill_blank",
-          "prompt": "An operation is ______ if performing it many times has the same effect as performing it once.",
-          "choices": [
-            "idempotent",
-            "atomic",
-            "stateless",
-            "cached"
+          "type": "order_steps",
+          "prompt": "Order the main steps after you enter `https://api.example.com/users/42` in a fresh browser.",
+          "steps": [
+            "Domain Name System (DNS) resolves `api.example.com` to an IP address",
+            "The client opens a transport connection to that address",
+            "Transport Layer Security (TLS) authenticates the server and establishes encryption",
+            "The client sends an HTTP `GET /users/42` request",
+            "The server returns an HTTP response with status, headers, and a body"
           ],
-          "answer": 0,
-          "why": "Idempotent. It's the property that makes retries safe — and since a timed-out request is genuinely ambiguous (did it happen?), retries are unavoidable, which makes this the backbone of reliability rather than a nicety."
+          "why": "Name resolution supplies an address before the client can connect. Transport Layer Security (TLS) then establishes the protected channel used by HTTPS, and HTTP carries the application request and response over that channel. Cached DNS or reused connections can skip work on later requests, but this is the dependency order for a fresh path."
         },
         {
           "id": "cp1-1-3",
@@ -47,27 +259,27 @@
             "A user's session",
             "An uploaded file",
             "A pure function that formats a date",
-            "A message sitting in a queue, not yet processed"
+            "A Domain Name System (DNS) resolver's cached record and expiry time"
           ],
           "answer": [
             0,
             1,
             3
           ],
-          "why": "Sessions, files, and in-flight work are all things that would be LOST if every server restarted right now — which is unit 5's test for what counts as state. The date formatter isn't state: same input, same output, nothing retained. The queued message catches people out, but work-in-progress is state, which is exactly why real queues persist to disk and wait for an ack."
+          "why": "A session, an uploaded file, and a cached Domain Name System (DNS) record plus its expiry all influence later requests, so each is state. The date formatter retains no information between calls; the same input alone determines its output. Cached state remains state even when it is disposable and time-bounded."
         },
         {
           "id": "cp1-1-4",
           "type": "multiple_choice",
-          "prompt": "Which HTTP status code tells a client 'your request was fine, but you've sent too many'?",
+          "prompt": "Your API receives malformed JSON and cannot process the request. Which response best matches the failure?",
           "choices": [
             "`503 Service Unavailable`",
-            "`429 Too Many Requests`",
+            "`400 Bad Request`",
             "`403 Forbidden`",
             "`500 Internal Server Error`"
           ],
           "answer": 1,
-          "why": "`429` is the rate-limit signal, and it matters that it's distinct from `503`: `429` says *you* should slow down, while `503` says *the service* is unwell. Pair it with `Retry-After` and a well-behaved client knows exactly how long to wait instead of guessing."
+          "why": "`400 Bad Request` tells the client that the request syntax or representation is invalid, so retrying the same bytes will not help. `500 Internal Server Error` describes an unexpected server failure, `503 Service Unavailable` a temporary inability to serve, and `403 Forbidden` a refusal to authorize an understood request."
         },
         {
           "id": "cp1-1-5",
@@ -80,31 +292,35 @@
             },
             {
               "left": "Statelessness",
-              "right": "Any server can handle any request"
+              "right": "Any healthy equivalent server can handle the next request using shared state"
             },
             {
-              "left": "Cursor pagination",
-              "right": "Inserts can't shift your window"
+              "left": "API endpoint",
+              "right": "A contract-bound operation exposed at a method and path"
             },
             {
               "left": "p99",
-              "right": "The worst 1% — your unhappiest users"
+              "right": "A threshold at or below which 99% of observations fall"
             }
           ],
-          "why": "Four ideas from four units, and each is load-bearing later: DNS is the first cache you met, statelessness is what makes horizontal scaling possible, cursors are why feeds don't show duplicates, and p99 is why averages lie."
+          "why": "Domain Name System (DNS) resolution maps a domain name to records such as IP addresses. Stateless servers keep session state outside one process, so any healthy server can handle the next request. An API endpoint combines a method and path with a request/response contract, and p99 latency is the threshold at or below which 99% of observations fall."
         },
         {
           "id": "cp1-1-6",
-          "type": "multiple_choice",
-          "prompt": "Why is `GET` safe to retry, cache, and prefetch — but `POST` isn't?",
+          "type": "multi_select",
+          "prompt": "Which statements match HTTP method semantics? Select all.",
           "choices": [
-            "`GET` is faster",
-            "`GET` only reads, so repeating it changes nothing; `POST` creates something new each time it runs",
-            "`POST` requires authentication",
-            "`GET` responses are smaller"
+            "`GET` is safe and idempotent: the requested operation should not change server state",
+            "`PUT` is idempotent but not safe: repeating the same full replacement has the same intended effect",
+            "`DELETE` is idempotent even if a repeated call returns a different status after the resource is gone",
+            "HTTP requires every `POST` to create a new resource on every execution"
           ],
-          "answer": 1,
-          "why": "`GET` is *safe* — it doesn't change server state — which is precisely what lets crawlers, browsers, and CDNs fire it freely. That single property is why the web can cache so aggressively, and it's why hiding a delete behind a `GET` is dangerous: a crawler following links would happily wipe your data."
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "HTTP defines safe methods as read-only in their requested semantics and idempotent methods by the intended effect of repeated identical requests. `GET` is both; `PUT` and `DELETE` are idempotent but mutate state. `POST` has no general idempotency guarantee, yet an endpoint can make a particular POST retry-safe through its own contract, such as a client-supplied deduplication key."
         }
       ]
     },
@@ -114,16 +330,130 @@
       "exercises": [
         {
           "id": "cp1-2-1",
-          "type": "multiple_choice",
-          "prompt": "Unit 5 said 'every copy costs you a consistency question.' Which of these is NOT a copy in that sense?",
-          "choices": [
-            "A CDN edge holding your logo",
-            "A cache holding a computed value",
-            "The single database row that is the source of truth",
-            "A read replica"
+          "type": "build_diagram",
+          "prompt": "Place the profile authority and its two read copies: writes land once, then copies update from that source.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Profile Write API",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "sub": "authoritative row",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "replicated reads",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "fast repeated reads",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Primary Database Row",
+            "Read Replica",
+            "Profile Cache",
+            "App Server Memory",
+            "Message Queue"
           ],
-          "answer": 2,
-          "why": "The source of truth is the original — it's what the copies are copies OF, and it can't disagree with itself. Everything else on that list is derived, which means each one buys speed and hands you the question of what happens when it drifts. Spotting which thing is authoritative is the first move in almost every design discussion."
+          "answer": {
+            "h1": "Primary Database Row",
+            "h2": "Read Replica",
+            "h3": "Profile Cache"
+          },
+          "why": "The write API commits the authoritative database row; replication and cache population derive read copies from it. Either copy can lag, so reads need a freshness policy and sensitive read-after-write paths may need the primary; treating a cache or replica as an independent authority can resurrect stale profile data after updates."
+        },
+        {
+          "id": "checkpoint-foundations-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Place the profile authority and its two read copies: writes land once, then copies update from that source.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Profile Write API",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "sub": "authoritative row",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "replicated reads",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "fast repeated reads",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Primary Database Row",
+            "Read Replica",
+            "Profile Cache",
+            "Clients",
+            "Server A"
+          ],
+          "answer": {
+            "h1": "Primary Database Row",
+            "h2": "Read Replica",
+            "h3": "Profile Cache"
+          },
+          "why": "The completed diagram contains these directed flows: Profile Write API → Primary Database Row; Primary Database Row → Read Replica; Primary Database Row → Profile Cache. That topology is the evidence for the answer: The write API commits the authoritative database row; replication and cache population derive read copies from it. Either copy can lag, so reads need a freshness policy and sensitive read-after-write paths may need the primary; treating a cache or replica as an independent authority can resurrect stale profile data after updates."
         },
         {
           "id": "cp1-2-2",
@@ -136,7 +466,7 @@
             "Nothing changed"
           ],
           "answer": 1,
-          "why": "That TTL is you naming a price: 60 seconds of possible staleness in exchange for fast reads and less database load. Stating it that way is the useful habit — a cache isn't a performance trick you add, it's a consistency policy you're choosing, and the only question is whether 60 seconds of wrong costs less than the speed is worth."
+          "why": "A 60-second time to live (TTL) lets the cache serve the stored profile until that entry expires. Reads become faster and avoid database work, while a database update can remain invisible through this cache for up to 60 seconds unless the entry is explicitly invalidated. The TTL is acceptable only when that staleness window fits the product's correctness requirement."
         },
         {
           "id": "cp1-2-3",
@@ -149,7 +479,7 @@
             "Cache — 80k rps"
           ],
           "answer": 2,
-          "why": "A chain is limited by its slowest stage, so the app servers at 6k rps cap the whole system at 6k — everything downstream is capacity you're paying for and can't reach. The corollary is the one people ignore: making the cache faster buys exactly nothing, because it was never the constraint. Measure first, then fix the actual limit."
+          "why": "Every request must pass through the app-server stage, whose 6,000 requests/second capacity is the smallest in the path. The end-to-end throughput therefore cannot exceed 6,000 requests/second. Increasing cache capacity would leave this ceiling unchanged until app-server capacity also increases or work is removed from that stage."
         },
         {
           "id": "cp1-2-4",
@@ -162,7 +492,7 @@
             "Only if users complain"
           ],
           "answer": 1,
-          "why": "Percentages feel small and rates feel real: 0.1% of 10,000/sec is 10 people per second having a bad time. This is unit 4's move — always multiply out before accepting a number, because 'three nines' sounds like success and looks like a support queue."
+          "why": "A 99.9% success rate leaves a 0.1% failure rate. Applied to 10,000 requests/second, that is 10 failed requests each second, or about 864,000 per day if the rate is sustained. Whether that is acceptable depends on the affected operation, but the absolute failure volume is large enough to require investigation."
         },
         {
           "id": "cp1-2-5",
@@ -175,7 +505,7 @@
             "Which framework are we using?"
           ],
           "answer": 1,
-          "why": "Those two halves decide durability and sharing, and those two decide the place — which is unit 5's entire lens in one sentence. Run it here: the cart is lost on restart (bad), and the user expects it on their laptop too (so another machine must read it). Both answers point away from local memory, and you never had to argue about speed."
+          "why": "A cart stored only in one server's memory disappears when that process restarts and is unavailable when another server handles the user. Because the cart must survive server failure and be shared across devices or application instances, it belongs in durable shared storage; local memory may still hold a disposable cache copy."
         },
         {
           "id": "cp1-2-6",
@@ -188,7 +518,21 @@
             "They all require configuration"
           ],
           "answer": 1,
-          "why": "Four different names for one idea: put a copy closer to whoever's asking. That's why they share a failure mode — every one of them can serve you the past — and why the same question governs all four: what does being out of date cost here? Seeing the pattern once means you already understand caching layers you haven't met yet."
+          "why": "DNS caches, content delivery network edges, read replicas, and browser caches all serve derived data from a location closer to the reader or with cheaper access. They reduce latency or source load while introducing a period in which a reader may observe an older value. Their refresh and invalidation policies should match the cost of that staleness."
+        },
+        {
+          "id": "xfer-cp1",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A smart thermostat resolves a service name, opens HTTPS, sends a reading, and receives `503`. Which conclusions are supported?",
+          "choices": [
+            "DNS definitely failed",
+            "The thermostat never opened a connection",
+            "`503` means the JSON was valid",
+            "Routing and HTTP reached a server, but that server could not currently handle the request"
+          ],
+          "answer": 3,
+          "why": "An HTTP response proves the request reached an HTTP-speaking endpoint. `503 Service Unavailable` reports temporary inability to serve; it does not imply DNS or connection setup failed."
         }
       ]
     }

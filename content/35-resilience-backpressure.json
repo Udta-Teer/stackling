@@ -1,0 +1,795 @@
+{
+  "unitId": "resilience-backpressure",
+  "tier": 5,
+  "title": "Resilience & Backpressure",
+  "subtitle": "Bound waiting, retries, concurrency, and admitted work so one failure cannot consume the whole system",
+  "objectives": [
+    "Set end-to-end deadlines and retry budgets",
+    "Use circuit breakers and bulkheads to contain dependency failure",
+    "Propagate backpressure through queues and streams",
+    "Choose load shedding from request value and remaining capacity"
+  ],
+  "lessons": [
+    {
+      "id": "res-1",
+      "title": "Deadlines and retry budgets",
+      "exercises": [
+        {
+          "id": "res-1-0",
+          "type": "concept",
+          "title": "A deadline bounds the total time and work spent on one request",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "800ms deadline",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "API",
+                "sub": "remaining 650ms",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Dependency",
+                "sub": "remaining 500ms",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "body": "Carry one end-to-end deadline through every dependency instead of granting each hop a fresh timeout. Each service subtracts time already spent, stops work that can no longer produce a useful response, and reserves enough time to return or recover.",
+          "note": "Timeouts bound waiting at one hop; a propagated deadline protects the complete request budget."
+        },
+        {
+          "id": "res-change-1",
+          "type": "system_change",
+          "prompt": "Three nested service layers each make up to three attempts total for a failing downstream call. One user request can trigger `3 × 3 × 3 = 27` database attempts. Restrict retries to one owner and one shared budget.",
+          "actionLabel": "Centralize the retry budget",
+          "choices": [
+            "Retry faster at every layer",
+            "Let one layer retry with a bounded budget and jitter",
+            "Remove every timeout"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Layered retries multiply attempts and synchronize load against the failing dependency.",
+            "One retry owner bounds amplification and jitter reduces synchronized retry waves.",
+            "Without timeouts, stuck attempts retain resources indefinitely."
+          ],
+          "beforeStatus": "ONE REQUEST · up to 27 database attempts",
+          "afterStatus": "ONE REQUEST · at most 2 database attempts within deadline",
+          "result": "Retry amplification is bounded",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Request",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "3 nested layers",
+                "sub": "3 attempts each · 3 × 3 × 3",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "up to 27 attempts",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "s",
+                "kind": "request"
+              },
+              {
+                "from": "s",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Request",
+                "sub": "deadline",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "label": "Retry owner",
+                "sub": "1 retry + jitter",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "≤2 attempts",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Retries consume dependency capacity and must fit inside the request deadline. One retry owner, capped attempts, exponential backoff, and jitter prevent multiplicative and synchronized retry load; non-idempotent work also needs retry-safe semantics."
+        },
+        {
+          "id": "resilience-backpressure-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Three nested service layers each make up to three attempts total for a failing downstream call. One user request can trigger `3 × 3 × 3 = 27` database attempts. Restrict retries to one owner and one shared budget. Place Retry owner, Database. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Request",
+                "sub": "deadline",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "sub": "1 retry + jitter",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "≤2 attempts",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Retry owner",
+            "Database",
+            "Client",
+            "API"
+          ],
+          "answer": {
+            "r": "Retry owner",
+            "d": "Database"
+          },
+          "why": "The completed diagram contains these directed flows: Request → Retry owner; Retry owner → Database. That topology is the evidence for the answer: Retries consume dependency capacity and must fit inside the request deadline. One retry owner, capped attempts, exponential backoff, and jitter prevent multiplicative and synchronized retry load; non-idempotent work also needs retry-safe semantics.",
+          "connectEdges": true
+        },
+        {
+          "id": "res-1-1",
+          "type": "multi_select",
+          "prompt": "When is an automatic retry defensible? Select all.",
+          "choices": [
+            "The failure is plausibly transient",
+            "The operation is idempotent or protected by an idempotency key",
+            "The remaining deadline can contain another attempt",
+            "The dependency is already overloaded and every caller retries immediately"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "A retry needs a transient failure hypothesis, safe repeated effects, and enough remaining time. Immediate fleet-wide retries during overload increase the failure rather than recovering from it."
+        },
+        {
+          "id": "res-1-2",
+          "type": "order_steps",
+          "prompt": "Build a bounded retry flow.",
+          "steps": [
+            "Attempt the operation with the propagated deadline",
+            "Classify the failure as retryable or terminal",
+            "Check remaining time and retry budget",
+            "Wait using capped backoff with jitter",
+            "Retry with the same operation identity"
+          ],
+          "why": "Classification prevents retrying permanent errors, the budget bounds work, jitter spreads callers over time, and the same identity preserves one intended effect across attempts."
+        }
+      ]
+    },
+    {
+      "id": "res-retry-sim",
+      "title": "Retry budgets break positive feedback",
+      "exercises": [
+        {
+          "id": "res-retry-sim-card",
+          "type": "concept",
+          "title": "Retries form a positive-feedback loop during overload",
+          "body": "Slowness causes timeouts; timeouts cause retries; retries add work and create more slowness. A retry budget caps extra attempts relative to original traffic, while exponential backoff and jitter prevent synchronized return waves.",
+          "note": "Retries spend remaining capacity, so they must be rarer as the dependency becomes less healthy."
+        },
+        {
+          "id": "res-retry-sim-0",
+          "type": "simulate",
+          "prompt": "A dependency receives 8,000 original ops/sec. Every timeout would retry once; capacity is 10,000 attempts/sec. Drag the *smallest* potential-retry share blocked by the retry budget.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "api",
+                "label": "Original operations",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "budget",
+                "label": "Retry budget + backoff",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "dep",
+                "label": "Dependency attempts",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "api",
+                "to": "budget",
+                "kind": "request"
+              },
+              {
+                "from": "budget",
+                "to": "dep",
+                "kind": "request"
+              }
+            ]
+          },
+          "sim": {
+            "input": 8000,
+            "inputLabel": "Original ops/sec",
+            "chain": [
+              "budget",
+              "dep"
+            ],
+            "capacity": {
+              "dep": 10000
+            },
+            "watch": "dep",
+            "watchLabel": "Total attempts/sec",
+            "absorb": {
+              "node": "budget",
+              "label": "Potential retries blocked",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            },
+            "model": {
+              "kind": "retry",
+              "retryFraction": 1
+            }
+          },
+          "answerRange": [
+            75,
+            75
+          ],
+          "why": "Retrying every operation doubles load to 16,000 attempts/sec. Blocking 75% of retries permits 2,000 retries and reaches the 10,000 limit. The safer operating point keeps additional headroom for recovery."
+        }
+      ]
+    },
+    {
+      "id": "res-2",
+      "title": "Circuit breakers and bulkheads",
+      "exercises": [
+        {
+          "id": "res-2-0",
+          "type": "concept",
+          "title": "A circuit breaker stops sending normal traffic to a dependency that is already failing",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Caller",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Circuit breaker",
+                "sub": "open after threshold",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "d",
+                "label": "Dependency",
+                "sub": "failing",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "body": "A breaker records recent outcomes. After a configured failure threshold it opens and fails calls quickly, then permits limited probes after a delay. Successful probes close it; failed probes preserve isolation while the dependency recovers.",
+          "note": "A breaker protects caller resources and dependency recovery. It does not repair the dependency or define the fallback response."
+        },
+        {
+          "id": "res-change-2",
+          "type": "system_change",
+          "prompt": "Thumbnail generation occupies all 100 worker threads while its provider is stalled, so payment receipts cannot run. Isolate the two workloads.",
+          "actionLabel": "Create separate concurrency pools",
+          "choices": [
+            "Double every timeout",
+            "Give thumbnails and receipts separate worker pools and queues",
+            "Put both workloads in one larger unbounded queue"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Longer waits retain the shared threads for more time.",
+            "Separate pools contain thumbnail saturation and preserve receipt capacity.",
+            "An unbounded shared queue delays both workloads and can exhaust memory."
+          ],
+          "beforeStatus": "SHARED POOL · 100/100 threads blocked · receipts unavailable",
+          "afterStatus": "THUMBNAILS · 50/50 blocked · RECEIPTS · 0/20 available",
+          "result": "One dependency failure no longer consumes unrelated capacity",
+          "viz": {
+            "nodes": [
+              {
+                "id": "t",
+                "label": "Thumbnails",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "r",
+                "label": "Receipts",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "p",
+                "label": "Shared pool",
+                "sub": "100 blocked",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "t",
+                "to": "p",
+                "kind": "event"
+              },
+              {
+                "from": "r",
+                "to": "p",
+                "kind": "event"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "t",
+                "label": "Thumbnail pool",
+                "sub": "50 blocked",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Receipt pool",
+                "sub": "20 available",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "x",
+                "label": "Separate limits",
+                "sub": "contained",
+                "col": 1,
+                "kind": "gw"
+              }
+            ],
+            "edges": [
+              {
+                "from": "t",
+                "to": "x",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "x",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Bulkheads reserve independent concurrency and queue capacity for workloads with different dependencies or importance. Pool sizes and rejection behavior must be explicit so isolation does not become hidden underutilization."
+        },
+        {
+          "id": "resilience-backpressure-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Thumbnail generation occupies all 100 worker threads while its provider is stalled, so payment receipts cannot run. Isolate the two workloads. Place Separate limits. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "t",
+                "label": "Thumbnail pool",
+                "sub": "50 blocked",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Receipt pool",
+                "sub": "20 available",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "x",
+                "sub": "contained",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "t",
+                "to": "x",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "x",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Separate limits",
+            "Client",
+            "API"
+          ],
+          "answer": {
+            "x": "Separate limits"
+          },
+          "why": "The completed diagram contains these directed flows: Thumbnail pool → Separate limits; Receipt pool → Separate limits. That topology is the evidence for the answer: Bulkheads reserve independent concurrency and queue capacity for workloads with different dependencies or importance. Pool sizes and rejection behavior must be explicit so isolation does not become hidden underutilization."
+        },
+        {
+          "id": "res-2-1",
+          "type": "match_pairs",
+          "prompt": "Match each resilience control to the resource it bounds.",
+          "pairs": [
+            {
+              "left": "Deadline",
+              "right": "Total time for one request"
+            },
+            {
+              "left": "Bulkhead",
+              "right": "Concurrency available to one workload"
+            },
+            {
+              "left": "Circuit breaker",
+              "right": "Calls admitted to a failing dependency"
+            }
+          ],
+          "why": "Deadlines bound time, bulkheads partition caller capacity, and circuit breakers suppress calls during observed failure. The controls solve different propagation paths and are commonly combined."
+        },
+        {
+          "id": "res-2-2",
+          "type": "multiple_choice",
+          "prompt": "A circuit is open. What should a half-open state do?",
+          "choices": [
+            "Send the full backlog immediately",
+            "Allow a limited number of probe requests",
+            "Delete all queued data",
+            "Disable monitoring"
+          ],
+          "answer": 1,
+          "why": "Limited probes test whether the dependency has recovered without restoring full load. Their success or failure drives the transition back to closed or open state."
+        }
+      ]
+    },
+    {
+      "id": "res-sim",
+      "title": "Shed optional work before the dependency collapses",
+      "exercises": [
+        {
+          "id": "res-sim-0",
+          "type": "concept",
+          "title": "Load shedding preserves a smaller service instead of losing the whole service",
+          "body": "When a dependency handles 9,000 operations/sec but incoming work reaches 15,000, optional requests must be rejected, degraded, or deferred before consuming dependency capacity. Priorities decide which work survives; random failure after saturation protects nobody.",
+          "note": "Shedding is a product decision: checkout may survive while recommendations disappear."
+        },
+        {
+          "id": "res-sim-1",
+          "type": "simulate",
+          "prompt": "Incoming work is 15,000 ops/sec and the dependency handles 9,000. Drag the *smallest* low-priority share to shed before the dependency.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "api",
+                "label": "API",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "gate",
+                "label": "Priority admission",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "dep",
+                "label": "Dependency",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "api",
+                "to": "gate",
+                "kind": "request"
+              },
+              {
+                "from": "gate",
+                "to": "dep",
+                "kind": "request"
+              }
+            ]
+          },
+          "sim": {
+            "input": 15000,
+            "inputLabel": "Operations/sec",
+            "chain": [
+              "gate",
+              "dep"
+            ],
+            "capacity": {
+              "gate": 50000,
+              "dep": 9000
+            },
+            "watch": "dep",
+            "watchLabel": "Dependency load",
+            "absorb": {
+              "node": "gate",
+              "label": "Low-priority work shed",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            40,
+            40
+          ],
+          "why": "Shedding 40% removes 6,000 optional operations and leaves 9,000 for the dependency. The protected workload must be selected before saturation; otherwise queueing and retries can consume the same capacity intended for critical work."
+        }
+      ]
+    },
+    {
+      "id": "res-3",
+      "title": "Backpressure and load shedding",
+      "exercises": [
+        {
+          "id": "res-3-0",
+          "type": "concept",
+          "title": "Backpressure makes a fast producer respond to a slower consumer",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Producer",
+                "sub": "10k/s",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "q",
+                "label": "Bounded buffer",
+                "sub": "2k queued",
+                "col": 1,
+                "kind": "queue"
+              },
+              {
+                "id": "c",
+                "label": "Consumer",
+                "sub": "8k/s",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "q",
+                "kind": "event"
+              },
+              {
+                "from": "q",
+                "to": "c",
+                "kind": "event"
+              }
+            ]
+          },
+          "body": "When arrival rate exceeds processing rate, a bounded system must slow producers, reject work, degrade optional features, or spill to a durable buffer with a defined limit. An unbounded queue converts overload into growing latency and memory use.",
+          "note": "Backpressure must cross every asynchronous boundary; hiding it inside one queue only delays where overload becomes visible."
+        },
+        {
+          "id": "resilience-backpressure-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Backpressure makes a fast producer respond to a slower consumer",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Producer",
+                "sub": "10k/s",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "q",
+                "sub": "2k queued",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "c",
+                "sub": "8k/s",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "q",
+                "kind": "request"
+              },
+              {
+                "from": "q",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Bounded buffer",
+            "Consumer",
+            "Client",
+            "API"
+          ],
+          "answer": {
+            "q": "Bounded buffer",
+            "c": "Consumer"
+          },
+          "why": "When arrival rate exceeds processing rate, a bounded system must slow producers, reject work, degrade optional features, or spill to a durable buffer with a defined limit. An unbounded queue converts overload into growing latency and memory use. Backpressure must cross every asynchronous boundary; hiding it inside one queue only delays where overload becomes visible."
+        },
+        {
+          "id": "res-3-1",
+          "type": "spot_bottleneck",
+          "prompt": "Tap the component that first requires an overload policy.",
+          "nodes": [
+            {
+              "label": "Producer · 10,000 events/s",
+              "capacity": 10000
+            },
+            {
+              "label": "Queue · accepts 20,000 events/s",
+              "capacity": 20000
+            },
+            {
+              "label": "Consumer · 8,000 events/s",
+              "capacity": 8000
+            }
+          ],
+          "answer": 2,
+          "why": "The consumer drains 8,000 events/s while 10,000 arrive, so backlog grows by 2,000 each second. A bounded queue buys time but cannot remove the sustained rate mismatch."
+        },
+        {
+          "id": "res-3-2",
+          "type": "multi_select",
+          "prompt": "Which overload responses preserve the core checkout path? Select all.",
+          "choices": [
+            "Reject low-priority recommendations",
+            "Bound concurrent checkout work",
+            "Return a retryable overload response before expensive work",
+            "Accept every request into an unbounded in-memory queue"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Dropping optional work, bounding concurrency, and rejecting early preserve capacity for core operations. An unbounded queue increases latency and memory consumption until the process fails."
+        },
+        {
+          "id": "res-3-3",
+          "type": "tradeoff_slider",
+          "prompt": "Analytics events may be delayed for ten minutes but must not exhaust API memory. Choose the buffering emphasis.",
+          "leftLabel": "Large unbounded memory queue",
+          "rightLabel": "Bounded durable queue with producer throttling",
+          "answerRange": [
+            80,
+            100
+          ],
+          "why": "A bounded durable queue absorbs temporary delay without tying retention to one process's memory. When its limit is reached, producer throttling or explicit shedding keeps resource use finite."
+        },
+        {
+          "id": "xfer-resilience",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A recommendations dependency slows down, and checkout threads wait indefinitely for it. Which change protects checkout first?",
+          "choices": [
+            "A larger recommendation payload",
+            "One global queue with no bound",
+            "A short deadline and fallback that omits recommendations",
+            "Unlimited retries"
+          ],
+          "answer": 2,
+          "why": "Recommendations are optional to checkout. A deadline bounds occupied resources and a fallback preserves the critical path instead of allowing one slow dependency to exhaust it."
+        }
+      ]
+    }
+  ]
+}

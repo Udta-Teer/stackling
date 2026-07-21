@@ -14,6 +14,8 @@ Hard checks (exit 1 on failure):
 Advisory warnings (never fail the build; require human judgement):
   - absolute claims about a technique with no condition in the same sentence
   - sentences naming one ACID property while asserting another's claim
+  - concept cards that use rhetorical contrast or mystery-box directions instead
+    of directly explaining the mechanism
 
 Usage:
     python3 scripts/validate-content.py            # hard checks + warnings
@@ -55,12 +57,17 @@ ALLOWED_FIELDS = {
     "viz",                      # data-driven diagram: nodes + edges
     "title", "body", "note",    # concept card
     "sim",                      # simulate model
+    "actionLabel", "afterViz", "beforeStatus", "afterStatus", "result",
+    "choiceFeedback",            # optional decision mode for system_change
+    "diagramExpansion",          # course-wide 2026-07 diagram interaction pass
+    "connectEdges",              # learner must connect placed diagram nodes
+    "transfer",                  # unfamiliar application of an earlier mechanism
 }
 
 KNOWN_TYPES = {
     "multiple_choice", "fill_blank", "multi_select", "match_pairs",
     "order_steps", "build_diagram", "estimate", "tradeoff_slider",
-    "spot_bottleneck", "concept", "simulate",
+    "spot_bottleneck", "concept", "simulate", "system_change",
 }
 
 # A concept card is the ONLY place we teach before testing. It is also, exactly,
@@ -78,6 +85,9 @@ VIZ_MAX_COLS = 5
 VIZ_NODE_FIELDS = {"id", "label", "col", "kind", "sub", "hole"}
 VIZ_KINDS = {"client", "lb", "dns", "cdn", "gw", "server", "db",
              "cache", "queue", "storage"}
+VIZ_EDGE_FIELDS = {"from", "to", "kind", "label", "count", "dash"}
+VIZ_EDGE_KINDS = {"request", "data", "event", "replication", "invalidation",
+                  "control", "optional", "broken", "blocked"}
 
 errors = []
 warnings = []
@@ -92,6 +102,62 @@ def err(unit, lesson, msg):
 
 def warn(unit, lesson, msg):
     warnings.append(f"{unit} :: {lesson} :: {msg}")
+
+
+def check_semantic_landmines(unit_name, lesson_id, e):
+    """Reject a few architecture/terminology errors that have already shipped.
+
+    This is deliberately narrow. A regex cannot certify system-design accuracy,
+    but it can stop a known false mental model from quietly returning after a
+    later rewrite.
+    """
+    if e.get("type") == "match_pairs":
+        for pair in e.get("pairs") or []:
+            left, right = str(pair.get("left", "")), str(pair.get("right", ""))
+            if re.search(r"\b(?:DELETE|PUT)\b", left, re.I) \
+                    and re.search(r"\bsafe\b", right, re.I) \
+                    and not re.search(r"\bnot safe\b", right, re.I):
+                err(unit_name, lesson_id,
+                    f"{left!r} is idempotent but not HTTP-safe; do not label it "
+                    f"'safe' merely because repetition converges")
+            if re.search(r"\bp99\b", left, re.I) and re.search(r"worst\s+1%", right, re.I):
+                err(unit_name, lesson_id,
+                    "p99 is a threshold at or below which 99% fall, not the set "
+                    "of 'worst 1%' requests")
+
+    if e.get("type") in {"concept", "build_diagram"} and isinstance(e.get("viz"), dict):
+        title_prompt = f"{e.get('title', '')} {e.get('prompt', '')}".lower()
+        labels = " ".join(str(n.get("label", "")) for n in e["viz"].get("nodes") or []).lower()
+        labels += " " + " ".join(str(x) for x in (e.get("palette") or [])).lower()
+        if "cache-first" in title_prompt and "cache" not in labels:
+            err(unit_name, lesson_id,
+                "claims a cache-first path but the diagram contains no cache")
+
+    if e.get("type") == "build_diagram":
+        prompt = e.get("prompt") or ""
+        if re.search(r"\bshards?\b", prompt, re.I) and re.search(r"(?:req|checks?)/sec", prompt, re.I):
+            if not re.search(r"(?:one|each|per)\s+(?:bucket\s+)?shard[^.]{0,80}(?:req|checks?)/sec", prompt, re.I):
+                err(unit_name, lesson_id,
+                    "asks the learner to size shards from a traffic rate without "
+                    "stating per-shard capacity")
+
+        # Infer labels for holes from the answer map, then catch the exact bad
+        # topology that triggered this audit: a passive authority drawn as if it
+        # forwards an application request to compute. Queues/logs/outboxes and
+        # control-plane configuration stores are intentional exceptions.
+        viz, answer = e.get("viz") or {}, e.get("answer") or {}
+        node_label = {n.get("id"): n.get("label", "") for n in viz.get("nodes") or []}
+        node_label.update(answer)
+        passive = re.compile(r"\b(?:database|cache|redis|bucket shard|registry|state store)\b", re.I)
+        active = re.compile(r"\b(?:backend|processor|worker|gateway|service)\b", re.I)
+        exception = re.compile(r"\b(?:queue|log|outbox|discovery|config|version)\b", re.I)
+        for edge in viz.get("edges") or []:
+            source = str(node_label.get(edge.get("from"), ""))
+            target = str(node_label.get(edge.get("to"), ""))
+            if passive.search(source) and not exception.search(source) and active.search(target):
+                err(unit_name, lesson_id,
+                    f"diagram draws passive authority {source!r} forwarding to "
+                    f"compute {target!r}; draw the caller's decision/request path")
 
 
 def unit_number(path):
@@ -150,10 +216,21 @@ def check_viz(unit_name, lesson_id, viz, who):
         err(unit_name, lesson_id, f"{who}: duplicate viz node id(s)")
     known = set(ids)
     for edge in viz.get("edges") or []:
+        if not isinstance(edge, dict):
+            err(unit_name, lesson_id, f"{who}: every viz edge must be an object")
+            continue
+        stray = set(edge) - VIZ_EDGE_FIELDS
+        if stray:
+            err(unit_name, lesson_id, f"{who}: viz edge stray field(s): {sorted(stray)}")
         for end in ("from", "to"):
             if edge.get(end) not in known:
                 err(unit_name, lesson_id,
                     f"{who}: edge `{end}` points at unknown node {edge.get(end)!r}")
+        if edge.get("kind") and edge["kind"] not in VIZ_EDGE_KINDS:
+            err(unit_name, lesson_id,
+                f"{who}: unknown edge kind {edge['kind']!r} — one of {sorted(VIZ_EDGE_KINDS)}")
+        if "count" in edge and (not isinstance(edge["count"], int) or edge["count"] < 2):
+            err(unit_name, lesson_id, f"{who}: edge `count` must be an integer >=2")
     cols = {n.get("col", 0) for n in nodes if isinstance(n, dict)}
     if len(cols) > VIZ_MAX_COLS:
         warn(unit_name, lesson_id,
@@ -165,7 +242,7 @@ def check_viz(unit_name, lesson_id, viz, who):
 SLIDER_START = 50   # tradeoff_slider's neutral resting value — see slider() in the prototype
 
 
-def check_answer_range(unit_name, lesson_id, e):
+def check_answer_range(unit_name, lesson_id, e, minimum=0, maximum=100):
     """Validate an answerRange hard, and return it only if it's usable.
 
     The old checks were guarded by `isinstance(rng, list)`, so a NON-list
@@ -183,8 +260,9 @@ def check_answer_range(unit_name, lesson_id, e):
             f"({type(rng).__name__}). The renderer indexes it, so a string or a "
             f"float grades every answer wrong and says nothing.")
         return None
-    if not (0 <= rng[0] <= rng[1] <= 100):
-        err(unit_name, lesson_id, f"answerRange not a valid 0-100 span: {rng}")
+    if not (minimum <= rng[0] <= rng[1] <= maximum):
+        err(unit_name, lesson_id,
+            f"answerRange not within slider span {minimum}-{maximum}: {rng}")
         return None
     return rng
 
@@ -205,25 +283,45 @@ def embed_fragments(e):
     out = [e.get(k, "") for k in ("prompt", "why", "hint", "title", "body", "note",
                                   "unit", "leftLabel", "rightLabel")]
     out += list(e.get("choices") or [])
+    out += list(e.get("choiceFeedback") or [])
     out += list(e.get("steps") or [])
     out += list(e.get("palette") or [])
     for p in e.get("pairs") or []:                      # the match_pairs answer key
         out += [p.get("left", ""), p.get("right", "")]
     for node in (e.get("viz") or {}).get("nodes", []) or []:
         out += [node.get("label", ""), node.get("sub", "")]
+    for node in (e.get("afterViz") or {}).get("nodes", []) or []:
+        out += [node.get("label", ""), node.get("sub", "")]
+    out += [e.get(k, "") for k in ("actionLabel", "beforeStatus", "afterStatus", "result")]
     sim = e.get("sim") or {}
     out += [sim.get("inputLabel", ""), sim.get("watchLabel", "")]
     out += [(sim.get("absorb") or {}).get("label", "")]
     return [f for f in out if f]
 
 
-def sim_load(sim, pct):
+def sim_state(sim, pct):
     """Mirror of simCompute() in the prototype: load enters at `input` and flows
     down `chain`; the absorb node removes pct% of what reaches it.
 
     Rounds at each hop exactly as the prototype does — if these two ever
     disagree, this check silently validates a model the learner never sees.
     """
+    model = sim.get("model") or {"kind": "flow"}
+    kind = model.get("kind", "flow")
+    capacity = dict(sim.get("capacity") or {})
+    if kind == "queue":
+        service = pct * model["servicePerUnit"]
+        backlog = max(0, math.floor((sim["input"] - service) * model["duration"] + 0.5))
+        load = {nid: sim["input"] for nid in sim.get("chain") or []}
+        load[sim["watch"]] = backlog
+        return load, capacity
+    if kind == "retry":
+        total = math.floor(sim["input"] * (1 + model["retryFraction"] * (1 - pct / 100.0)) + 0.5)
+        return {nid: total for nid in sim.get("chain") or []}, capacity
+    if kind == "pool":
+        load = {nid: sim["input"] for nid in sim.get("chain") or []}
+        capacity[sim["watch"]] = pct * model["servicePerUnit"]
+        return load, capacity
     load, cur = {}, float(sim["input"])
     for nid in sim.get("chain") or []:
         load[nid] = cur
@@ -231,7 +329,11 @@ def sim_load(sim, pct):
             # floor(x+0.5), NOT round(): Python rounds half to even (round(2.5)==2)
             # and JS Math.round rounds half up (3). Same spelling, different answer.
             cur = math.floor(cur * (1 - pct / 100.0) + 0.5)
-    return load
+    return load, capacity
+
+
+def sim_load(sim, pct):
+    return sim_state(sim, pct)[0]
 
 
 def check_exercise(unit_no, unit_name, lesson_id, e):
@@ -258,6 +360,8 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
         err(unit_name, lesson_id, f"duplicate exercise id: {eid!r}")
     else:
         seen_ids.add(eid)
+
+    check_semantic_landmines(unit_name, lesson_id, e)
 
     if unit_no is not None and unit_no >= GODEEPER_RETIRED_FROM and "goDeeper" in e:
         err(unit_name, lesson_id,
@@ -348,6 +452,29 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
                 err(unit_name, lesson_id,
                     f"palette has {len(pal)} for {len(holes)} hole(s) — needs "
                     f"at least one wrong component to choose against")
+    elif t == "system_change":
+        for key in ("actionLabel", "beforeStatus", "afterStatus", "result"):
+            if not isinstance(e.get(key), str) or not e[key].strip():
+                err(unit_name, lesson_id, f"system_change needs non-empty `{key}`")
+        if not isinstance(e.get("viz"), dict) or not isinstance(e.get("afterViz"), dict):
+            err(unit_name, lesson_id, "system_change needs both `viz` and `afterViz`")
+            return
+        before_ids = check_viz(unit_name, lesson_id, e["viz"], "system_change before")
+        after_ids = check_viz(unit_name, lesson_id, e["afterViz"], "system_change after")
+        if set(before_ids) == set(after_ids) and e["viz"] == e["afterViz"]:
+            err(unit_name, lesson_id, "system_change before and after diagrams are identical")
+        choices = e.get("choices")
+        if choices is not None:
+            if not isinstance(choices, list) or len(choices) < 2 or any(not isinstance(c, str) or not c.strip() for c in choices):
+                err(unit_name, lesson_id, "decision-mode system_change needs at least two non-empty choices")
+            answer = e.get("answer")
+            if not isinstance(answer, int) or not (0 <= answer < len(choices)):
+                err(unit_name, lesson_id, "decision-mode system_change needs an in-range integer `answer`")
+            feedback = e.get("choiceFeedback")
+            if not isinstance(feedback, list) or len(feedback) != len(choices) or any(not isinstance(x, str) or not x.strip() for x in feedback):
+                err(unit_name, lesson_id, "decision-mode system_change needs one non-empty `choiceFeedback` per choice")
+        elif "answer" in e or "choiceFeedback" in e:
+            err(unit_name, lesson_id, "system_change answer/choiceFeedback require `choices`")
     elif t == "simulate":
         viz = e.get("viz")
         sim = e.get("sim")
@@ -371,16 +498,29 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
                 return
         if ab["node"] not in (sim.get("chain") or []):
             err(unit_name, lesson_id, f"sim `absorb.node` {ab['node']!r} is not in the chain")
+        model = sim.get("model") or {"kind": "flow"}
+        kind = model.get("kind", "flow")
+        if kind not in {"flow", "queue", "retry", "pool"}:
+            err(unit_name, lesson_id, f"unknown simulation model {kind!r}")
+            return
+        required_model = {"queue": {"duration", "servicePerUnit"},
+                          "retry": {"retryFraction"},
+                          "pool": {"servicePerUnit"}}.get(kind, set())
+        missing_model = required_model - set(model)
+        if missing_model:
+            err(unit_name, lesson_id,
+                f"simulation model {kind!r} missing {sorted(missing_model)}")
+            return
         for nid in (sim.get("capacity") or {}):
             if nid not in ids:
                 err(unit_name, lesson_id, f"sim capacity names unknown node {nid!r}")
-        rng = check_answer_range(unit_name, lesson_id, e)
+        rng = check_answer_range(unit_name, lesson_id, e, ab["min"], ab["max"])
         # `capacity` for the watched node is REQUIRED, not optional. It used to be
         # read with `.get()` and the whole physics check sat behind
         # `if cap is not None` — so deleting `capacity`, or supplying it for some
         # other node, silently skipped the only gate that ties the answer key to
         # the simulation, and the validator said PASS.
-        cap = (sim.get("capacity") or {}).get(sim["watch"])
+        cap = sim_state(sim, ab["start"])[1].get(sim["watch"])
         if cap is None:
             err(unit_name, lesson_id,
                 f"simulate needs `capacity` for the watched node {sim['watch']!r} — "
@@ -390,7 +530,7 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
             return
         # Grade the answer key against the model the learner actually manipulates.
         ok = [p for p in range(int(ab["min"]), int(ab["max"]) + 1)
-              if sim_load(sim, p)[sim["watch"]] <= cap]
+              if sim_state(sim, p)[0][sim["watch"]] <= sim_state(sim, p)[1][sim["watch"]]]
         if not ok:
             err(unit_name, lesson_id,
                 f"simulate is unwinnable: no setting gets {sim['watch']!r} "
@@ -405,7 +545,7 @@ def check_exercise(unit_no, unit_name, lesson_id, e):
         # half did.
         losing = [p for p in range(rng[0], rng[1] + 1) if p not in set(ok)]
         if losing:
-            worst = sim_load(sim, losing[0])[sim["watch"]]
+            worst = sim_state(sim, losing[0])[0][sim["watch"]]
             err(unit_name, lesson_id,
                 f"answerRange {rng} accepts {len(losing)} setting(s) that MELT "
                 f"{sim['watch']!r} — e.g. {losing[0]}{ab.get('unit','%')} sends {worst:,.0f} "
@@ -473,9 +613,24 @@ ACID_CLAIM = {
     "isolation": r"\bvisibl\w*|\binvisibl\w*|\bcan see\b|dirty read|\bpeek\w*",
 }
 
+CONCEPT_RHETORIC = (
+    r"\bnot\b.{0,180}\bbut\b|\brather than\b|\bthe opposite\b|"
+    r"\bsounds? like\b|\bseems? like\b|\bwork out\b|\bsit with\b|"
+    r"\bnotice (?:that|what|how)\b|\bthere(?:'s| is) an obvious\b|"
+    r"\bask (?:yourself |)what\b|\bhold that against\b"
+)
+
 
 def advisory(unit_name, lesson_id, e):
     texts = [e.get("why") or "", e.get("goDeeper") or ""]
+    if e["type"] == "concept":
+        concept_text = " ".join(e.get(k, "") for k in ("title", "body", "note"))
+        match = re.search(CONCEPT_RHETORIC, concept_text, re.I | re.S)
+        if match:
+            warn(unit_name, lesson_id,
+                 f"concept uses rhetorical contrast/direction instead of a direct mechanism: "
+                 f"{match.group(0)[:100]}")
+        texts.extend([e.get("title") or "", e.get("body") or "", e.get("note") or ""])
     if e["type"] in ("multiple_choice", "fill_blank") and isinstance(e.get("answer"), int):
         try:
             texts.append(e["choices"][e["answer"]])
@@ -510,7 +665,7 @@ def main():
         print(f"FAIL: cannot read prototype: {ex}", file=sys.stderr)
         return 1
 
-    total_lessons = total_ex = 0
+    total_lessons = total_ex = total_simulations = 0
     for f in files:
         name = os.path.basename(f)
         n = unit_number(f)
@@ -526,6 +681,74 @@ def main():
 
         # A checkpoint mixes units already taught, so it tests by design.
         is_checkpoint = "checkpoint" in (d.get("unitId") or "")
+
+        expansion = [e for lesson in d.get("lessons", [])
+                     for e in lesson.get("exercises", [])
+                     if e.get("diagramExpansion") is True]
+        all_exercises = [e for lesson in d.get("lessons", [])
+                         for e in lesson.get("exercises", [])]
+        transfer = [e for e in all_exercises if e.get("transfer") is True]
+        if not transfer:
+            errors.append(
+                f"{name} :: no transfer exercise — every unit needs at least one "
+                "graded unfamiliar application")
+        for drill in transfer:
+            if drill.get("type") == "concept" or not drill.get("prompt"):
+                errors.append(
+                    f"{name} :: {drill.get('id')} :: transfer must be a graded "
+                    "exercise with an explicit scenario prompt")
+        if len(expansion) < 3:
+            errors.append(
+                f"{name} :: only {len(expansion)} diagram-expansion exercises — "
+                "every unit requires at least 3 new interactive diagrams")
+        for drill in expansion:
+            if drill.get("type") != "build_diagram" or not drill.get("viz"):
+                errors.append(
+                    f"{name} :: {drill.get('id')} :: diagramExpansion must be an "
+                    "interactive build_diagram with a viz")
+            # Reconstruction is useful retrieval practice, but the expansion
+            # pass exists to add learning—not clone a system_change and count
+            # it again. A new drill must pose its own task and explain what the
+            # learner inferred from this particular construction.
+            peers = [e for e in all_exercises if e.get("id") != drill.get("id")]
+            prompt = (drill.get("prompt") or "").strip()
+            unwrapped = prompt.removeprefix("Rebuild the repaired topology for: ").strip()
+            if any((e.get("prompt") or "").strip() in {prompt, unwrapped}
+                   for e in peers if e.get("prompt")):
+                errors.append(
+                    f"{name} :: {drill.get('id')} :: diagramExpansion repeats an "
+                    "existing prompt instead of adding a new architecture task")
+            why = (drill.get("why") or "").strip()
+            if why and any((e.get("why") or "").strip() == why for e in peers):
+                errors.append(
+                    f"{name} :: {drill.get('id')} :: diagramExpansion repeats an "
+                    "existing `why`; explain the new inference")
+
+        # A design studio must finish by making the learner inspect and revise a
+        # complete system. Component recognition alone is not a capstone. Keep
+        # this structural and mechanically testable; prose quality still needs
+        # review, but a studio cannot silently shrink back to three thin lessons.
+        is_design_studio = (d.get("unitId") or "").startswith("design-")
+        if is_design_studio:
+            lessons = d.get("lessons", [])
+            if len(lessons) < 4:
+                errors.append(
+                    f"{name} :: design studio has {len(lessons)} lessons — minimum 4, "
+                    "including a complete-system review")
+            if lessons:
+                final = lessons[-1]
+                title = (final.get("title") or "").lower()
+                types = {e.get("type") for e in final.get("exercises", [])}
+                required = {"concept", "system_change", "build_diagram", "multi_select"}
+                if "review" not in title:
+                    errors.append(
+                        f"{name} :: final lesson must be an explicit design review, got "
+                        f"{final.get('title')!r}")
+                missing_review = required - types
+                if missing_review:
+                    errors.append(
+                        f"{name} :: {final.get('id')} :: design review missing exercise "
+                        f"type(s) {sorted(missing_review)}")
 
         unit_field_tasks = 0
         for lesson in d.get("lessons", []):
@@ -572,6 +795,8 @@ def main():
 
             for e in exs:
                 total_ex += 1
+                if e.get("type") == "simulate":
+                    total_simulations += 1
                 check_exercise(n, name, lid, e)
                 if not quiet:
                     advisory(name, lid, e)
@@ -590,6 +815,10 @@ def main():
                 for frag in embed_fragments(e):
                     if frag and embed_form(frag) not in html:
                         err(name, lid, f"NOT IN PROTOTYPE EMBED: {frag[:70]!r}")
+
+    if total_simulations < 30:
+        errors.append(
+            f"only {total_simulations} causal simulations course-wide — course floor is 30")
 
     if total_field_tasks[0] > FIELD_TASK_MAX_TOTAL:
         errors.append(f"{total_field_tasks[0]} field tasks course-wide — max "

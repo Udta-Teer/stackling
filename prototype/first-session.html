@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Stackling — Your first system fix</title>
+<style>
+:root{--bg:#071522;--panel:#0d2438;--node:#12314b;--line:rgba(76,176,255,.25);--text:#eef5fc;--muted:#a9bdd1;--blue:#4cb0ff;--blue2:#1e5aa8;--amber:#ffb020;--green:#35d0a5;--red:#ff647f;--display:ui-rounded,"Avenir Next",Inter,system-ui,sans-serif;--mono:"SFMono-Regular",Consolas,monospace}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{width:min(100%,430px);margin:auto;padding:18px 16px calc(28px + env(safe-area-inset-bottom))}.top{display:flex;align-items:center;gap:9px;height:42px}.logo{width:34px;height:34px}.brand{font:850 18px var(--display)}.eyebrow{margin-top:28px;color:var(--blue);font:800 10px var(--mono);letter-spacing:.1em;text-transform:uppercase}h1{font:850 30px/1.08 var(--display);letter-spacing:-.035em;margin:8px 0 10px}#intro{margin:0 0 16px;color:#d0deeb;font-size:15px;line-height:1.5}.plain{color:#fff;font-weight:750}
+.diagram{height:276px;border:1px solid var(--line);border-radius:18px;background:var(--panel);position:relative;overflow:hidden}.node{position:absolute;width:92px;min-height:68px;padding:10px 6px;border:1.5px solid rgba(76,176,255,.42);background:var(--node);border-radius:13px;text-align:center;z-index:2;transition:.35s ease}.node b{font:750 14px var(--display);display:block}.node small{font:9px/1.45 var(--mono);color:var(--muted);display:block;margin-top:5px}.users{left:12px;top:87px}.balancer{left:50%;top:87px;transform:translateX(-50%) scale(.75);opacity:0}.server-a{right:12px;top:36px}.server-b{right:12px;top:137px}.node.over{border-color:var(--red);box-shadow:0 0 0 4px rgba(255,100,127,.1)}.node.idle{opacity:.58}.node.healthy{border-color:var(--green);box-shadow:0 0 0 4px rgba(53,208,165,.08)}.diagram.balanced .balancer{opacity:1;transform:translateX(-50%) scale(1)}.diagram.balanced .server-a,.diagram.balanced .server-b{opacity:1}.wire{position:absolute;height:2px;background:var(--blue);z-index:1;transform-origin:left center;transition:opacity .3s}.wire:after{content:"";position:absolute;right:-1px;top:-4px;border-left:7px solid var(--blue);border-top:4px solid transparent;border-bottom:4px solid transparent}.route{opacity:0}.diagram.balanced .direct{opacity:0}.diagram.balanced .route{opacity:.85}
+.status{position:absolute;left:12px;right:12px;bottom:11px;min-height:38px;border:1px solid rgba(255,100,127,.42);background:rgba(255,100,127,.08);border-radius:10px;padding:8px 10px;color:#e8f0f8;font-size:12px;line-height:1.35}.status strong{color:var(--red);font:800 10px var(--mono);letter-spacing:.05em}.status.success{border-color:rgba(53,208,165,.48);background:rgba(53,208,165,.08)}.status.success strong{color:var(--green)}
+.action{margin-top:12px}.action[hidden]{display:none}button,.continue{width:100%;min-height:52px;border:1px solid var(--blue);border-radius:13px;background:var(--blue2);color:#fff;font:800 15px Inter,system-ui,sans-serif;cursor:pointer}.continue{display:none;align-items:center;justify-content:center;text-decoration:none;margin-top:12px;background:var(--green);border-color:var(--green);color:#062219}.continue.show{display:flex}.why{display:none;margin:13px 2px 0;color:#d3e1ee;font-size:14px;line-height:1.5}.why.show{display:block}.why strong{color:#fff}button:focus-visible,.continue:focus-visible{outline:3px solid rgba(76,176,255,.3);outline-offset:2px}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="stack" viewBox="0 0 100 100"><rect x="16" y="66" width="68" height="15" rx="5" fill="#1e5aa8"/><rect x="25" y="47" width="50" height="15" rx="5" fill="#4cb0ff"/><rect x="30" y="12" width="40" height="30" rx="9" fill="#ffb020"/><circle cx="43" cy="27" r="4.4" fill="#071522"/><circle cx="57" cy="27" r="4.4" fill="#071522"/><circle cx="44.4" cy="25.6" r="1.4" fill="#fff"/><circle cx="58.4" cy="25.6" r="1.4" fill="#fff"/></symbol></svg>
+<main class="app">
+  <header class="top"><svg class="logo"><use href="#stack"/></svg><span class="brand">Stackling</span></header>
+  <div class="eyebrow" id="kicker">Your first system fix</div>
+  <h1 id="title">Server A is overloaded.</h1>
+  <p id="intro">Traffic is <span class="plain">90 requests/second</span>. Server A can handle <span class="plain">60</span>. Server B has the same capacity, but receives nothing.</p>
+  <section class="diagram" id="diagram" aria-label="All traffic goes to overloaded Server A while Server B is idle">
+    <div class="node users" id="users"><b>Users</b><small>90 req/s</small></div>
+    <div class="node balancer" id="lb"><b>Load balancer</b><small>splits traffic</small></div>
+    <div class="node server-a over" id="a"><b>Server A</b><small id="aLoad">90 in / 60 max</small></div>
+    <div class="node server-b idle" id="b"><b>Server B</b><small id="bLoad">0 in / 60 max</small></div>
+    <i class="wire direct" id="direct"></i><i class="wire route" id="toLb"></i><i class="wire route" id="toA"></i><i class="wire route" id="toB"></i>
+    <div class="status" id="verdict" role="status" aria-live="polite"><strong>30 REQUESTS/SECOND QUEUE</strong> · Server B is idle.</div>
+  </section>
+  <div class="action"><button id="action">Add a load balancer</button></div>
+  <p class="why" id="why"><strong>Why it worked:</strong> the load balancer did not create capacity. It made Server B’s existing capacity reachable.</p>
+  <a class="continue" id="continue" href="lesson.html#review">Continue learning</a>
+</main>
+<script>
+(()=>{
+const $=s=>document.querySelector(s),diagram=$('#diagram'),button=$('#action');let complete=false;
+function connect(line,from,to){const map=diagram.getBoundingClientRect(),a=from.getBoundingClientRect(),b=to.getBoundingClientRect();const x=a.right-map.left,y=a.top+a.height/2-map.top,tx=b.left-map.left,ty=b.top+b.height/2-map.top,dx=tx-x,dy=ty-y;line.style.left=x+'px';line.style.top=y+'px';line.style.width=Math.hypot(dx,dy)+'px';line.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`}
+function wires(){connect($('#direct'),$('#users'),$('#a'));connect($('#toLb'),$('#users'),$('#lb'));connect($('#toA'),$('#lb'),$('#a'));connect($('#toB'),$('#lb'),$('#b'))}
+function improve(){if(complete)return;complete=true;diagram.classList.add('balanced');diagram.setAttribute('aria-label','A load balancer sends 45 requests per second to each server; no requests queue');$('#a').classList.remove('over');$('#a').classList.add('healthy');$('#b').classList.remove('idle');$('#b').classList.add('healthy');$('#aLoad').textContent='45 in / 60 max';$('#bLoad').textContent='45 in / 60 max';$('#verdict').className='status success';$('#verdict').innerHTML='<strong>FIXED</strong> · All 90 req/s complete. Queue: 0.';$('#title').textContent='The queue is gone.';$('#intro').innerHTML='The load balancer sends <span class="plain">45 requests/second to each server</span>. Both stay below their 60 req/s capacity.';$('.action').hidden=true;$('#why').classList.add('show');$('#continue').classList.add('show');requestAnimationFrame(wires);try{localStorage.setItem('stackling-first-win','complete')}catch(_){}}
+button.addEventListener('click',improve);addEventListener('resize',wires);requestAnimationFrame(()=>requestAnimationFrame(wires));
+})();
+</script>
+</body>
+</html>

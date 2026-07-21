@@ -2,7 +2,7 @@
   "unitId": "checkpoint-storing-data",
   "tier": 1,
   "title": "Checkpoint: Storing Data",
-  "subtitle": "Mixing units 6–10 — the promises a database makes, and the ones it quietly doesn't",
+  "subtitle": "Apply data models, indexes, transactions, and replication across one storage design",
   "objectives": [
     "Recall storage fundamentals cold, without the cue of knowing which unit a question came from",
     "Connect indexes, transactions and replication into one story about a single write",
@@ -14,6 +14,212 @@
       "title": "Mixed recall",
       "exercises": [
         {
+          "id": "cp2-change-1",
+          "type": "system_change",
+          "prompt": "A read-heavy database leader is overloaded. Add two replicas and route stale-tolerant reads away from the leader.",
+          "actionLabel": "Route reads to replicas",
+          "beforeStatus": "LEADER · 30,000 reads/s · overloaded",
+          "afterStatus": "REPLICAS · 15,000 reads/s each · leader keeps writes",
+          "result": "Replication became read capacity",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "30k reads/s",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "l",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "writes",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "r1",
+                "label": "Replica A",
+                "sub": "15k reads/s",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "r2",
+                "label": "Replica B",
+                "sub": "15k reads/s",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "l",
+                "kind": "data"
+              },
+              {
+                "from": "l",
+                "to": "r1",
+                "kind": "data"
+              },
+              {
+                "from": "l",
+                "to": "r2",
+                "kind": "data"
+              },
+              {
+                "from": "a",
+                "to": "r1",
+                "kind": "data"
+              },
+              {
+                "from": "a",
+                "to": "r2",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Replicas can absorb stale-tolerant reads while the leader remains the write authority. Read-your-writes and freshness-sensitive operations need routing that accounts for replication lag."
+        },
+        {
+          "id": "checkpoint-storing-data-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Draw the failure path first; the disconnected or blocked part is evidence: A read-heavy database leader is overloaded. Add two replicas and route stale-tolerant reads away from the leader.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "l",
+                "sub": "30k reads/s",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "l",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Application",
+            "Leader",
+            "Replica A",
+            "Replica B"
+          ],
+          "answer": {
+            "a": "Application",
+            "l": "Leader"
+          },
+          "why": "The completed diagram contains these directed flows: Application → Leader. That topology is the evidence for the answer: Replicas can absorb stale-tolerant reads while the leader remains the write authority. Read-your-writes and freshness-sensitive operations need routing that accounts for replication lag.",
+          "connectEdges": true
+        },
+        {
+          "id": "checkpoint-storing-data-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: A read-heavy database leader is overloaded. Add two replicas and route stale-tolerant reads away from the leader. Place Leader, Replica A, Replica B. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "sub": "writes",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "r1",
+                "sub": "15k reads/s",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "r2",
+                "sub": "15k reads/s",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "r1",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "r2",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "r1",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "r2",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Leader",
+            "Replica A",
+            "Replica B",
+            "App Servers",
+            "Read Router"
+          ],
+          "answer": {
+            "l": "Leader",
+            "r1": "Replica A",
+            "r2": "Replica B"
+          },
+          "why": "The completed diagram contains these directed flows: Application → Leader; Leader → Replica A; Leader → Replica B; Application → Replica A; Application → Replica B. That topology is the evidence for the answer: Replicas can absorb stale-tolerant reads while the leader remains the write authority. Read-your-writes and freshness-sensitive operations need routing that accounts for replication lag."
+        },
+        {
           "id": "cp2-1-1",
           "type": "multiple_choice",
           "prompt": "You add an index to speed up a slow `SELECT`. Your `INSERT`s get slower. Why?",
@@ -24,7 +230,7 @@
             "It doesn't — that's a coincidence"
           ],
           "answer": 1,
-          "why": "An index is a second copy of some columns, kept in order. Every write to the table is now a write to the table *and* a write to each index on it, sometimes splitting a B-tree page to make room. That's the bill for the read speedup, and it's why 'add an index' isn't free and 'add twelve indexes' is a write-throughput problem you built on purpose. The rule of thumb worth carrying: indexes make reads faster and writes slower, so index the columns you filter on, not the columns you have.",
+          "why": "A B-tree index is a separate ordered structure containing indexed values and row references. Each `INSERT` must update the table and every affected index; an index update can also split a full tree page. Additional indexes can accelerate matching reads while consuming storage and reducing write throughput, so each index should support a demonstrated query pattern.",
           "hint": "What else has to stay correct when a row appears?"
         },
         {
@@ -38,7 +244,7 @@
             "cache"
           ],
           "answer": 0,
-          "why": "The write-ahead log is how durability gets to be fast. A random write to a data page scattered somewhere on disk is expensive; an append to the end of one sequential file is cheap. So the database makes the cheap durable write first, acknowledges you, and updates the real pages at its leisure — and if the power dies in between, it replays the log on startup. Notice that this same log is what replication ships to followers in Postgres: one mechanism, two jobs.",
+          "why": "The write-ahead log (WAL) records a change before the corresponding data pages are written. Appending and flushing the WAL establishes a durable recovery record; after a crash, the database replays committed log records whose data pages were not yet persisted. PostgreSQL can also stream WAL records to replicas, which replay the same changes in order.",
           "hint": "It's how a crash doesn't cost you an acknowledged write."
         },
         {
@@ -55,7 +261,7 @@
             0,
             3
           ],
-          "why": "This is check-then-act, and a transaction alone doesn't save you. At Read Committed two requests can both run the `SELECT`, both see nothing, and both `INSERT` — neither ever saw the other's uncommitted row, so nothing conflicted and you have two accounts. Serializable *does* catch it: Postgres takes a predicate lock on what you searched for, spots the read-write conflict, and aborts one transaction with a serialization error you must retry. The `UNIQUE` constraint is the cheaper answer, and the better one — it turns a race you have to reason about into an error the database hands you. Note it's an index doing that work, which is why 'indexes are just optimization' isn't quite true.",
+          "why": "A `UNIQUE` constraint makes the database reject a second committed row with the same email, including when inserts race. At Read Committed, two transactions can both observe no row and then insert because the initial check does not reserve the missing value. PostgreSQL Serializable tracks predicate read/write dependencies and aborts one unsafe execution, which the application must retry; the constraint is the direct invariant and should still be present.",
           "hint": "Two requests, both looking before they leap, at exactly the same moment."
         },
         {
@@ -69,7 +275,7 @@
             "Assuming Read Uncommitted; you get Read Uncommitted by default"
           ],
           "answer": 1,
-          "why": "Postgres defaults to Read Committed, and at that level every *statement* gets its own snapshot — so the same `SELECT`, run twice in one transaction, can legitimately return different rows if someone committed in between. That's a non-repeatable read, and it's the default. Repeatable Read gives you one snapshot for the whole transaction. The transferable lesson isn't the level names, it's the gap: your code carries an assumption, the database ships a default, and almost nobody checks whether the two agree. MySQL's InnoDB defaults to Repeatable Read, so the same code changes behaviour when you change engine.",
+          "why": "PostgreSQL defaults to Read Committed, where each statement reads from a snapshot taken at the start of that statement. A transaction can therefore run the same `SELECT` twice and observe a value committed between the statements; this is a non-repeatable read. Repeatable Read uses one transaction snapshot, so code requiring stable repeated reads must request that level or enforce the invariant another way.",
           "hint": "The default is weaker than the thing you're assuming."
         },
         {
@@ -83,7 +289,7 @@
             },
             {
               "left": "Asynchronous replication",
-              "right": "The leader acknowledges immediately; followers catch up after"
+              "right": "The leader can acknowledge after local durability without waiting for a follower"
             },
             {
               "left": "Replication lag",
@@ -94,7 +300,7 @@
               "right": "Promoting a follower when the leader is gone"
             }
           ],
-          "why": "The whole of replication is one trade, made twice. Synchronous means an acknowledged write is already on two machines, so failover loses nothing — and every write now pays the round trip to the follower, plus you're down if the follower is. Asynchronous means writes stay fast and a failover can lose whatever hadn't shipped yet. Lag is the visible size of that gap, and failover is the moment it stops being theoretical: promote a follower that's 200ms behind and 200ms of acknowledged writes are simply gone.",
+          "why": "With synchronous replication, the leader waits for the configured follower acknowledgement before reporting success, adding network and follower latency to the write path. With asynchronous replication, it does not wait for a follower, though it may still wait for its own write-ahead log to become durable. A promoted follower can therefore lack acknowledged writes that had not reached it. Replication lag measures that delay, and failover promotes a follower.",
           "hint": "Two of these are settings, one is a measurement, one is an event."
         },
         {
@@ -108,7 +314,7 @@
             "The replica blocks the read until it catches up"
           ],
           "answer": 1,
-          "why": "This is read-your-writes, and it's the first place replication stops being an ops detail and becomes a bug your users report. The write is committed and durable on the leader — nothing is broken — but the read went somewhere that hasn't heard about it yet, so the user watches their own change vanish. It's a nasty class of bug precisely because it's invisible in testing, where there's no lag. The usual fixes: send a user's reads to the leader for a few seconds after they write, or track the write position and require the replica to have reached it.",
+          "why": "The leader contains the committed profile update, while a replica that is 200ms behind still contains the previous version. If the reload is routed to that replica, the user can read the old profile and lose read-your-writes consistency. Systems that require this guarantee can temporarily route that user's reads to the leader or wait until a replica has applied at least the user's write position.",
           "hint": "Committed on the leader is not the same as visible where you're reading."
         }
       ]
@@ -143,11 +349,13 @@
             "edges": [
               {
                 "from": "a",
-                "to": "h1"
+                "to": "h1",
+                "kind": "request"
               },
               {
                 "from": "h1",
-                "to": "h2"
+                "to": "h2",
+                "kind": "request"
               }
             ]
           },
@@ -161,8 +369,57 @@
             "h1": "Leader",
             "h2": "Follower"
           },
-          "why": "Every write goes to exactly one leader — that's what makes the ordering unambiguous and the conflicts impossible. The leader then streams its write-ahead log to followers, which replay it. Reads can come from either, and *that* is the whole bargain: you got read capacity, and you paid for it with a window where a follower's answer is out of date. Notice the shape is one-directional. The moment you let writes into both boxes you've invented multi-leader replication and inherited conflict resolution, which is a genuinely harder problem than the one you were trying to solve.",
+          "why": "In leader–follower replication, clients send writes to the leader, which establishes their order and records them in its log. Followers receive and replay that log, and may serve reads after applying entries. Sending reads to asynchronously updated followers adds read capacity while permitting stale results; accepting writes at multiple leaders would require a separate conflict-detection and resolution design.",
           "hint": "Which box can never be wrong about the order of writes?"
+        },
+        {
+          "id": "checkpoint-storing-data-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Wire a leader–follower setup: writes must land in one place, and that place ships its log onward.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App Servers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Leader",
+            "Follower",
+            "Application",
+            "Replica A"
+          ],
+          "answer": {
+            "h1": "Leader",
+            "h2": "Follower"
+          },
+          "why": "The completed diagram contains these directed flows: App Servers → Leader; Leader → Follower. That topology is the evidence for the answer: In leader–follower replication, clients send writes to the leader, which establishes their order and records them in its log. Followers receive and replay that log, and may serve reads after applying entries. Sending reads to asynchronously updated followers adds read capacity while permitting stale results; accepting writes at multiple leaders would require a separate conflict-detection and resolution design."
         },
         {
           "id": "cp2-2-2",
@@ -199,16 +456,19 @@
             "edges": [
               {
                 "from": "app",
-                "to": "router"
+                "to": "router",
+                "kind": "request"
               },
               {
                 "from": "router",
-                "to": "leader"
+                "to": "leader",
+                "kind": "data"
               },
               {
                 "from": "router",
                 "to": "replicas",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
@@ -236,9 +496,9 @@
           },
           "answerRange": [
             84,
-            88
+            84
           ],
-          "why": "84% and the leader lives: 30,000 × 16% = 4,800. Now read what you actually just did. You didn't buy read capacity — you bought read capacity *in exchange for correctness*, and the slider told you the exchange rate. At 84% you have decided that roughly five out of every six reads in your product may be served from a copy that is 200ms out of date, and you have decided it globally, for every read, whether or not that read could tolerate it. That's the real skill: notice that a capacity dial and a consistency dial are the same dial, and that the interesting engineering is choosing *which* reads go left — a stale product listing is fine, a stale bank balance is a support ticket.",
+          "why": "At whole-percent precision, 83% still leaves 5,100 reads/second on the leader and exceeds its 5,000-request/second capacity. Sending the smallest valid share, 84%, to replicas leaves 16%, or 4,800 reads/second, on the leader. Replica routing should still be selected by freshness requirement.",
           "hint": "The leader's limit is fixed. The only free variable is what fraction never reaches it."
         },
         {
@@ -252,7 +512,7 @@
             "Read Committed prevents this"
           ],
           "answer": 1,
-          "why": "Both transactions read 100 before either wrote, both computed 90, both wrote 90. The balance ends at 90 after two withdrawals of 10, and no error was raised anywhere — the money is just gone. This is a lost update, and it happens because the *decision* was made in your application, outside the database's view. Read Committed doesn't stop it: neither transaction ever read uncommitted data or re-read a changed row, so nothing it protects against occurred. Three real fixes, in increasing order of cost: do the arithmetic in the database (`UPDATE ... SET balance = balance - 10`, atomic), take the row lock up front (`SELECT ... FOR UPDATE`), or move to Repeatable Read, where Postgres aborts the second `UPDATE` with a serialization failure you have to retry.",
+          "why": "Both transactions can read 100, compute 90 independently, and then write the same value, leaving a final balance of 90 after two withdrawals. This lost update occurs because the application writes a stale computed value. An atomic relative update such as `SET balance = balance - 10`, a row lock acquired before reading, or an isolation level that detects the conflicting update can preserve both changes; aborted transactions must be retried.",
           "hint": "Where does the subtraction actually happen?"
         },
         {
@@ -293,31 +553,38 @@
             "edges": [
               {
                 "from": "n0",
-                "to": "n1"
+                "to": "n1",
+                "kind": "request"
               },
               {
                 "from": "n1",
-                "to": "n2"
+                "to": "n2",
+                "kind": "data"
               },
               {
                 "from": "n2",
-                "to": "n3"
+                "to": "n3",
+                "kind": "data"
               }
             ]
           },
           "answer": 2,
-          "why": "A chain's throughput is its slowest link, and here that's the leader at 5,000 writes/s — everything upstream can deliver far more than it can take. Look at the box next to it before you move on. The followers replay at 9,000/s, so at the leader's ceiling they have only 4,000/s of slack — and that margin is what your replication lag lives in. Narrow it (a heavier write mix, a slow disk, a vacuum) and lag starts growing and doesn't shrink back on its own. Write capacity and replication lag are not independent numbers, which is why 'the leader can take 5k' is a more fragile claim than it looks.",
+          "why": "Every write passes through the leader, whose 5,000-writes/second capacity is the lowest in the path. Followers can replay 9,000 writes/second, leaving 4,000 writes/second of replay headroom while the leader is saturated. If follower replay capacity falls below the leader's write rate, unapplied log entries accumulate and replication lag grows until replay again exceeds incoming writes.",
           "hint": "Adding app servers can't help you past a number further down."
         },
         {
           "id": "cp2-2-5",
-          "type": "estimate",
-          "prompt": "A table has 1 billion rows. Its B-tree index has a fanout of about 500 (each node points at ~500 children). Roughly how many levels deep is the tree?",
-          "answer": 4,
-          "tolerance": 1,
-          "unit": "levels",
-          "why": "500³ = 125 million, which isn't enough; 500⁴ = 62.5 billion, which is plenty. So four levels covers a billion rows, and a lookup is about four page reads — most of which are cached, because the upper levels are tiny and get hit constantly. This is the number that should recalibrate you: growing from a million rows to a billion — a *thousandfold* — took the index from three levels to four. Depth grows logarithmically, so 'the table got huge, lookups must be slow now' is almost always wrong, and the real reason your query got slow is that it stopped using the index at all.",
-          "hint": "How many times do you multiply 500 by itself before you pass a billion?"
+          "type": "multiple_choice",
+          "prompt": "A B-tree with fanout 500 can address about 125 million entries at three levels and 62.5 billion at four. A table has 1 billion rows. What does this imply for an indexed point lookup?",
+          "choices": [
+            "The index needs four levels, so the lookup follows about four tree pages before reaching the row reference",
+            "The index must scan all 1 billion entries",
+            "The index needs hundreds of levels because the table has a billion rows",
+            "The index cannot represent a table larger than 125 million rows"
+          ],
+          "answer": 0,
+          "why": "Three levels cover only 125 million entries, while four cover 62.5 billion, so 1 billion entries require about four B-tree levels. A point lookup follows one branch per level, and upper pages are frequently cached because many lookups reuse them. High fanout keeps tree depth small as the table grows; query performance still depends on selectivity, page caching, and whether the query can use the index.",
+          "hint": "Use the supplied capacities and choose the first depth that covers 1 billion rows."
         },
         {
           "id": "cp2-2-6",
@@ -330,8 +597,22 @@
             "NoSQL avoids all of this"
           ],
           "answer": 1,
-          "why": "Every hard thing in this tier was a dial someone had already set for you. In Postgres, isolation defaults to Read Committed, so your check-then-insert races. Durability can be relaxed until an acknowledged write is a lie. Replication defaults to asynchronous, so your own writes can vanish from your own screen. None of those are bugs — they're deliberate trades of correctness for speed, chosen by people who couldn't know your product. 'Always use the strongest setting' is the tempting wrong answer: turning everything to maximum means synchronous commits, Serializable retries and leader-only reads, which is a correct system nobody can afford to run. The skill isn't picking the strongest setting, it's knowing which promise you just sold and what you got for it.",
+          "why": "Database behavior depends on configured guarantees. Isolation determines which concurrent histories are allowed, commit settings determine when durability is acknowledged, and replication mode determines when copies receive a write. Stronger settings add coordination, latency, blocking, or retries. Each application invariant and freshness requirement therefore needs an explicit matching guarantee and configuration.",
           "hint": "Every default in this tier was someone choosing speed on your behalf."
+        },
+        {
+          "id": "xfer-cp2",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A hospital writes a prescription transactionally to the leader, then a dashboard reads an asynchronous follower and briefly misses it. Which two properties are involved?",
+          "choices": [
+            "Atomic leader commit and replica freshness",
+            "DNS and CDN caching",
+            "Shard-key selection and rate limiting",
+            "HTTP safety and UDP ordering"
+          ],
+          "answer": 0,
+          "why": "The authoritative transaction can commit atomically while an asynchronous copy still lags. Transaction atomicity and replica freshness are separate guarantees."
         }
       ]
     }

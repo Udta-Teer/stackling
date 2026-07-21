@@ -2,7 +2,7 @@
   "unitId": "message-queues",
   "tier": 2,
   "title": "Message Queues & Async",
-  "subtitle": "Stop making the user wait for work they don't need to watch",
+  "subtitle": "Decouple producers from asynchronous work with buffering and explicit delivery semantics",
   "objectives": [
     "Decide what work belongs in the request and what belongs behind a queue",
     "Explain how a queue decouples producer from consumer and absorbs spikes",
@@ -17,7 +17,7 @@
         {
           "id": "mq-1-0",
           "type": "concept",
-          "title": "Anything your handler does before it responds is time the user spends watching a spinner",
+          "title": "Asynchronous processing defers work beyond the request-response cycle",
           "viz": {
             "nodes": [
               {
@@ -58,24 +58,213 @@
             "edges": [
               {
                 "from": "u",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               },
               {
                 "from": "s",
-                "to": "q"
+                "to": "q",
+                "kind": "event"
               },
               {
                 "from": "q",
-                "to": "w"
+                "to": "w",
+                "kind": "event"
               },
               {
                 "from": "w",
-                "to": "e"
+                "to": "e",
+                "kind": "request"
               }
             ]
           },
-          "body": "A handler runs top to bottom, and every line of it finishes before the response is sent. So if one of those lines calls something slow — a third-party API, say — that call is sitting in the user's path, and they are paying for work they will never look at. A queue breaks the chain: write down *send this email*, respond now, let a separate worker do it later.",
-          "note": "The test for what can move isn't how slow the work is. It's whether the user needs the result in order to continue. Slow work they're waiting on has to stay. Slow work nobody is watching can go."
+          "body": "A request handler can persist a job message to a queue and return after the queue accepts it. A separate worker later consumes the message and performs the slow operation, such as calling an email provider. Response latency includes job submission; job completion occurs later.",
+          "note": "Defer a task only when the response remains semantically correct before that task completes. Required request decisions must remain synchronous."
+        },
+        {
+          "id": "mq-change-1",
+          "type": "system_change",
+          "prompt": "An API waits 700ms for an email provider before responding. Put email delivery behind a durable queue.",
+          "actionLabel": "Queue the email job",
+          "beforeStatus": "API RESPONSE · approximately 780ms · request waits for email",
+          "afterStatus": "API RESPONSE · approximately 80ms · email continues asynchronously",
+          "result": "Slow email work left the request path",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "API",
+                "sub": "80ms",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "e",
+                "label": "Email provider",
+                "sub": "700ms",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "e",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "sub": "response 80ms",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "API",
+                "sub": "enqueue job",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "q",
+                "label": "Email queue",
+                "sub": "durable",
+                "col": 2,
+                "kind": "queue"
+              },
+              {
+                "id": "w",
+                "label": "Worker",
+                "sub": "send later",
+                "col": 3,
+                "kind": "server"
+              },
+              {
+                "id": "e",
+                "label": "Email provider",
+                "sub": "700ms",
+                "col": 4,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "q",
+                "kind": "event"
+              },
+              {
+                "from": "q",
+                "to": "w",
+                "kind": "event"
+              },
+              {
+                "from": "w",
+                "to": "e",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "A durable queue lets the API acknowledge accepted work without waiting for email delivery. The product must communicate that delivery is pending, and the worker needs retry and idempotency because a queued message can be delivered more than once."
+        },
+        {
+          "id": "message-queues-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: An API waits 700ms for an email provider before responding. Put email delivery behind a durable queue. Place API, Email queue, Worker. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "sub": "response 80ms",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "sub": "enqueue job",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "q",
+                "sub": "durable",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "w",
+                "sub": "send later",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "e",
+                "label": "Email provider",
+                "sub": "700ms",
+                "col": 4,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "q",
+                "kind": "request"
+              },
+              {
+                "from": "q",
+                "to": "w",
+                "kind": "request"
+              },
+              {
+                "from": "w",
+                "to": "e",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "API",
+            "Email queue",
+            "Worker",
+            "API Server",
+            "Queue"
+          ],
+          "answer": {
+            "a": "API",
+            "q": "Email queue",
+            "w": "Worker"
+          },
+          "why": "The completed diagram contains these directed flows: User → API; API → Email queue; Email queue → Worker; Worker → Email provider. That topology is the evidence for the answer: A durable queue lets the API acknowledge accepted work without waiting for email delivery. The product must communicate that delivery is pending, and the worker needs retry and idempotency because a queued message can be delivered more than once.",
+          "connectEdges": true
         },
         {
           "id": "mq-1-1",
@@ -88,7 +277,7 @@
             "It happens in the background automatically"
           ],
           "answer": 1,
-          "why": "The response can't return until the handler finishes, so the user waits for every line of it — including a slow call to a service they'll never see the result of. Worse, you've coupled signup's availability to the email provider's: if that API is down, your handler fails and nobody can sign up at all, over an email."
+          "why": "A synchronous handler returns only after all of its calls finish. The 2-second email API therefore dominates signup latency, and an email-provider outage also makes signup fail because that dependency remains on the request path."
         },
         {
           "id": "mq-1-2",
@@ -101,7 +290,7 @@
             "replica"
           ],
           "answer": 0,
-          "why": "You write the job down somewhere durable and return immediately; something else picks it up and does it. The user's request stops being 'do the work' and becomes 'record that the work is needed'."
+          "why": "A message queue durably records that work is required. The request can return after enqueueing, while a separate consumer later retrieves and performs the job."
         },
         {
           "id": "mq-1-3",
@@ -109,12 +298,12 @@
           "prompt": "Order what happens when signup sends the welcome email asynchronously.",
           "steps": [
             "User submits signup",
-            "Server creates the account",
-            "Server puts a 'send welcome email' message on the queue",
-            "Server responds — user is done in ~25ms",
+            "One database transaction stores the account and a welcome-email outbox record",
+            "Server responds after that transaction commits",
+            "An outbox dispatcher publishes the durable email job to the queue",
             "A worker picks the message up and calls the email API"
           ],
-          "why": "The user's request now ends the moment the job is recorded, and the slow part happens on someone else's clock. Note the ordering that matters: the response goes out BEFORE the email is sent, which is precisely the trade — the user gets 25ms, and in exchange the email is a promise rather than a fact."
+          "why": "The account and outbox record commit atomically before success, so a crash cannot leave an acknowledged account with no durable email intent. A dispatcher may publish the outbox record more than once, so the queue consumer still needs a stable delivery identity and retry-safe provider handling."
         },
         {
           "id": "mq-1-4",
@@ -131,7 +320,7 @@
             1,
             3
           ],
-          "why": "Emails, reports, and video encoding are slow, the user isn't watching the result, and a few seconds' delay costs nothing. The password check is the opposite on every count: the user is waiting on that exact answer, and deferring it is meaningless because there's nothing to return without it. The test is simply whether the user needs the result to continue."
+          "why": "Email, report generation, and video encoding can finish after the request because their results are not required to continue the interaction. Login requires the password result before the server can decide whether to authenticate, so that check must remain synchronous."
         },
         {
           "id": "mq-1-5",
@@ -144,7 +333,7 @@
             "Account creation reliability"
           ],
           "answer": 1,
-          "why": "Async converts a synchronous fact into a promise — at the moment you respond, the work has not happened, and you're asserting it will. That's fine for a welcome email and unacceptable for 'your payment succeeded', so the question is always what happens if this promise is broken and nobody's watching. Answer it before you defer the work, not during the incident."
+          "why": "An asynchronous response confirms that the job was accepted, although execution may be delayed or may fail later. This weaker completion guarantee is suitable only when the product can tolerate delayed results and has retry, monitoring, and failure-recovery paths."
         },
         {
           "id": "mq-1-6",
@@ -157,7 +346,7 @@
             "Users get an error"
           ],
           "answer": 1,
-          "why": "The queue is a buffer between two systems that no longer have to be healthy at the same moment — a dead provider stops emails from being SENT without stopping them from being ACCEPTED. That decoupling is often worth more than the latency win: the failure of a non-essential dependency stops taking down an essential path."
+          "why": "The queue durably stores accepted email jobs during the provider outage. Signup can continue after a successful enqueue because email delivery runs asynchronously. When the provider recovers, consumers drain the backlog subject to retry, rate, and capacity controls."
         }
       ]
     },
@@ -168,7 +357,7 @@
         {
           "id": "mq-2-0",
           "type": "concept",
-          "title": "The message belongs to the queue until a worker says it's done",
+          "title": "An acknowledgement-based queue can redeliver unfinished work",
           "viz": {
             "nodes": [
               {
@@ -207,48 +396,165 @@
             "edges": [
               {
                 "from": "p",
-                "to": "q"
+                "to": "q",
+                "kind": "event"
               },
               {
                 "from": "q",
-                "to": "w1"
+                "to": "w1",
+                "kind": "event"
               },
               {
                 "from": "q",
-                "to": "w2"
+                "to": "w2",
+                "kind": "event"
               },
               {
                 "from": "q",
-                "to": "w3"
+                "to": "w3",
+                "kind": "event"
               }
             ]
           },
-          "body": "The *producer* puts a message on the queue and moves on. The queue stores it durably. A *consumer* — a worker — pulls it off, does the work, then sends an *acknowledgement*: done, delete it. Look closely at that last step. The queue learns nothing about the work itself, only that one signal — and only ever from a worker that lived long enough to send it.",
-          "note": "That buffer is what makes a spike survivable: arrivals may exceed the workers for a while, because a while ends. Everything here rests on that last clause, and the queue will never tell you when it stopped being true."
+          "body": "In an acknowledgement-based queue, a consumer claims a durable message and acknowledges successful processing. If the claim expires first, the message becomes eligible for redelivery. Retention limits and dead-letter policies may remove or relocate it without successful processing.",
+          "note": "A queue absorbs a temporary spike only while long-run consumer throughput exceeds arrival rate. Otherwise, backlog age and depth grow continuously."
+        },
+        {
+          "id": "message-queues-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: An acknowledgement-based queue can redeliver unfinished work",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Producer",
+                "col": 0,
+                "kind": "server",
+                "sub": "API server"
+              },
+              {
+                "id": "q",
+                "col": 1,
+                "sub": "durable",
+                "hole": true
+              },
+              {
+                "id": "w1",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "w2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "w3",
+                "label": "Worker 3",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "q",
+                "kind": "request"
+              },
+              {
+                "from": "q",
+                "to": "w1",
+                "kind": "request"
+              },
+              {
+                "from": "q",
+                "to": "w2",
+                "kind": "request"
+              },
+              {
+                "from": "q",
+                "to": "w3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Queue",
+            "Worker 1",
+            "Worker 2",
+            "User",
+            "API Server"
+          ],
+          "answer": {
+            "q": "Queue",
+            "w1": "Worker 1",
+            "w2": "Worker 2"
+          },
+          "why": "In an acknowledgement-based queue, a consumer claims a durable message and acknowledges successful processing. If the claim expires first, the message becomes eligible for redelivery. Retention limits and dead-letter policies may remove or relocate it without successful processing. A queue absorbs a temporary spike only while long-run consumer throughput exceeds arrival rate. Otherwise, backlog age and depth grow continuously."
         },
         {
           "id": "mq-2-1",
-          "type": "match_pairs",
-          "prompt": "Match each part of a queue system.",
-          "pairs": [
-            {
-              "left": "Producer",
-              "right": "Puts messages on the queue"
-            },
-            {
-              "left": "Consumer / worker",
-              "right": "Takes messages off and does the work"
-            },
-            {
-              "left": "The queue",
-              "right": "Durable storage for work not yet done"
-            },
-            {
-              "left": "Acknowledgement",
-              "right": "The worker confirming it finished"
-            }
+          "type": "build_diagram",
+          "prompt": "Build the upload path so a traffic spike waits durably and video encoding scales independently of the API.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "api",
+                "label": "Upload API",
+                "sub": "accepts quickly",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "buffer",
+                "sub": "durable backlog",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "workers",
+                "sub": "claim + encode",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "files",
+                "label": "Video Storage",
+                "sub": "encoded files",
+                "col": 3,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "api",
+                "to": "buffer",
+                "kind": "request"
+              },
+              {
+                "from": "buffer",
+                "to": "workers",
+                "kind": "request"
+              },
+              {
+                "from": "workers",
+                "to": "files",
+                "kind": "data"
+              }
+            ]
+          },
+          "palette": [
+            "Message Queue",
+            "Encoder Worker Pool",
+            "Read Replica",
+            "Load Balancer"
           ],
-          "why": "Producers and consumers never speak to each other — they only touch the queue, which is what lets them be deployed, scaled, and broken independently. The acknowledgement is the load-bearing piece: without it the queue can't distinguish 'done' from 'the worker died holding it'."
+          "answer": {
+            "buffer": "Message Queue",
+            "workers": "Encoder Worker Pool"
+          },
+          "why": "The upload API places each encoding job on the durable queue, and an independently scaled worker pool claims jobs before writing encoded files. If a worker crashes before acknowledging its job, the queue can redeliver it; without duplicate-safe output handling, that recovery path can create the same encoded result twice."
         },
         {
           "id": "mq-2-2",
@@ -261,20 +567,16 @@
             "The workers speed up automatically"
           ],
           "answer": 1,
-          "why": "A queue turns a spike in arrival rate into a spike in queue DEPTH rather than a spike in failures, which is the whole reason to buffer: the users' side stays fast and the backlog just gets longer for a while. That only works if the average rate is sustainable, though — a buffer smooths bursts, and nothing can smooth a permanent excess."
+          "why": "The queue absorbs the temporary difference between arrival rate and encoder service rate, so queue depth rises while uploads remain acceptable. The backlog drains only when later service capacity exceeds arrivals; a sustained excess rate causes unbounded growth."
         },
         {
           "id": "mq-2-3",
-          "type": "multiple_choice",
-          "prompt": "Your queue depth has been growing steadily for six hours. What does that mean?",
-          "choices": [
-            "The buffer is working as intended",
-            "Arrivals are outpacing your workers — this isn't a burst being absorbed, it's a deficit compounding, and it will never recover on its own",
-            "The queue is too small",
-            "Messages are being lost"
-          ],
-          "answer": 1,
-          "why": "A queue absorbing a burst rises and then falls; a queue that only rises means arrival rate exceeds service rate, and no amount of waiting fixes that — the gap compounds every second. Depth is therefore your key signal, and its DERIVATIVE is what matters: rising and returning is healthy, monotonically rising means add workers or shed load, now."
+          "type": "estimate",
+          "prompt": "Jobs arrive at 1,200/sec while workers process 1,000/sec for 10 minutes. Arrivals then fall to 800/sec while workers stay at 1,000/sec. About how many minutes will the accumulated backlog take to drain?",
+          "answer": 10,
+          "tolerance": 0,
+          "unit": "minutes",
+          "why": "The queue grows by 200 jobs/sec for 600 seconds, accumulating 120,000 jobs. After arrivals fall, workers have 1,000 − 800 = 200 jobs/sec of spare capacity, so draining takes 120,000 ÷ 200 = 600 seconds, or 10 minutes."
         },
         {
           "id": "mq-2-4",
@@ -287,7 +589,7 @@
             "Reduce the message size"
           ],
           "answer": 1,
-          "why": "Queued work is usually the ideal horizontal case from unit 11: each message is independent, so two workers never coordinate and ten workers do ten times the work. A bigger queue just gives you more room to fall behind — it changes when you notice the problem, not whether you have one."
+          "why": "Independent messages can be distributed across additional consumers, increasing aggregate processing rate until another dependency becomes the bottleneck. Enlarging the queue adds storage for backlog but does not increase service rate."
         },
         {
           "id": "mq-2-5",
@@ -300,7 +602,7 @@
             "Log an error and move on"
           ],
           "answer": 1,
-          "why": "This is exactly why acknowledgement exists: the queue holds the message as in-flight and only deletes it when a worker confirms success, so a crash means the ack never arrives and the message becomes available again. That in-flight message is state the system must not lose — the same point unit 5 made about work-in-progress — and it's why real queues persist messages to disk rather than holding them in memory."
+          "why": "The queue keeps an unacknowledged message in an in-flight state. If the acknowledgement does not arrive before the visibility timeout, the queue makes the durable message available for another consumer, preventing a worker crash from losing the job."
         },
         {
           "id": "mq-2-6",
@@ -313,7 +615,182 @@
             "Only for small messages"
           ],
           "answer": 1,
-          "why": "The encoding still takes its two minutes; you've moved it off the user's clock, not shortened it. This is unit 4's split, sharpened: async improves perceived latency and throughput under bursts while slightly worsening end-to-end latency for the task itself — which is a superb trade exactly when nobody is watching the task."
+          "why": "Queueing removes encoding from the request's critical path but does not reduce its processing time. Waiting in the backlog can increase job completion latency even while the upload response becomes faster and burst handling improves."
+        }
+      ]
+    },
+    {
+      "id": "mq-backlog-sim",
+      "title": "Watch backlog compound over time",
+      "exercises": [
+        {
+          "id": "mq-backlog-sim-card",
+          "type": "concept",
+          "title": "Backlog change equals arrivals minus completions",
+          "body": "When 3,000 jobs arrive each second and workers finish 2,500, the queue grows by 500 jobs every second. Matching rates stops additional growth; draining existing backlog requires completion capacity above the current arrival rate.",
+          "note": "Queue depth is stored waiting time. At 3,000 jobs/sec, 60,000 queued jobs represent about 20 seconds of arrivals."
+        },
+        {
+          "id": "mq-backlog-sim-0",
+          "type": "simulate",
+          "prompt": "A queue receives 3,000 jobs/sec. Each worker completes 500/sec. Over two minutes, choose the *fewest* workers that stop backlog growth.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Queue arrivals",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "workers",
+                "label": "Workers",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "backlog",
+                "label": "Backlog after 120 sec",
+                "col": 2,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "workers",
+                "kind": "event"
+              },
+              {
+                "from": "workers",
+                "to": "backlog",
+                "kind": "event"
+              }
+            ]
+          },
+          "sim": {
+            "input": 3000,
+            "inputLabel": "Jobs/sec",
+            "chain": [
+              "workers",
+              "backlog"
+            ],
+            "capacity": {
+              "backlog": 0
+            },
+            "watch": "backlog",
+            "watchLabel": "New queued jobs",
+            "absorb": {
+              "node": "workers",
+              "label": "Workers online",
+              "min": 1,
+              "max": 10,
+              "start": 1,
+              "unit": " workers"
+            },
+            "model": {
+              "kind": "queue",
+              "duration": 120,
+              "servicePerUnit": 500
+            }
+          },
+          "answerRange": [
+            6,
+            6
+          ],
+          "why": "Five workers finish 2,500 jobs/sec, leaving 500/sec to queue—60,000 jobs after two minutes. Six workers match the 3,000/sec arrival rate, so new backlog stops growing but existing backlog does not drain."
+        }
+      ]
+    },
+    {
+      "id": "mq-sim",
+      "title": "Partition work across consumer capacity",
+      "exercises": [
+        {
+          "id": "mq-sim-0",
+          "type": "concept",
+          "title": "A queue buffers a rate mismatch; it does not erase it",
+          "body": "If 3,000 jobs arrive each second and one worker pool completes 1,800, backlog grows by 1,200 jobs every second. Assigning partitions to another pool can absorb the excess, but total consumer and downstream capacity must at least match sustained arrivals.",
+          "note": "Temporary bursts may queue safely. A permanent rate deficit creates unbounded waiting and storage growth."
+        },
+        {
+          "id": "mq-sim-1",
+          "type": "simulate",
+          "prompt": "Jobs arrive at 3,000/sec. Worker Pool A handles 1,800/sec. Drag the *smallest* share of partitions to Pool B that prevents Pool A's backlog from growing.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Partitioned queue",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "assign",
+                "label": "Partition assignment",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Worker Pool A",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Worker Pool B",
+                "sub": "shifted partitions",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "assign",
+                "kind": "event"
+              },
+              {
+                "from": "assign",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "assign",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "sim": {
+            "input": 3000,
+            "inputLabel": "Jobs/sec",
+            "chain": [
+              "assign",
+              "a"
+            ],
+            "capacity": {
+              "assign": 10000,
+              "a": 1800
+            },
+            "watch": "a",
+            "watchLabel": "Pool A arrivals",
+            "absorb": {
+              "node": "assign",
+              "label": "Share assigned to Pool B",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            40,
+            40
+          ],
+          "why": "At 40%, Pool B receives 1,200 jobs/sec and Pool A receives 1,800, exactly its capacity. Below 40%, Pool A's arrival rate exceeds completion rate and its partition backlog continues growing."
         }
       ]
     },
@@ -324,9 +801,9 @@
         {
           "id": "mq-3-0",
           "type": "concept",
-          "title": "The queue can't tell 'the work is done' apart from 'the ack got lost'",
-          "body": "A worker acks to say *done, delete it*. When no ack arrives, the queue is left holding a question it has no way to answer: did that worker die before doing the work, or after? From the outside those are identical. So it has to pick an assumption — and whichever one it picks, a particular kind of accident becomes possible forever, by design.",
-          "note": "Whatever a queue guarantees, it guarantees about *delivery* — the message arriving. Your worker's side effects are elsewhere, on another machine, with their own idea of 'happened'. No queue has an opinion on those."
+          "title": "Acknowledgement loss makes at-least-once delivery produce duplicates",
+          "body": "A queue observes message delivery and acknowledgements, not the consumer's external side effects. If a consumer completes an operation and crashes before acknowledging it, the queue redelivers the unacknowledged message. This is the duplicate path in at-least-once delivery.",
+          "note": "Consumers need duplicate-safe side effects. A stable operation identifier lets a downstream store recognize a repeated request and reuse its first result."
         },
         {
           "id": "mq-3-1",
@@ -339,7 +816,7 @@
             "It goes to an error log"
           ],
           "answer": 1,
-          "why": "The queue can only observe acknowledgements, not outcomes, so 'work done but unacked' and 'worker died before starting' look identical from outside — and it must assume the pessimistic one. That gap is unavoidable rather than a bug in any particular queue: there's no way to make finishing the work and confirming it a single atomic act across two machines."
+          "why": "The queue observes only the missing acknowledgement, so completed-but-unacknowledged work is indistinguishable from uncompleted work. It redelivers to avoid loss, creating a duplicate because the side effect and acknowledgement are not one atomic operation."
         },
         {
           "id": "mq-3-2",
@@ -348,22 +825,22 @@
           "pairs": [
             {
               "left": "At-most-once",
-              "right": "May be lost, never repeated"
+              "right": "Zero or one processing attempt; loss is possible"
             },
             {
               "left": "At-least-once",
-              "right": "Never lost, may be repeated"
+              "right": "Redeliver until acknowledgement while the durable message remains retained; duplicates are possible"
             },
             {
-              "left": "Exactly-once",
-              "right": "The one everyone wants"
+              "left": "Exactly-once processing",
+              "right": "One committed effect inside a stated transactional boundary"
             },
             {
               "left": "The common default",
-              "right": "At-least-once"
+              "right": "At-least-once delivery plus an idempotent consumer"
             }
           ],
-          "why": "You're choosing which failure to accept: ack before working risks losing the job, ack after working risks doing it twice. Almost every real queue defaults to at-least-once because losing work is usually worse than repeating it — which quietly makes duplicate handling your problem."
+          "why": "At-most-once can lose work when acknowledgement precedes processing. At-least-once retries unacknowledged work within the broker's durability and retention contract, but a crash after the effect and before acknowledgement creates a duplicate. Exactly-once claims must name the transaction boundary in which one committed effect is enforced."
         },
         {
           "id": "mq-3-3",
@@ -376,20 +853,20 @@
             "Retries must be disabled"
           ],
           "answer": 1,
-          "why": "At-least-once means the duplicate isn't a rare accident, it's a documented behaviour that will happen — so a non-idempotent worker on a durable queue is a billing incident waiting for a network blip. For a charge specifically, the fix has to reach the payment provider: derive a stable idempotency key from the message id and pass it in the API call, so the provider collapses the duplicate. A local 'already processed' table isn't enough here — your record and the charge are two different systems, so a crash after the charge but before the record leaves redelivery seeing nothing and charging again. That's the dual-write problem lesson 4 is about, and it's why a local dedup table only works when the record and the effect land in the same transaction, which a third-party charge never does."
+          "why": "At-least-once delivery can invoke the charge more than once. The worker must send the same idempotency key on every attempt so the payment provider records one logical charge and returns its prior result for duplicates. A local deduplication row cannot close the crash gap when that row and the external charge are separate writes."
         },
         {
           "id": "mq-3-4",
           "type": "multiple_choice",
-          "prompt": "Vendors advertise 'exactly-once delivery'. What's actually going on?",
+          "prompt": "A stream transaction atomically consumes an input record and writes its output record, but the handler also charges a credit card through an external API. What is the exactly-once boundary?",
           "choices": [
-            "They solved distributed systems",
-            "Delivery can't truly be exactly-once across a network, so what's offered is at-least-once delivery plus deduplication — exactly-once EFFECTS, not exactly-once delivery",
-            "It only works for small messages",
-            "It's a straightforward feature"
+            "The stream input and output records; the external charge still needs an idempotency key",
+            "The transaction automatically includes the credit-card provider",
+            "Only the network packet carrying the input record",
+            "There is no meaningful exactly-once boundary anywhere"
           ],
-          "answer": 1,
-          "why": "The message may genuinely arrive twice; the system just remembers it saw that id and discards the repeat, which is deduplication wearing a better name. That's a real and useful feature, with real limits — the dedup window is finite, and it only covers the queue's own boundary, so a side effect your worker performs on a third party is still yours to make idempotent."
+          "answer": 0,
+          "why": "The stream system can commit consumption and output production in one transaction, providing exactly-once processing inside that boundary. It cannot atomically roll back an external card charge, so retries still need a stable idempotency key or the provider may charge twice."
         },
         {
           "id": "mq-3-5",
@@ -402,7 +879,7 @@
             "A backlog; scale up"
           ],
           "answer": 1,
-          "why": "Some messages can never succeed — malformed payloads, a referenced row that's been deleted — and retrying them forever burns capacity while hiding the failure in noise. A dead-letter queue bounds the damage by giving up after N attempts and setting the message aside intact, which turns an infinite loop into a queue you can actually go and look at."
+          "why": "A poison message fails deterministically, so retries consume worker capacity without changing the outcome. After a configured attempt limit, a dead-letter queue isolates the original message for inspection or repair while allowing later work to proceed."
         },
         {
           "id": "mq-3-6",
@@ -415,7 +892,89 @@
             "A rate limiter"
           ],
           "answer": 1,
-          "why": "Immediate retries mean a struggling dependency gets MORE traffic precisely when it needs less, and every retry makes recovery less likely — the classic retry storm. Exponential backoff with jitter is the fix: wait longer after each failure, and randomize so a thousand workers don't retry in perfect unison, which was the 429 lesson from unit 2 now applied on your own side of the wire."
+          "why": "Immediate retries multiply traffic to an already failing dependency and can prevent recovery; this feedback loop is a retry storm. Exponential backoff increases the delay after each failure, while jitter randomizes retry times so workers do not synchronize."
+        }
+      ]
+    },
+    {
+      "id": "mq-redelivery-sim",
+      "title": "Redelivery multiplies consumer attempts",
+      "exercises": [
+        {
+          "id": "mq-redelivery-sim-card",
+          "type": "concept",
+          "title": "At-least-once delivery spends extra attempts to avoid silent loss",
+          "body": "A missing acknowledgement cannot reveal whether work finished before a crash. Redelivery protects against loss, but deterministic failures can consume workers forever unless retries are bounded and poison records are quarantined.",
+          "note": "Idempotency controls duplicate effects; it does not control retry traffic."
+        },
+        {
+          "id": "mq-redelivery-sim-0",
+          "type": "simulate",
+          "prompt": "The queue has 5,000 distinct jobs/sec. Failures would redeliver 60% once; consumers handle 6,500 attempts/sec. Drag the *smallest* retry share prevented by fixing poison jobs and bounded retries.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Distinct jobs",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "policy",
+                "label": "Retry + quarantine policy",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "workers",
+                "label": "Consumer attempts",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "policy",
+                "kind": "event"
+              },
+              {
+                "from": "policy",
+                "to": "workers",
+                "kind": "request"
+              }
+            ]
+          },
+          "sim": {
+            "input": 5000,
+            "inputLabel": "Distinct jobs/sec",
+            "chain": [
+              "policy",
+              "workers"
+            ],
+            "capacity": {
+              "workers": 6500
+            },
+            "watch": "workers",
+            "watchLabel": "Attempts/sec",
+            "absorb": {
+              "node": "policy",
+              "label": "Potential redeliveries prevented",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            },
+            "model": {
+              "kind": "retry",
+              "retryFraction": 0.6
+            }
+          },
+          "answerRange": [
+            50,
+            50
+          ],
+          "why": "One retry for 60% raises load to 8,000 attempts/sec. Preventing half of those potential retries leaves 6,500. Idempotency protects effects; quarantine and retry limits protect capacity."
         }
       ]
     },
@@ -426,7 +985,7 @@
         {
           "id": "mq-4-0",
           "type": "concept",
-          "title": "The queue is ordered; your workers are not",
+          "title": "Parallel consumers can complete ordered messages out of order",
           "viz": {
             "nodes": [
               {
@@ -461,24 +1020,98 @@
             "edges": [
               {
                 "from": "q",
-                "to": "w1"
+                "to": "w1",
+                "kind": "event"
               },
               {
                 "from": "q",
-                "to": "w2"
+                "to": "w2",
+                "kind": "event"
               },
               {
                 "from": "w1",
-                "to": "d"
+                "to": "d",
+                "kind": "data"
               },
               {
                 "from": "w2",
-                "to": "d"
+                "to": "d",
+                "kind": "data"
               }
             ]
           },
-          "body": "Even a queue that hands messages out in order loses that order the instant two workers run at once. Two updates to the same row get pulled a millisecond apart by different workers, and each one finishes when it finishes. *Last write wins* means the last write to *land* — which need not be the last one you sent.",
-          "note": "And nothing anywhere reports it. No error, no retry, no alert: the row simply holds a value, the pipeline is 'healthy', and your only evidence that anything went wrong is a user insisting they changed it."
+          "body": "A queue may deliver messages in sequence while multiple consumers process them concurrently. If consumer A receives the first update and runs slowly while consumer B quickly applies the second, B can finish first and A can overwrite it later.",
+          "note": "Without per-entity ordering, a stale update can overwrite newer state without producing a processing error, retry, or queue alert."
+        },
+        {
+          "id": "message-queues-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Parallel consumers can complete ordered messages out of order",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Queue",
+                "col": 0,
+                "kind": "queue",
+                "sub": "in order"
+              },
+              {
+                "id": "w1",
+                "col": 1,
+                "sub": "takes the 1st",
+                "hole": true
+              },
+              {
+                "id": "w2",
+                "col": 1,
+                "sub": "takes the 2nd",
+                "hole": true
+              },
+              {
+                "id": "d",
+                "col": 2,
+                "sub": "whichever lands last",
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "w1",
+                "kind": "event"
+              },
+              {
+                "from": "q",
+                "to": "w2",
+                "kind": "event"
+              },
+              {
+                "from": "w1",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "w2",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Worker 1",
+            "Worker 2",
+            "Database",
+            "User",
+            "API Server"
+          ],
+          "answer": {
+            "w1": "Worker 1",
+            "w2": "Worker 2",
+            "d": "Database"
+          },
+          "why": "A queue may deliver messages in sequence while multiple consumers process them concurrently. If consumer A receives the first update and runs slowly while consumer B quickly applies the second, B can finish first and A can overwrite it later. Without per-entity ordering, a stale update can overwrite newer state without producing a processing error, retry, or queue alert."
         },
         {
           "id": "mq-4-1",
@@ -491,7 +1124,7 @@
             "Both are applied, ending at B"
           ],
           "answer": 1,
-          "why": "Parallel workers give you no ordering: two messages in flight at once finish whenever they finish, and 'last write wins' means whichever finishes last, not whichever was sent last. Concurrency bought throughput and spent ordering — and the corruption is silent, since nothing errors and the row just holds a stale value forever."
+          "why": "Parallel consumers may complete messages in a different order from publication. If email A finishes after email B, last-write-wins storage leaves A as the final value even though B was the later command."
         },
         {
           "id": "mq-4-2",
@@ -499,12 +1132,12 @@
           "prompt": "You need those two updates to stay in order. What's the standard approach?",
           "choices": [
             "Use one worker for everything",
-            "Partition by a key — route all messages for a given user to the same partition, so that user's messages are ordered while different users still process in parallel",
+            "Use an ordered partition keyed by user and allow only one in-flight message per user, or reject stale sequence numbers",
             "Add timestamps and hope",
             "Disable retries"
           ],
           "answer": 1,
-          "why": "Global ordering means one consumer and no parallelism at all, which throws away the reason you queued the work. Per-key ordering is the useful compromise: order is only guaranteed where you actually need it, and unrelated users remain fully parallel. Note this is unit 15's shard key wearing another hat — you're choosing what must be co-located to stay consistent."
+          "why": "Keyed partitioning puts one user's messages in one broker-ordered sequence, but concurrent handling or retries can still reorder effects. Serial per-key processing or sequence-number checks preserve effect order; a slow or repeatedly failing message then blocks later work for that key, creating head-of-line blocking."
         },
         {
           "id": "mq-4-3",
@@ -517,7 +1150,7 @@
             "The database rolls back"
           ],
           "answer": 1,
-          "why": "A database transaction and a queue publish are two systems, so unit 9's boundary applies: you cannot make both happen atomically by wrapping them in a `BEGIN`. This is the dual-write problem, and the usual answer is the transactional outbox — write the message into a table inside the same transaction as your data change, then have a separate process read that table and publish. One atomic write, and publishing becomes at-least-once delivery from a durable record."
+          "why": "The database update and queue publish are a dual write: a crash between them can commit the data without emitting its event. A transactional outbox writes the data and an outbox row in one database transaction; a relay then publishes that durable row with at-least-once delivery."
         },
         {
           "id": "mq-4-4",
@@ -534,19 +1167,70 @@
             1,
             2
           ],
-          "why": "Duplicates come from at-least-once, ordering is surrendered to parallelism, and failures now happen minutes later in a different process with no user waiting to notice — you have to go looking. The user's request gets FASTER, which is the whole point; you paid for it in complexity that lives entirely on your side."
+          "why": "At-least-once delivery permits duplicates, parallel consumers can reorder work, and asynchronous failures occur after the original request completes. A correct queued design therefore needs idempotent consumers, explicit ordering for order-sensitive operations, retry and dead-letter policies, and monitoring. Moving work off the request path can reduce response latency."
         },
         {
           "id": "mq-4-5",
-          "type": "tradeoff_slider",
-          "prompt": "A user clicks 'export my data'. Generating it takes about 90 seconds. Slide toward your design.",
-          "leftLabel": "Synchronous (simple, user waits 90s)",
-          "rightLabel": "Queue it and notify when ready (async, more moving parts)",
-          "answerRange": [
-            60,
-            100
+          "type": "build_diagram",
+          "prompt": "Build the 90-second export flow after the API accepts `POST /exports` and returns `202 Accepted` with a job ID.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "api",
+                "label": "Export API",
+                "sub": "202 + job ID",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "sub": "buffer work",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "generate file",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "job result",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "api",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Message Queue",
+            "Export Worker",
+            "Status Store / Notification",
+            "Load Balancer"
           ],
-          "why": "Ninety seconds is far past where a request should live: the browser or a proxy will likely time out, a retry starts the whole job again, and one slow export holds a connection and a worker hostage. Queue it, return 'we'll email you', and the work runs where nothing is waiting on it — the extra machinery is worth it the moment the task outlives a reasonable request."
+          "answer": {
+            "h1": "Message Queue",
+            "h2": "Export Worker",
+            "h3": "Status Store / Notification"
+          },
+          "why": "The API returns a job ID without holding a 90-second request open, the queue durably buffers the job, and a worker generates the file with independent retry handling. Recording status or notifying the user gives the job ID a place to resolve to pending, failed, or ready."
         },
         {
           "id": "mq-4-6",
@@ -559,7 +1243,7 @@
             "Increase the retry interval"
           ],
           "answer": 1,
-          "why": "The queue faithfully absorbed everything and handed the problem to the next stage: your real limit is the database's write rate, and unit 4's rule says capacity added anywhere but the bottleneck buys nothing. That's the queue's dark side — it hides a capacity deficit behind a growing number instead of failing loudly, so you discover the true constraint with four million messages of debt already accrued."
+          "why": "The database write limit is now the system bottleneck, so additional consumers cannot increase completed throughput. The design must reduce database work, increase database capacity, or shed input; the four-million-message backlog is accumulated capacity debt."
         },
         {
           "id": "mq-4-7",
@@ -572,7 +1256,21 @@
             "They guarantee work is never lost"
           ],
           "answer": 1,
-          "why": "A queue converts a synchronous fact into a durable promise, which is exactly what buys the speed and the decoupling — and exactly what creates every cost. The promise can be fulfilled twice, out of order, much later, or pile up unfulfilled, and none of those failures has a user watching to report them. That's the trade: the user stops waiting, and you take on the job of making sure the promise is kept."
+          "why": "A queue durably accepts work so producers and consumers can run at different times and rates. That decoupling requires handling delayed completion, backlog growth, duplicate delivery, reordering, and failures that occur after the originating request has ended."
+        },
+        {
+          "id": "xfer-queue",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "An image worker stores a thumbnail, crashes before acknowledgement, then receives the job again. What must the handler do?",
+          "choices": [
+            "Assume redelivery means the first write failed",
+            "Generate a new filename on every attempt",
+            "Acknowledge before doing any work",
+            "Use a stable image/version identity so repeating the write is harmless"
+          ],
+          "answer": 3,
+          "why": "The missing acknowledgement makes completed work indistinguishable from unfinished work. A stable identity lets the repeated attempt detect or overwrite the same intended thumbnail safely."
         }
       ]
     }

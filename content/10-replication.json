@@ -2,7 +2,7 @@
   "unitId": "replication",
   "tier": 1,
   "title": "Replication",
-  "subtitle": "Copies of the database — what they buy, and what they charge",
+  "subtitle": "Use database copies for read capacity and fault tolerance while managing lag and failover",
   "objectives": [
     "Explain what replication scales and what it doesn't",
     "Describe single-leader replication and the synchronous/asynchronous choice",
@@ -17,7 +17,7 @@
         {
           "id": "rep-1-0",
           "type": "concept",
-          "title": "A read can be answered by any copy; a write has to be applied by all of them",
+          "title": "Replication maintains database copies on multiple machines",
           "viz": {
             "nodes": [
               {
@@ -51,30 +51,205 @@
             "edges": [
               {
                 "from": "a",
-                "to": "d1"
+                "to": "d1",
+                "kind": "data"
               },
               {
                 "from": "a",
-                "to": "d2"
+                "to": "d2",
+                "kind": "data"
               },
               {
                 "from": "a",
-                "to": "d3"
+                "to": "d3",
+                "kind": "data"
               },
               {
                 "from": "d1",
                 "to": "d2",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               },
               {
                 "from": "d1",
                 "to": "d3",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
-          "body": "*Replication* means keeping full copies of your database on other machines. A read is a question, and any complete copy can answer it. A write is a change, and every copy must apply it or it stops being a copy. That asymmetry is the whole of replication: reading is work you can spread out, writing is work you have to repeat.",
-          "note": "There's a second reason to keep copies, and it has nothing to do with capacity: a copy is a machine that still has your data after the first stops existing. Read scaling is why replicas get added; that is why they stay."
+          "body": "A primary copy records each write and sends an ordered change stream to replicas. Replicas replay those changes to maintain the same dataset and can answer read requests. Adding replicas distributes read work and provides a promotion candidate if the primary machine fails.",
+          "note": "A replica is a changing copy, so asynchronous replay can expose older data. It also replicates accidental deletes and therefore does not replace a backup."
+        },
+        {
+          "id": "repl-change-1",
+          "type": "system_change",
+          "prompt": "One leader receives 2,000 writes/s and 8,000 reads/s, exceeding its 6,000 req/s capacity. Route reads to two replicas.",
+          "actionLabel": "Send reads to replicas",
+          "beforeStatus": "LEADER LOAD · 10,000 / 6,000 req/s · overloaded",
+          "afterStatus": "LEADER LOAD · 2,000 / 6,000 req/s · replicas serve 4,000 reads/s each",
+          "result": "Read traffic moved off the write authority",
+          "viz": {
+            "nodes": [
+              {
+                "id": "app",
+                "label": "Application",
+                "sub": "10k req/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "10k / 6k",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "app",
+                "to": "l",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "app",
+                "label": "Application",
+                "sub": "writes + reads",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "2k writes/s",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "r1",
+                "label": "Replica A",
+                "sub": "4k reads/s",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "r2",
+                "label": "Replica B",
+                "sub": "4k reads/s",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "app",
+                "to": "l",
+                "kind": "data"
+              },
+              {
+                "from": "l",
+                "to": "r1",
+                "kind": "data"
+              },
+              {
+                "from": "l",
+                "to": "r2",
+                "kind": "data"
+              },
+              {
+                "from": "app",
+                "to": "r1",
+                "kind": "data"
+              },
+              {
+                "from": "app",
+                "to": "r2",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Read replicas increase read capacity by serving copies of the leader's data. Asynchronous replication can make those reads stale, so operations requiring current data may still need the leader or a caught-up replica."
+        },
+        {
+          "id": "replication-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: One leader receives 2,000 writes/s and 8,000 reads/s, exceeding its 6,000 req/s capacity. Route reads to two replicas. Place Leader, Replica A, Replica B. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "app",
+                "label": "Application",
+                "sub": "writes + reads",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "sub": "2k writes/s",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "r1",
+                "sub": "4k reads/s",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "r2",
+                "sub": "4k reads/s",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "app",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "r1",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "r2",
+                "kind": "request"
+              },
+              {
+                "from": "app",
+                "to": "r1",
+                "kind": "request"
+              },
+              {
+                "from": "app",
+                "to": "r2",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Leader",
+            "Replica A",
+            "Replica B",
+            "App",
+            "Database"
+          ],
+          "answer": {
+            "l": "Leader",
+            "r1": "Replica A",
+            "r2": "Replica B"
+          },
+          "why": "The completed diagram contains these directed flows: Application → Leader; Leader → Replica A; Leader → Replica B; Application → Replica A; Application → Replica B. That topology is the evidence for the answer: Read replicas increase read capacity by serving copies of the leader's data. Asynchronous replication can make those reads stale, so operations requiring current data may still need the leader or a caught-up replica.",
+          "connectEdges": true
         },
         {
           "id": "rep-1-1",
@@ -87,7 +262,7 @@
             "Add more indexes"
           ],
           "answer": 1,
-          "why": "Reads can be served from any copy, so adding read replicas multiplies your read capacity without changing how writes work at all. This only pays off because reads outnumber writes so heavily — happily true of most applications — which makes the read:write ratio the first number to establish before proposing replication: at 100:1 it's transformative, at 1:1 it buys you almost nothing."
+          "why": "Read replicas can execute read-only queries using copies of the leader's data, distributing the 100-to-1 read load across machines. Writes still pass through the leader and must be replicated, so this improves capacity only while reads are the limiting workload and acceptable reads may use replicas."
         },
         {
           "id": "rep-1-2",
@@ -100,12 +275,12 @@
             "Recover data faster from the dead disk"
           ],
           "answer": 1,
-          "why": "A replica is already running and already has (nearly) all the data, so promoting it takes seconds while restoring a backup takes hours. Backups and replicas solve different problems and don't substitute for each other: a replica protects you from a machine dying, while a backup protects you from someone running `DELETE` without a `WHERE` clause — because a replica would have faithfully replicated that too, instantly."
+          "why": "A healthy replica has an already-materialized copy and can be promoted after failure detection and safety checks, reducing recovery time compared with restoring a full backup. Replication also copies accidental deletes and corruption, so point-in-time backups remain necessary for logical recovery."
         },
         {
           "id": "rep-1-3",
           "type": "multi_select",
-          "prompt": "What does replication actually buy you? Select all.",
+          "prompt": "In the single-leader, full-replica design shown, what does adding followers buy you? Select all.",
           "choices": [
             "More read capacity",
             "Survival when a machine dies",
@@ -117,12 +292,12 @@
             1,
             3
           ],
-          "why": "Reads, survival, and locality — yes. Write capacity — no: every write still has to be applied on every copy, so copies never reduce the write load. That asymmetry is the most important fact about replication and the reason sharding exists as a separate idea: if your bottleneck is writes, adding replicas makes things slightly worse, because you've added machines that all have to do every write and none that do fewer."
+          "why": "Replicas can serve reads, provide promotion candidates after failure, and place readable copies nearer users. In single-leader replication, every logical write is accepted by the leader and replayed by followers, so adding full replicas does not divide write work or dataset size."
         },
         {
           "id": "rep-1-4",
           "type": "fill_blank",
-          "prompt": "Replication scales ______; it does nothing for write capacity.",
+          "prompt": "In this single-leader, full-replica design, adding followers scales ______ without dividing the leader's write stream.",
           "choices": [
             "reads",
             "writes",
@@ -130,25 +305,29 @@
             "backups"
           ],
           "answer": 0,
-          "why": "Any copy can answer a read. Every copy must perform every write."
+          "why": "A read-only query can be distributed among replicas that meet its freshness requirement. Each follower must still apply the leader's complete ordered write stream, so replication increases read-serving capacity without partitioning write throughput."
         },
         {
           "id": "rep-1-5",
-          "type": "multiple_choice",
-          "prompt": "The moment you have two copies of the database, what have you inherited?",
+          "type": "multi_select",
+          "prompt": "A user just changed an address on the leader. Which routing decisions match their freshness requirements? Select all.",
           "choices": [
-            "Nothing — it's a pure win",
-            "The copies can disagree, so you now own a consistency problem",
-            "Only extra storage cost",
-            "Slower reads"
+            "Send the immediate confirmation read to the leader for fresh state",
+            "Send a stale-tolerant analytics query to a follower",
+            "Prefer the most caught-up eligible follower as a failover candidate",
+            "Send a must-be-fresh read to any follower without checking its replay position"
           ],
-          "answer": 1,
-          "why": "One copy can't disagree with itself; two can drift apart, and now you must decide what happens when a reader lands on the copy that's behind. This is unit 5's rule — every copy costs you a consistency question — arriving at industrial scale, and everything difficult in the rest of this unit is that one bill being itemized."
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "The leader has the acknowledged change, while an asynchronous follower may still be behind, so the immediate fresh read goes to the leader. Stale-tolerant analytics can use followers, and a failover candidate should be caught up enough for the loss policy. A follower read needs a protocol freshness check or a stated staleness allowance; routing to an arbitrary follower does not promise current state."
         },
         {
           "id": "rep-1-6",
           "type": "multiple_choice",
-          "prompt": "When is replication the WRONG tool for your scaling problem?",
+          "prompt": "When are full-copy followers behind one leader the wrong scaling tool?",
           "choices": [
             "When you have lots of reads",
             "When writes are your bottleneck, or your dataset no longer fits on one machine",
@@ -156,7 +335,7 @@
             "When users are spread across regions"
           ],
           "answer": 1,
-          "why": "Replication addresses read volume and machine failure — it doesn't reduce write load, and it doesn't make the data smaller, since every copy holds the whole dataset. Both of those limits point at the same successor idea: splitting the data across machines rather than duplicating it. That's sharding, and it's the other half of the scaling story."
+          "why": "In this full-copy single-leader design, every replica contains the dataset and replays the complete write stream, so followers cannot divide that leader's write bottleneck or shrink per-node data. Partitioned and some multi-leader systems can distribute accepted writes, but that is a different architecture with added coordination."
         }
       ]
     },
@@ -167,7 +346,7 @@
         {
           "id": "rep-2-0",
           "type": "concept",
-          "title": "There is no arbiter, so somebody has to be the authority",
+          "title": "Single-leader replication gives one node authority to order writes",
           "viz": {
             "nodes": [
               {
@@ -207,24 +386,171 @@
             "edges": [
               {
                 "from": "c",
-                "to": "l"
+                "to": "l",
+                "kind": "data"
               },
               {
                 "from": "l",
-                "to": "log"
+                "to": "log",
+                "kind": "data"
               },
               {
                 "from": "log",
-                "to": "f1"
+                "to": "f1",
+                "kind": "data"
               },
               {
                 "from": "log",
-                "to": "f2"
+                "to": "f2",
+                "kind": "data"
               }
             ]
           },
-          "body": "Every copy in a replicated system is equally real and equally ignorant: it knows what it was told, and nothing about what the others were told at the same instant. Nobody can referee. So the standard design doesn't referee — it removes the need for one. Nominate one copy, the *leader*, as the only one allowed to accept a write; the rest are *followers*.",
-          "note": "Postgres ships its write-ahead log, the crash-recovery log it already had to write. MySQL writes a *separate* binlog purely for replication — an extra write per transaction. Same idea, different bill."
+          "body": "Clients send writes to the *leader*. The leader records them in a replication log with a defined order, and *followers* apply that log in the same order. Reads may use followers. Routing all writes through one authority prevents concurrent replicas from independently ordering conflicting updates.",
+          "note": "The leader limits write throughput. After it fails, the system must promote one follower and fence the old leader before accepting writes safely."
+        },
+        {
+          "id": "rep-change-2",
+          "type": "system_change",
+          "prompt": "One database handles 8,000 writes/s and 30,000 read/s. Writes fit, but total load does not. Route read-only traffic to three followers.",
+          "actionLabel": "Add read replicas",
+          "choices": [
+            "Route read-only queries to followers",
+            "Shard the write stream immediately",
+            "Send writes to every follower independently"
+          ],
+          "answer": 0,
+          "choiceFeedback": [
+            "Followers add read-serving capacity while the leader remains the write authority.",
+            "Writes already fit; sharding introduces partitioning complexity without targeting the measured read bottleneck.",
+            "Independent multi-leader writes create conflict handling and do not preserve the stated single write authority."
+          ],
+          "beforeStatus": "LEADER LOAD · 38,000 operations/s · overloaded",
+          "afterStatus": "LEADER · 8,000 writes/s · FOLLOWERS · 10,000 reads/s each",
+          "result": "Read capacity increased without splitting the write authority",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "sub": "38k ops/s",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "overloaded",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "l",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "8k writes/s",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "r",
+                "label": "3 followers",
+                "sub": "10k reads/s each",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "l",
+                "kind": "data"
+              },
+              {
+                "from": "a",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "l",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Followers replay the leader's writes and can serve read-only queries, adding read capacity. Asynchronous followers can lag, so operations requiring fresh or read-your-writes data may need leader routing or a consistency mechanism."
+        },
+        {
+          "id": "replication-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: One database handles 8,000 writes/s and 30,000 read/s. Writes fit, but total load does not. Route read-only traffic to three followers. Place Leader, 3 followers. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "l",
+                "sub": "8k writes/s",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "r",
+                "sub": "10k reads/s each",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "r",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Leader",
+            "3 followers",
+            "App",
+            "Database"
+          ],
+          "answer": {
+            "l": "Leader",
+            "r": "3 followers"
+          },
+          "why": "The completed diagram contains these directed flows: Application → Leader; Application → 3 followers; Leader → 3 followers. That topology is the evidence for the answer: Followers replay the leader's writes and can serve read-only queries, adding read capacity. Asynchronous followers can lag, so operations requiring fresh or read-your-writes data may need leader routing or a consistency mechanism."
         },
         {
           "id": "rep-2-1",
@@ -237,7 +563,7 @@
             "The copies would run out of disk"
           ],
           "answer": 1,
-          "why": "Two writers, one row, two different values — and nothing to arbitrate between them, so someone has to be the authority. Which is why the standard design nominates exactly one copy to accept writes: the leader. Single-leader replication is the default in Postgres, MySQL, and most systems precisely because it dodges write conflicts by construction — with one writer, there is nothing to conflict."
+          "why": "If two copies independently accept writes to the same row during a delay or partition, their logs can contain incompatible values and orders. A single leader establishes one authoritative write order, avoiding conflict resolution on the normal write path."
         },
         {
           "id": "rep-2-2",
@@ -261,33 +587,83 @@
               "right": "Promoting a follower when the leader dies"
             }
           ],
-          "why": "One writer, many readers, a stream of changes between them, and a plan for when the writer dies. Notice the shape: the leader is a single point of failure for WRITES but not for reads, and that asymmetry drives everything in lesson 4 — losing the leader is an emergency, losing a follower is a Tuesday."
+          "why": "The leader serializes accepted writes, followers replay its change stream and may serve reads, and failover promotes an eligible follower when the leader is unavailable. Losing the leader stops writes until promotion, while losing one follower mainly reduces read capacity and redundancy."
         },
         {
           "id": "rep-2-3",
-          "type": "multiple_choice",
-          "prompt": "How does a follower stay in sync with the leader?",
-          "choices": [
-            "It re-runs the application code",
-            "The leader ships its stream of changes — its log — and the follower applies them in the same order",
-            "It copies the database files every night",
-            "It queries the leader constantly"
+          "type": "build_diagram",
+          "prompt": "Build the single-leader replication path. A client write must reach the authority, enter one ordered change stream, and then update the read copy.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "client",
+                "label": "Client Write",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "leader",
+                "sub": "accepts the write",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "log",
+                "sub": "preserves write order",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "follower",
+                "sub": "replays changes",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "client",
+                "to": "leader",
+                "kind": "request"
+              },
+              {
+                "from": "leader",
+                "to": "log",
+                "kind": "request"
+              },
+              {
+                "from": "log",
+                "to": "follower",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Leader",
+            "Replication Log",
+            "Follower",
+            "Load Balancer",
+            "Backup Archive"
           ],
-          "answer": 1,
-          "why": "The leader sends an ordered stream of changes and the follower replays them in that exact order, arriving at the same state. In Postgres that's the write-ahead log from unit 6 doing a second job: it exists for crash recovery, but an ordered record of every change turns out to be exactly what you'd want to ship to another machine — so replication rides on a log the database already had to write anyway."
+          "answer": {
+            "leader": "Leader",
+            "log": "Replication Log",
+            "follower": "Follower"
+          },
+          "why": "The leader is the write authority, its replication log fixes one change order, and the follower replays that order to build a readable copy. If the follower stops consuming the log, its applied position falls behind and reads from it become stale; if an asynchronous leader fails before the log record reaches a promotion candidate, that acknowledged write can be lost."
         },
         {
           "id": "rep-2-4",
           "type": "order_steps",
-          "prompt": "Order a write under asynchronous single-leader replication.",
+          "prompt": "Order one asynchronous-replication timeline in which the follower is still behind when the client receives success.",
           "steps": [
             "Client sends the write to the leader",
             "Leader records the change in its log",
             "Leader responds 'done' to the client",
-            "Followers stream the log and apply the change",
+            "After that acknowledgement, the lagging followers receive and apply the log record",
             "Followers can now serve the new data"
           ],
-          "why": "Under asynchronous replication the leader answers the client before the followers have caught up — the client's write is done while the copies are still catching up. Look closely at step 3 landing before step 4: that ordering is the entire source of the next two lessons, because it's why followers can be stale, and why a leader dying at exactly that moment can lose a write it already called successful."
+          "why": "The leader records the write before acknowledgement, but asynchronous replication does not require a follower acknowledgement first. This exercise shows the lagging case: followers apply afterward, creating stale-read and failover-loss windows. A fast follower may receive or apply the record before the client gets success; asynchronous replication does not impose an order between those events."
         },
         {
           "id": "rep-2-5",
@@ -300,7 +676,7 @@
             "It buys nothing; it's a legacy option"
           ],
           "answer": 1,
-          "why": "You're buying the guarantee that an acknowledged write exists in two places, and paying with latency on every write plus a dependency on the follower being alive. This is why fully synchronous replication to ALL followers is rare — one slow or dead follower would halt every write. The usual compromise is semi-synchronous: one follower synchronous, so that *while it's healthy* an acknowledged write has already reached a second machine, with the rest asynchronous. Read that 'while it's healthy' literally — implementations typically fall back to async if the synchronous follower goes away, which is exactly when you'd have wanted it."
+          "why": "Waiting for a follower acknowledgement places the write on a second machine before reporting success, reducing the acknowledged-write loss window. Every write now includes follower network and persistence latency, and writes can stall if the required follower is unavailable unless the system explicitly degrades to asynchronous mode."
         },
         {
           "id": "rep-2-6",
@@ -308,12 +684,12 @@
           "prompt": "Why is single-leader replication so common, despite the leader being a bottleneck for writes?",
           "choices": [
             "It's the fastest possible design",
-            "Because having exactly one writer removes write conflicts entirely — a huge simplification for a cost most apps can afford",
+            "Because one authority orders writes and removes replica-to-replica merge conflicts",
             "Because it uses less disk",
             "It's the only design that exists"
           ],
           "answer": 1,
-          "why": "It trades write scalability — which most apps don't need — for the elimination of an entire category of problem, which is usually a superb deal. Keep this pattern in view: a huge amount of system design is buying simplicity with a constraint you can afford. One writer is a real limit, and it's also why you never have to answer 'which of these two conflicting values is correct?'"
+          "why": "Routing writes through one leader establishes one authoritative order, so followers do not merge values accepted independently by writable replicas. Concurrent clients can still cause lost updates or application-level conflicts on the leader; transactions and concurrency control handle those."
         }
       ]
     },
@@ -324,7 +700,7 @@
         {
           "id": "rep-3-0",
           "type": "concept",
-          "title": "A follower always shows you the past — the only question is how far back",
+          "title": "Replication lag is the delay before a follower applies a leader's write",
           "viz": {
             "nodes": [
               {
@@ -351,21 +727,81 @@
             "edges": [
               {
                 "from": "u",
-                "to": "l"
+                "to": "l",
+                "kind": "data"
               },
               {
                 "from": "l",
                 "to": "f",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               },
               {
                 "from": "u",
-                "to": "f"
+                "to": "f",
+                "kind": "data"
               }
             ]
           },
-          "body": "Under asynchronous replication the leader answers the client *before* the followers have the change. So every write opens a window: for some interval the leader has it and the followers don't. A read routed to a follower inside that window is answered by a database that hasn't heard the news. That window is *replication lag*.",
-          "note": "Lag isn't a constant you can look up or a number you can design around. It's a race between how fast the leader produces changes and how fast a follower applies them — so it isn't the number it was a minute ago."
+          "body": "With asynchronous replication, the leader may acknowledge a committed write before a follower receives and replays its log record. During that interval, a read sent to the follower returns the state from an earlier log position. The lag ends when replay reaches that write.",
+          "note": "Lag grows whenever log generation exceeds transfer or replay capacity. Heavy writes, network loss, slow disks, paused replay, long queries, or maintenance can all create that imbalance."
+        },
+        {
+          "id": "replication-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Replication lag is the delay before a follower applies a leader's write",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "sub": "has the write",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "f",
+                "sub": "not yet",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "f",
+                "dash": true,
+                "kind": "optional"
+              },
+              {
+                "from": "u",
+                "to": "f",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Leader",
+            "Follower",
+            "App",
+            "Database"
+          ],
+          "answer": {
+            "l": "Leader",
+            "f": "Follower"
+          },
+          "why": "With asynchronous replication, the leader may acknowledge a committed write before a follower receives and replays its log record. During that interval, a read sent to the follower returns the state from an earlier log position. The lag ends when replay reaches that write. Lag grows whenever log generation exceeds transfer or replay capacity. Heavy writes, network loss, slow disks, paused replay, long queries, or maintenance can all create that imbalance."
         },
         {
           "id": "rep-3-1",
@@ -378,7 +814,7 @@
             "A blank page"
           ],
           "answer": 1,
-          "why": "The follower is behind, so it answers with the state from before their write and the user's own change seems not to have saved. This is the most common replication bug there is, and it's maddening because it only reproduces under load — when lag is large enough to notice. The usual mitigation is read-your-writes routing: for a short window after a user writes, send THAT user's reads to the leader. Hold it as a mitigation rather than a guarantee — it works while the leader stays the leader, and if a failover lands inside that window an async setup may have lost the write outright, and no routing rule can show someone a write that no longer exists (lesson 4)."
+          "why": "The asynchronous follower has not applied the profile update, so it returns the preceding committed version. Read-your-writes routing sends that user's subsequent reads to the leader or a replica known to have reached the write's log position; failover can still lose the write if no surviving node received it."
         },
         {
           "id": "rep-3-2",
@@ -391,7 +827,7 @@
             "skew"
           ],
           "answer": 0,
-          "why": "Replication lag is the size of the window in which followers are answering with the past."
+          "why": "Replication lag is the delay or log-position gap between a change on the leader and its application on a follower. During that interval, the follower can return a valid older state."
         },
         {
           "id": "rep-3-3",
@@ -404,20 +840,24 @@
             "Their session expired"
           ],
           "answer": 1,
-          "why": "Two reads, two replicas, two different amounts of lag — so the second read returned an older state than the first. Nothing was deleted; the user just travelled backwards. The usual mitigation is to pin each user to one replica (say by hashing their user id) so that *for as long as the pin holds*, their reads come from one copy that only ever moves forward. That clause is the whole caveat: the pin breaks when the replica dies, or when you pull it from rotation for lagging, and the user gets re-pinned to a copy that may be further behind — jumping them backwards anyway. Pinning narrows the window; it doesn't close it."
+          "why": "Monotonic reads require each later read in a session to reflect at least as recent a state as earlier reads. Load balancing across replicas at different log positions violates that condition. Pinning a session to one advancing replica helps while the pin remains valid; reassignment must account for the last observed position."
         },
         {
           "id": "rep-3-4",
-          "type": "multiple_choice",
-          "prompt": "When is replication lag at its worst?",
+          "type": "multi_select",
+          "prompt": "Which conditions can make follower lag grow? Select all.",
           "choices": [
-            "At random, unpredictably",
-            "Exactly when write load is heaviest — the busiest moment, with the most people watching",
-            "Overnight, during backups",
-            "When there are few writes"
+            "The leader generates log records faster than the follower can replay them",
+            "Network trouble slows log transfer",
+            "Slow follower storage or a paused replay worker",
+            "The follower consistently replays faster than logs arrive"
           ],
-          "answer": 1,
-          "why": "Lag grows when the leader produces changes faster than followers can apply them, and peak write traffic is precisely when that happens. That's the cruel part: your staleness window is widest exactly when the most users are looking, so a system that looks perfectly in sync in testing can be seconds behind during a spike — which is also when a support ticket becomes ten thousand support tickets."
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Lag grows whenever incoming log work outpaces transfer, persistence, or replay. Heavy leader writes can raise production, while network faults, storage contention, long queries, maintenance, or paused replay can reduce consumption. If replay remains faster than arrival, the follower catches up instead."
         },
         {
           "id": "rep-3-5",
@@ -434,7 +874,7 @@
             1,
             2
           ],
-          "why": "Routing, pinning, and monitoring all attack the problem; adding followers doesn't, because each new follower must apply the very same stream of writes, so it lags too — and it adds load to the leader that's shipping to it. That last point catches people out: 'we're stale, add replicas' is the wrong reflex, since you've added more copies of the staleness rather than less of it. Lag is mostly a function of write throughput versus apply speed, and more followers usually changes neither. The exception is worth knowing: if replicas lag because read traffic is starving them of CPU, spreading that load across more of them can cut lag — but then your problem was replica load, not replication itself."
+          "why": "Leader routing after a write provides fresher reads, session pinning reduces backward jumps, and lag monitoring can remove replicas that exceed a freshness threshold. An additional follower must consume the same write stream and does not inherently increase apply speed; it helps only if redistributing read load removes resource contention on existing followers."
         },
         {
           "id": "rep-3-6",
@@ -447,7 +887,90 @@
             "An error if it's out of date"
           ],
           "answer": 1,
-          "why": "A follower always gives you a real, valid state of the database — just not necessarily the latest one. It's a photograph, not a live feed. That distinction matters: a stale read isn't corrupt or wrong, it's late — which means the design question is never 'is this allowed to be wrong?' but 'how old is too old for this screen?', a question the product usually answers better than the engineer."
+          "why": "An asynchronous follower answers from the latest log position it has applied, which may trail the leader by milliseconds or longer. The application must specify a freshness bound or required log position when an arbitrarily stale committed state is insufficient."
+        }
+      ]
+    },
+    {
+      "id": "rep-lag-sim",
+      "title": "Replication lag is accumulated unapplied work",
+      "exercises": [
+        {
+          "id": "rep-lag-sim-card",
+          "type": "concept",
+          "title": "Lag grows by production rate minus replay rate",
+          "body": "A follower receives the leader's log and replays it locally. While the leader produces 5,000 records/sec and replay completes 4,800/sec, the missing 200 records accumulate every second. Catch-up requires replay capacity greater than new log production.",
+          "note": "Lag is a queue measured in records, bytes, or time behind the leader."
+        },
+        {
+          "id": "rep-lag-sim-0",
+          "type": "simulate",
+          "prompt": "The leader produces 5,000 log records/sec. Each follower apply worker replays 1,200/sec. Over 60 seconds, choose the *fewest* apply workers that prevent lag from growing.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "leader",
+                "label": "Leader log",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "apply",
+                "label": "Follower apply workers",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "lag",
+                "label": "Unapplied log backlog",
+                "col": 2,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "leader",
+                "to": "apply",
+                "kind": "data"
+              },
+              {
+                "from": "apply",
+                "to": "lag",
+                "kind": "event"
+              }
+            ]
+          },
+          "sim": {
+            "input": 5000,
+            "inputLabel": "Log records/sec",
+            "chain": [
+              "apply",
+              "lag"
+            ],
+            "capacity": {
+              "lag": 0
+            },
+            "watch": "lag",
+            "watchLabel": "Lag added after 60 sec",
+            "absorb": {
+              "node": "apply",
+              "label": "Follower apply workers",
+              "min": 1,
+              "max": 8,
+              "start": 1,
+              "unit": " workers"
+            },
+            "model": {
+              "kind": "queue",
+              "duration": 60,
+              "servicePerUnit": 1200
+            }
+          },
+          "answerRange": [
+            5,
+            5
+          ],
+          "why": "Four workers replay 4,800 records/sec, so lag grows by 200/sec or 12,000 records in one minute. Five replay 6,000/sec, enough to keep up and then consume existing lag when headroom remains."
         }
       ]
     },
@@ -458,9 +981,9 @@
         {
           "id": "rep-4-0",
           "type": "concept",
-          "title": "Failover is decided by two facts you don't get to change",
-          "body": "The leader dies; you promote a follower. That's *failover*, and two facts you can't change decide everything about it. First: under asynchronous replication, \"the leader said done\" and \"a follower has it\" are different statements, separated by the lag window. Second: a dead leader and a merely slow one send you the same signal, which is none.",
-          "note": "So a failover policy is a timeout, and a timeout is a guess dressed as a config value. It's the same guess in every distributed system you'll touch: how long is too long to wait for something that might never answer?"
+          "title": "Failover promotes a replica after the leader is judged unavailable",
+          "body": "A failure detector uses missed responses and a timeout to classify the leader as unavailable, then a coordinator promotes an eligible follower. Under asynchronous replication, acknowledged log entries absent from that follower are lost when it becomes the new leader.",
+          "note": "A network partition can leave the old leader running. Quorum, leases, or fencing tokens must prevent it from continuing to accept writes after promotion."
         },
         {
           "id": "rep-4-1",
@@ -473,7 +996,7 @@
             "Only reads in flight"
           ],
           "answer": 1,
-          "why": "Asynchronous means the leader said 'done' before followers had the change, so if it dies in that window those acknowledged writes die with it. This is the under-appreciated asterisk in most setups: surviving a crash OF that machine is not the same as surviving the LOSS of that machine. Async replication is fast because it doesn't wait — and 'doesn't wait' is exactly what you're relying on not to matter at the worst possible moment."
+          "why": "Asynchronous acknowledgement does not require a follower to receive the write. If the leader is permanently lost before shipping it, promotion selects a follower whose log ends earlier, and the previously acknowledged write is absent from the new authoritative history."
         },
         {
           "id": "rep-4-2",
@@ -486,7 +1009,7 @@
             "The database refuses all writes"
           ],
           "answer": 1,
-          "why": "Two nodes both convinced they're in charge, both taking writes — now you have two divergent versions of the truth and no principled way to merge them. This is why failover systems use fencing: forcibly locking the old leader out (sometimes by literally cutting its power) before promoting anyone. The reason it's necessary is uncomfortable — from the outside you genuinely cannot distinguish 'dead' from 'slow', so you can only pick a timeout and accept being wrong sometimes."
+          "why": "This is split brain: the isolated old leader and promoted follower both accept writes, creating divergent logs. Fencing uses a lease, epoch, storage token, or infrastructure control to make the old leader's writes invalid before the replacement becomes authoritative."
         },
         {
           "id": "rep-4-3",
@@ -499,19 +1022,19 @@
             "It doesn't matter"
           ],
           "answer": 2,
-          "why": "There's no setting that's right in both directions, because the question 'is it dead or just slow?' has no answer from outside — you're picking which way you'd rather be wrong. Get comfortable with this shape, because it recurs constantly in distributed systems: when a decision is genuinely undecidable, engineering stops being about finding the right answer and starts being about choosing your failure mode deliberately, rather than discovering it during an incident."
+          "why": "A short timeout reduces write downtime after a real leader failure but increases false promotion during transient latency, which requires effective fencing to avoid split brain. A long timeout reduces false promotion but extends unavailability when the leader is actually lost."
         },
         {
           "id": "rep-4-4",
           "type": "tradeoff_slider",
-          "prompt": "A financial ledger, where a write you've acknowledged must never be lost. Slide toward your replication mode.",
-          "leftLabel": "Synchronous (no lost writes, slower)",
+          "prompt": "A three-node ledger acknowledges only after the leader and one follower have both flushed a write. The failure target is any one-node crash; correlated loss and operator deletion are outside this policy. Slide toward the replication mode.",
+          "leftLabel": "Synchronous (smaller covered loss window)",
           "rightLabel": "Asynchronous (fast, may lose acked writes)",
           "answerRange": [
             0,
             35
           ],
-          "why": "If losing an acknowledged write is unacceptable, the write has to exist on a second machine before you say 'done' — that's what synchronous means, and there's no way to have the guarantee without the wait. Notice you didn't get to have both: either the write waits for a second machine or it doesn't, and that's networks and physics rather than a setting someone forgot to optimize. Anyone promising you both is selling you an async system with a confident voice."
+          "why": "Requiring durable acknowledgement from the leader and one follower protects the acknowledged write when either one of those nodes alone crashes, matching the stated scope. It adds network and follower-flush latency and can reduce write availability; correlated loss, bad durability settings, and replicated operator deletion remain outside the guarantee."
         },
         {
           "id": "rep-4-5",
@@ -524,7 +1047,7 @@
             "Only one datacenter can hold data"
           ],
           "answer": 1,
-          "why": "Multi-leader buys write availability and local latency in each region, and pays for it with conflicts — the exact problem single-leader was designed to avoid. Which is why multi-leader stays rare for a single source of truth, and shows up where conflicts are naturally rare or genuinely resolvable: data partitioned per region, or collaborative editing where merging two edits is a solved problem rather than a coin flip."
+          "why": "Two regional leaders can accept concurrent writes to the same logical record before replication crosses regions. The system must detect and resolve those conflicts with a domain rule, version ordering, or merge algorithm; otherwise one accepted update may overwrite another."
         },
         {
           "id": "rep-4-6",
@@ -537,7 +1060,7 @@
             "The users' browsers are caching"
           ],
           "answer": 1,
-          "why": "Peak write load widens the lag window, so a read right after a write is likely to hit a follower that hasn't applied it yet — nothing is lost, the follower is just answering from the past. The 'only during peak hours' detail is the tell, and it's worth learning to hear: a bug that appears only under load is usually a timing window that's always been there, finally grown wide enough to be visible."
+          "why": "Peak writes can make the leader's log advance faster than followers apply it. A reload routed to any of the three followers may therefore read a position before the user's save. Routing post-write reads to the leader or waiting for a replica to reach the write position provides read-your-writes behavior."
         },
         {
           "id": "rep-4-7",
@@ -550,7 +1073,21 @@
             "Always replicate synchronously to everything"
           ],
           "answer": 1,
-          "why": "Real benefits, real bill — and each cost is a direct consequence of the copy existing at all rather than a defect you can engineer away. Unit 5 said every copy costs you a consistency question; replication is that bill, itemized: lag is the question while the copy is catching up, failover is the question at the worst possible moment, and split brain is the question with two confident answers."
+          "why": "Replicas distribute eligible reads and provide failover candidates. Asynchronous application creates stale-read and acknowledged-write-loss windows, while failover requires failure detection and fencing to prevent split brain. Replication policy chooses these latency, consistency, and availability tradeoffs."
+        },
+        {
+          "id": "xfer-replication",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "An operator changes a feature flag and immediately refreshes, but a read routed to an asynchronous follower shows the old value. What is the direct cause?",
+          "choices": [
+            "Indexes prohibit fresh reads",
+            "The follower has not replayed the acknowledged write yet",
+            "The leader forgot the write",
+            "DNS changed the flag"
+          ],
+          "answer": 1,
+          "why": "Asynchronous followers can serve an earlier log position after the leader acknowledges a write. Read-your-writes requires leader routing, a caught-up position check, or another protocol guarantee."
         }
       ]
     }

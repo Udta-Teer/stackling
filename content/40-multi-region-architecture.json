@@ -1,0 +1,713 @@
+{
+  "unitId": "multi-region-architecture",
+  "tier": 5,
+  "title": "Multi-Region Architecture",
+  "subtitle": "Place traffic and data across regions under explicit latency, consistency, and failure requirements",
+  "objectives": [
+    "Route users to healthy nearby regions",
+    "Choose data authority and replication topology",
+    "Plan regional evacuation without split authority",
+    "Test capacity and dependency assumptions"
+  ],
+  "lessons": [
+    {
+      "id": "mr-1",
+      "title": "Traffic placement",
+      "exercises": [
+        {
+          "id": "mr-1-0",
+          "type": "concept",
+          "title": "Multi-region routing combines proximity, health, and available capacity",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Users",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "label": "Global routing",
+                "sub": "location + health",
+                "col": 1,
+                "kind": "dns"
+              },
+              {
+                "id": "a",
+                "label": "Virginia",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Frankfurt",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "r",
+                "kind": "control"
+              },
+              {
+                "from": "r",
+                "to": "a",
+                "kind": "control"
+              },
+              {
+                "from": "r",
+                "to": "b",
+                "kind": "control"
+              }
+            ]
+          },
+          "body": "A global entry layer selects a region from network proximity, regional health, policy, and remaining capacity. Regional failure handling must stop new routing, drain or terminate existing work, and account for cached routing decisions.",
+          "note": "A healthy endpoint without spare capacity is not a valid evacuation target."
+        },
+        {
+          "id": "multi-region-architecture-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Multi-region routing combines proximity, health, and available capacity",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Users",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "sub": "location + health",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Global routing",
+            "Virginia",
+            "Frankfurt",
+            "Global router",
+            "Virginia writer"
+          ],
+          "answer": {
+            "r": "Global routing",
+            "a": "Virginia",
+            "b": "Frankfurt"
+          },
+          "why": "A global entry layer selects a region from network proximity, regional health, policy, and remaining capacity. Regional failure handling must stop new routing, drain or terminate existing work, and account for cached routing decisions. A healthy endpoint without spare capacity is not a valid evacuation target.",
+          "connectEdges": true
+        },
+        {
+          "id": "mr-change-1",
+          "type": "system_change",
+          "prompt": "Frankfurt fails and all traffic moves to Virginia, whose capacity covers only normal Virginia load. Make evacuation capacity explicit.",
+          "actionLabel": "Reserve failover capacity",
+          "choices": [
+            "Assume traffic falls during outages",
+            "Reserve or rapidly provision Virginia headroom and shed optional work",
+            "Increase DNS TTL to one day"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A regional outage can increase load on survivors.",
+            "Headroom and load shedding make the evacuation target operable under combined traffic.",
+            "A longer TTL keeps clients on the failed region longer."
+          ],
+          "beforeStatus": "FAILOVER · Virginia receives 190% capacity · both regions unavailable",
+          "afterStatus": "FAILOVER · reserved capacity + shedding · core traffic served",
+          "result": "Regional evacuation no longer overloads the survivor",
+          "viz": {
+            "nodes": [
+              {
+                "id": "f",
+                "label": "Frankfurt",
+                "sub": "failed",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "v",
+                "label": "Virginia",
+                "sub": "190% load",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "f",
+                "to": "v",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Global router",
+                "sub": "shed optional work",
+                "col": 0,
+                "kind": "gw"
+              },
+              {
+                "id": "v",
+                "label": "Virginia",
+                "sub": "reserved headroom",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "v",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Failover capacity must cover the traffic that survivors will admit, including dependency limits. Reserved headroom, rapid scaling, and priority-based shedding are alternatives with different cost and recovery speed."
+        },
+        {
+          "id": "multi-region-architecture-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Frankfurt fails and all traffic moves to Virginia, whose capacity covers only normal Virginia load. Make evacuation capacity explicit. Place Global router, Virginia. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "sub": "shed optional work",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "v",
+                "sub": "reserved headroom",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "v",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Global router",
+            "Virginia",
+            "Users",
+            "Global routing"
+          ],
+          "answer": {
+            "r": "Global router",
+            "v": "Virginia"
+          },
+          "why": "The completed diagram contains these directed flows: Global router → Virginia. That topology is the evidence for the answer: Failover capacity must cover the traffic that survivors will admit, including dependency limits. Reserved headroom, rapid scaling, and priority-based shedding are alternatives with different cost and recovery speed."
+        },
+        {
+          "id": "mr-1-1",
+          "type": "multi_select",
+          "prompt": "Which inputs belong in regional routing? Select all.",
+          "choices": [
+            "Regional health",
+            "User latency",
+            "Available capacity",
+            "Alphabetical region name"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Health, latency, and capacity determine whether a region can serve the request. A stable tie-breaker may be useful, but alphabetical order is not an operational objective."
+        }
+      ]
+    },
+    {
+      "id": "mr-2",
+      "title": "Data authority across regions",
+      "exercises": [
+        {
+          "id": "mr-2-0",
+          "type": "concept",
+          "title": "A multi-region write topology defines where conflicting writes are ordered",
+          "body": "A single write region simplifies ordering but adds remote-write latency and can lose write availability during evacuation. Multi-writer designs require conflict prevention or resolution for every shared invariant; geographic distribution does not remove coordination.",
+          "note": "Choose topology per data domain: profiles, inventory, ledgers, and telemetry can require different guarantees."
+        },
+        {
+          "id": "mr-change-2",
+          "type": "system_change",
+          "prompt": "Virginia and Frankfurt both sell the last inventory item during a partition. Preserve the one-winner invariant.",
+          "actionLabel": "Route inventory claims to one authority",
+          "choices": [
+            "Accept both and merge counts later",
+            "Use one authoritative claim path or a partitioned owner for the item",
+            "Trust wall clocks to pick the first sale"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Overselling violates the one-winner invariant before reconciliation.",
+            "One authority serializes claims for the item and rejects the loser.",
+            "Clock timestamps do not prevent concurrent acceptance or guarantee trustworthy order."
+          ],
+          "beforeStatus": "PARTITION · stock 1 · two successful sales",
+          "afterStatus": "PARTITION · one authority accepts one claim · second rejected or delayed",
+          "result": "Inventory ownership has one serialization point",
+          "viz": {
+            "nodes": [
+              {
+                "id": "v",
+                "label": "Virginia writer",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "f",
+                "label": "Frankfurt writer",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "i",
+                "label": "Stock 1",
+                "sub": "two authorities",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "v",
+                "to": "i",
+                "kind": "data"
+              },
+              {
+                "from": "f",
+                "to": "i",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "v",
+                "label": "Virginia",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "o",
+                "label": "Item owner",
+                "sub": "atomic claim",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "f",
+                "label": "Frankfurt",
+                "sub": "forward or reject",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "v",
+                "to": "o",
+                "kind": "data"
+              },
+              {
+                "from": "f",
+                "to": "o",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "A single item owner or consensus-backed claim path orders conflicting reservations. During loss of that authority, the system sacrifices claim availability rather than accept two winners."
+        },
+        {
+          "id": "multi-region-architecture-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Virginia and Frankfurt both sell the last inventory item during a partition. Preserve the one-winner invariant. Place Item owner, Frankfurt. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "v",
+                "label": "Virginia",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "o",
+                "sub": "atomic claim",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "f",
+                "sub": "forward or reject",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "v",
+                "to": "o",
+                "kind": "request"
+              },
+              {
+                "from": "f",
+                "to": "o",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Item owner",
+            "Frankfurt",
+            "Users",
+            "Global routing"
+          ],
+          "answer": {
+            "o": "Item owner",
+            "f": "Frankfurt"
+          },
+          "why": "The completed diagram contains these directed flows: Virginia → Item owner; Frankfurt → Item owner. That topology is the evidence for the answer: A single item owner or consensus-backed claim path orders conflicting reservations. During loss of that authority, the system sacrifices claim availability rather than accept two winners."
+        },
+        {
+          "id": "mr-2-1",
+          "type": "match_pairs",
+          "prompt": "Match each data class to a plausible regional strategy.",
+          "pairs": [
+            {
+              "left": "Financial ledger",
+              "right": "One ordered commit authority with durable replicas"
+            },
+            {
+              "left": "User profile display",
+              "right": "Local reads with bounded replication lag"
+            },
+            {
+              "left": "Telemetry events",
+              "right": "Regional ingest followed by asynchronous aggregation"
+            }
+          ],
+          "why": "Ledgers require ordered durable commits, profile displays often tolerate bounded stale reads, and telemetry can ingest locally because later aggregation can merge independent events."
+        }
+      ]
+    },
+    {
+      "id": "mr-3",
+      "title": "Regional evacuation",
+      "exercises": [
+        {
+          "id": "mr-3-0",
+          "type": "concept",
+          "title": "Regional failover is a rehearsed state transition, not a routing toggle",
+          "body": "Evacuation coordinates traffic, write authority, queues, scheduled jobs, secrets, dependencies, and recovery order. A runbook defines triggers, safety checks, rollback, and who may transfer authority; drills verify the actual dependency graph.",
+          "note": "Failback can be harder than failover because data written during evacuation must be reconciled before authority returns."
+        },
+        {
+          "id": "mr-3-1",
+          "type": "order_steps",
+          "prompt": "Build a safe regional write-authority transfer.",
+          "steps": [
+            "Fence the old authority through the coordination protocol; loss of network reachability alone is insufficient",
+            "Verify the target has every commit required by the recovery policy",
+            "Promote the target and issue a higher fencing epoch",
+            "Route writes to the new authority",
+            "Monitor invariants before planning failback"
+          ],
+          "why": "A network timeout cannot prove that the old writer stopped. Protocol-backed fencing and a higher epoch make storage reject stale writes, while data verification protects commits required by the recovery policy before authority moves."
+        },
+        {
+          "id": "mr-3-2",
+          "type": "multiple_choice",
+          "prompt": "What does a successful regional drill prove?",
+          "choices": [
+            "The architecture can never fail",
+            "The tested transition met its recovery objectives under the drill conditions",
+            "Every future incident is identical",
+            "Backups are unnecessary"
+          ],
+          "answer": 1,
+          "why": "A drill supplies evidence for one scenario, workload, and dependency state. Repeated drills and varied failure injection expand confidence without creating an absolute guarantee."
+        }
+      ]
+    },
+    {
+      "id": "mr-sim",
+      "title": "Move safe reads without moving write authority",
+      "exercises": [
+        {
+          "id": "mr-sim-0",
+          "type": "concept",
+          "title": "Read placement and write authority can move independently",
+          "body": "A home region capped at 9,000 reads/sec receives 18,000 immutable-image metadata reads. A verified remote replica can serve part of that stale-tolerant workload while one region remains authoritative for writes.",
+          "note": "Do not generalize this to balance checks or lock ownership; those reads may require fresher authority."
+        },
+        {
+          "id": "mr-sim-1",
+          "type": "simulate",
+          "prompt": "Stale-tolerant reads arrive at 18,000/sec and the home replica handles 9,000. Drag the *smallest* share to a verified remote read replica that keeps home alive.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "edge",
+                "label": "Global router",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "split",
+                "label": "Read policy",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "home",
+                "label": "Home read replica",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "remote",
+                "label": "Remote read replica",
+                "sub": "stale-tolerant share",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "edge",
+                "to": "split",
+                "kind": "request"
+              },
+              {
+                "from": "split",
+                "to": "home",
+                "kind": "data"
+              },
+              {
+                "from": "split",
+                "to": "remote",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "sim": {
+            "input": 18000,
+            "inputLabel": "Reads/sec",
+            "chain": [
+              "split",
+              "home"
+            ],
+            "capacity": {
+              "split": 50000,
+              "home": 9000
+            },
+            "watch": "home",
+            "watchLabel": "Home-region reads",
+            "absorb": {
+              "node": "split",
+              "label": "Reads routed to remote replica",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            50,
+            50
+          ],
+          "why": "Routing 50% remotely leaves 9,000 reads/sec at home. The policy is safe only for the stated stale-tolerant read path; write authority and freshness-sensitive operations remain on their coordinated route."
+        }
+      ]
+    },
+    {
+      "id": "mr-4",
+      "title": "Failback is another authority transfer",
+      "exercises": [
+        {
+          "id": "mr-4-0",
+          "type": "concept",
+          "title": "A recovered region is not automatically safe to receive writes",
+          "body": "After evacuation, the old region may be behind, partially repaired, or still holding stale credentials and leases. Failback first restores and verifies data, fences stale writers, shifts read traffic gradually, and transfers write authority through the same protocol used during failover.",
+          "note": "DNS health does not prove data readiness. Traffic health and authority are separate decisions."
+        },
+        {
+          "id": "mr-4-1",
+          "type": "multiple_choice",
+          "prompt": "Virginia recovers after Frankfurt accepted writes for two hours. What is the first safe write-routing action?",
+          "choices": [
+            "Immediately send half of writes to Virginia",
+            "Keep Frankfurt authoritative while Virginia catches up and is verified",
+            "Let both regions accept the same account writes",
+            "Choose whichever DNS answer is cached"
+          ],
+          "answer": 1,
+          "why": "Virginia cannot safely accept authoritative writes until it contains the required history and stale authority is fenced. Gradual reads can test serving health without creating two writers."
+        },
+        {
+          "id": "mr-4-2",
+          "type": "multi_select",
+          "prompt": "A customer record must remain inside the European Union. Which paths must respect that residency rule? Select all.",
+          "choices": [
+            "Primary storage",
+            "Backups and disaster-recovery copies",
+            "Logs or event payloads containing the record",
+            "Only the public API endpoint"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Residency follows the protected data into replicas, backups, logs, queues, and analytics. Placing the API in Europe is insufficient when downstream copies cross the boundary."
+        },
+        {
+          "id": "mr-4-3",
+          "type": "build_diagram",
+          "prompt": "Build a controlled failback: Frankfurt remains the writer, Virginia catches up and serves canary reads, then a fenced authority transfer enables Virginia writes.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "f",
+                "label": "Frankfurt writer",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "h4",
+                "col": 4,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "f",
+                "to": "h1",
+                "kind": "data"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "h4",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Replication catch-up",
+            "Virginia canary reads",
+            "Fence old authority",
+            "Virginia writer",
+            "Dual unfenced writers",
+            "DNS-only promotion"
+          ],
+          "answer": {
+            "h1": "Replication catch-up",
+            "h2": "Virginia canary reads",
+            "h3": "Fence old authority",
+            "h4": "Virginia writer"
+          },
+          "why": "Catch-up repairs state, canary reads test the serving path, and fencing prevents Frankfurt from continuing after authority moves. Only then does Virginia become the writer."
+        },
+        {
+          "id": "mr-4-4",
+          "type": "multiple_choice",
+          "prompt": "A write quorum needs two of three regions. Round trips from the leader are 12ms and 95ms. Ignoring disk time, which follower determines the fastest quorum?",
+          "choices": [
+            "The 12ms follower",
+            "The 95ms follower",
+            "Both followers must answer",
+            "Neither—quorums have zero network cost"
+          ],
+          "answer": 0,
+          "why": "The leader counts as one voter and needs one follower for a majority of three. The 12ms acknowledgement completes the fastest quorum; failure-domain requirements may still justify the distant voter."
+        },
+        {
+          "id": "xfer-multiregion",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A game serves stale-tolerant leaderboards locally but requires one winner when redeeming a limited prize. What placement is appropriate?",
+          "choices": [
+            "Independent prize claims in every region",
+            "One global path for every leaderboard read",
+            "Client clocks choose the winner",
+            "Local leaderboard reads and coordinated authoritative prize claims"
+          ],
+          "answer": 3,
+          "why": "The two operations have different invariants. Stale leaderboard reads can remain local, while limited-prize redemption needs one authoritative claim path that prevents multiple winners."
+        }
+      ]
+    }
+  ]
+}

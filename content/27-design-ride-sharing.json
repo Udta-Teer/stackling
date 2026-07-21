@@ -2,7 +2,7 @@
   "unitId": "design-ride-sharing",
   "tier": 4,
   "title": "Design a Ride-Sharing Backend",
-  "subtitle": "The boss level — geography, matching, real-time, and money in one system",
+  "subtitle": "Combine location indexing, atomic matching, live updates, trip history, and payments",
   "objectives": [
     "Handle a firehose of location updates without writing every one to a database",
     "Search 'drivers near me' efficiently, and explain why a normal index can't do it",
@@ -17,7 +17,7 @@
         {
           "id": "ride-1-0",
           "type": "concept",
-          "title": "A driver's location is worthless four seconds after they send it",
+          "title": "A location stream averages U/T updates per second",
           "viz": {
             "nodes": [
               {
@@ -43,16 +43,143 @@
             "edges": [
               {
                 "from": "d",
-                "to": "n"
+                "to": "n",
+                "kind": "request"
               },
               {
                 "from": "d",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               }
             ]
           },
-          "body": "Every driver reports where they are, constantly. Ask what one of those reports is actually worth, and for how long — because the next one is four seconds behind it, and the fact it describes will have moved on. Unit 5's question, the one about where state lives and why, is sitting right here, and it has never had a clearer answer.",
-          "note": "And 'location' is two requirements wearing one word: where a driver is *now*, and where they have *been*. Those two want opposite things from you in almost every respect. Design them as one and you'll get both wrong."
+          "body": "With U online drivers reporting every T seconds, average ingestion is U/T. Capacity must also cover bursts from synchronized timers, reconnects, and retries. Each accepted update replaces the driver's current coordinate while prior samples follow a separate archival path.",
+          "note": "Durable trip history has a different access pattern; copy location events to an asynchronous stream so archival writes do not delay live updates."
+        },
+        {
+          "id": "ride-change-1",
+          "type": "system_change",
+          "prompt": "A nearby-driver query scans 1,000,000 active drivers. Partition the map into cells and inspect only the rider's cell and its neighbors.",
+          "actionLabel": "Add a geospatial cell index",
+          "beforeStatus": "DRIVERS EXAMINED · 1,000,000 for one nearby search",
+          "afterStatus": "DRIVERS EXAMINED · approximately 200 local candidates",
+          "result": "The search stopped scanning the whole city",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Rider",
+                "sub": "nearby?",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "All drivers",
+                "sub": "1M scan",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Rider",
+                "sub": "cell 8f2a",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g",
+                "label": "Geo index",
+                "sub": "cell + neighbors",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "d",
+                "label": "Candidates",
+                "sub": "~200 drivers",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "g",
+                "kind": "data"
+              },
+              {
+                "from": "g",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "A geospatial index maps locations into cells, limiting exact distance checks to nearby cells instead of every driver. Cell size must balance too many candidates in dense areas against searching many neighboring cells in sparse areas."
+        },
+        {
+          "id": "design-ride-sharing-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A nearby-driver query scans 1,000,000 active drivers. Partition the map into cells and inspect only the rider's cell and its neighbors. Place Geo index, Candidates. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Rider",
+                "sub": "cell 8f2a",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g",
+                "sub": "cell + neighbors",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "~200 drivers",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "g",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Geo index",
+            "Candidates",
+            "Driver location",
+            "Where they are now"
+          ],
+          "answer": {
+            "g": "Geo index",
+            "d": "Candidates"
+          },
+          "why": "The completed diagram contains these directed flows: Rider → Geo index; Geo index → Candidates. That topology is the evidence for the answer: A geospatial index maps locations into cells, limiting exact distance checks to nearby cells instead of every driver. Cell size must balance too many candidates in dense areas against searching many neighboring cells in sparse areas.",
+          "connectEdges": true
         },
         {
           "id": "ride-1-1",
@@ -61,7 +188,7 @@
           "answer": 250000,
           "tolerance": 50000,
           "unit": "writes/sec",
-          "why": "1,000,000 ÷ 4 = 250,000 updates/sec, continuously, just from drivers existing — before a single ride is requested. That number reframes the whole problem: this is a write-heavy real-time system, which almost nothing else in this course has been."
+          "why": "One million drivers divided by a four-second update interval produces 250,000 location updates/sec before ride requests add load. The location path therefore requires sustained high write throughput and aggressive control of per-update work."
         },
         {
           "id": "ride-1-2",
@@ -69,12 +196,12 @@
           "prompt": "Should each of those 250,000 updates/sec be a row written to your main database?",
           "choices": [
             "Yes — you need the location history",
-            "No: it would dwarf every other write in the system, and each update makes the previous one worthless — you only need where a driver is NOW",
+            "No: keep the replaceable current-location projection in a fast geo store, and archive trip samples through a separate durable stream",
             "Yes, but batched",
             "Only for drivers on a trip"
           ],
           "answer": 1,
-          "why": "Current location is the definition of ephemeral state: the value has a lifespan of four seconds, and durably persisting something you're about to overwrite is paying for a guarantee with no beneficiary. Unit 5's question answers itself here — if you lost every driver's location, they'd all tell you again within four seconds."
+          "why": "The live projection keeps only the newest coordinate and can be rebuilt as drivers report again, so it belongs in a low-latency ephemeral geo store. Receipts, disputes, and safety workflows may need prior samples, so an asynchronous archival path durably stores trip history without putting those writes on the matching path."
         },
         {
           "id": "ride-1-3",
@@ -105,12 +232,14 @@
             "edges": [
               {
                 "from": "l",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
                 "from": "l",
                 "to": "t",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
@@ -122,20 +251,83 @@
           "answer": {
             "h": "In-memory geo store (Redis)"
           },
-          "why": "Hot, tiny, constantly overwritten, and rebuildable in seconds — that's the exact profile for an in-memory store, and it keeps 250,000 writes/sec away from the database that holds the things you actually can't lose. Note the split: current location is derived state, while the trip record is the source of truth, and they get completely different treatment."
+          "why": "An in-memory location store supports frequent small overwrites and nearby-driver reads with low latency, and drivers rebuild its contents after failure. Durable trip records remain in an authoritative database because receipts, disputes, and payment workflows cannot be reconstructed from the next location update."
         },
         {
           "id": "ride-1-4",
-          "type": "multiple_choice",
-          "prompt": "You also want trip history for receipts, disputes, and analytics. How does that fit?",
-          "choices": [
-            "Write it all to the same in-memory store",
-            "Stream the location points to a queue and persist them asynchronously — history is durable but not urgent, so it never touches the live path",
-            "Don't keep history",
-            "Query the in-memory store later"
+          "type": "build_diagram",
+          "prompt": "Split each location update into a fast matching projection and a durable trip-history path.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "l",
+                "label": "Location Service",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "sub": "latest point",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "m",
+                "label": "Matcher",
+                "sub": "nearby drivers",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "h2",
+                "sub": "ordered samples",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "receipts + disputes",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "l",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "m",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "h2",
+                "dash": true,
+                "kind": "optional"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "In-Memory Geo Store",
+            "Durable Location Stream",
+            "Trip-History Store",
+            "CDN Edge",
+            "Read Replica"
           ],
-          "answer": 1,
-          "why": "Two requirements hide inside 'location': a live position that must be fast and disposable, and a trip trace that must be durable but can arrive seconds late. Splitting them lets each be right — unit 16's queue carries the history off the critical path, exactly as analytics did in the URL shortener."
+          "answer": {
+            "h1": "In-Memory Geo Store",
+            "h2": "Durable Location Stream",
+            "h3": "Trip-History Store"
+          },
+          "why": "The geo store overwrites each driver's latest point for low-latency matching, while the durable stream carries ordered samples to trip-history storage asynchronously. If history storage slows, the stream buffers work and matching continues; putting archival writes inline would let a storage outage stall fresh-location updates."
         },
         {
           "id": "ride-1-5",
@@ -148,7 +340,7 @@
             "No — sample randomly"
           ],
           "answer": 1,
-          "why": "The information content of an update is how much the driver moved, not that four seconds elapsed — so an adaptive rate cuts a large share of the firehose while improving the data you keep. This is the cheapest kind of scaling: not handling the load better, but noticing that much of it carried no information."
+          "why": "A stationary driver's frequent coordinates add little matching information, while a fast-moving driver's position becomes stale quickly. Adaptive reporting reduces redundant writes when movement is small and increases freshness when movement makes the old position inaccurate."
         },
         {
           "id": "ride-1-6",
@@ -161,7 +353,7 @@
             "The database is bigger"
           ],
           "answer": 1,
-          "why": "Every technique that saved the feed depended on the answer being stable long enough to cache, and here the underlying data moves continuously — the thing you'd cache is stale before you've written it. That's why this is the boss level: the read-heavy playbook, which has rescued nearly every system so far, simply doesn't apply."
+          "why": "Nearby-driver results change continuously as drivers move and accept trips, so cached search results become stale quickly. The system must update and query a high-churn spatial index, which limits the benefit of conventional long-lived response caching."
         }
       ]
     },
@@ -172,7 +364,7 @@
         {
           "id": "ride-2-0",
           "type": "concept",
-          "title": "An index that sorts one axis at a time cannot answer a two-dimensional question",
+          "title": "A composite B-tree orders coordinates lexicographically",
           "viz": {
             "nodes": [
               {
@@ -198,16 +390,18 @@
             "edges": [
               {
                 "from": "q",
-                "to": "b"
+                "to": "b",
+                "kind": "data"
               },
               {
                 "from": "b",
-                "to": "n"
+                "to": "n",
+                "kind": "data"
               }
             ]
           },
-          "body": "A composite index on `(lat, lng)` sorts by `lat` first, and by `lng` only *within* an identical `lat`. That's it — that's the whole mechanism, and it's just unit 8's leftmost-prefix rule you already know. Now draw a 2km box around a rider and trace what the index can actually do with it. The answer is worse than you'd like.",
-          "note": "Which is why geohashing and its relatives exist — Geohash, S2, H3, differing mainly in cell shape. They don't build a cleverer index. They change the question into one the index you already have was always good at."
+          "body": "An index on `(latitude, longitude)` sorts first by latitude and uses longitude only among rows sharing the preceding latitude value. A latitude range can therefore span many unrelated longitudes, leaving the database to filter a large candidate set for a two-dimensional radius query.",
+          "note": "Grid indexes such as Geohash encode regions as one-dimensional cell keys, enabling lookup of the containing cell and its neighbors before exact distance filtering."
         },
         {
           "id": "ride-2-1",
@@ -220,7 +414,7 @@
             "The index would be too large"
           ],
           "answer": 1,
-          "why": "This is unit 8's leftmost-prefix rule biting in a new way: the index is sorted by latitude, then by longitude WITHIN each latitude, so a two-dimensional range query can only use the first dimension efficiently. Proximity is inherently 2D, and a structure that orders one axis at a time can't express it."
+          "why": "A B-tree on `(latitude, longitude)` is ordered primarily by latitude and only by longitude within equal latitude prefixes. A circular or box-shaped proximity query constrains both dimensions simultaneously, so this one-dimensional ordering scans many irrelevant entries."
         },
         {
           "id": "ride-2-2",
@@ -233,7 +427,7 @@
             "Precompute every distance"
           ],
           "answer": 1,
-          "why": "Geohashing and its relatives all do the same thing — map a 2D position to a 1D key such that nearby points usually share a prefix — which turns proximity into the prefix lookup that B-trees are already excellent at. That's the whole insight: you didn't invent a new index, you reshaped the question into one the old index can answer."
+          "why": "A geospatial cell encoding maps latitude and longitude into a one-dimensional cell key whose prefixes represent progressively smaller areas. The service can retrieve drivers in the rider's cell and neighboring cells, then apply an exact distance check."
         },
         {
           "id": "ride-2-3",
@@ -242,7 +436,7 @@
           "pairs": [
             {
               "left": "Geohash",
-              "right": "Encodes a location as a string; shared prefix means nearby"
+              "right": "Encodes a grid cell as a string; a shared prefix means the same enclosing cell at that precision"
             },
             {
               "left": "Cell size",
@@ -257,7 +451,7 @@
               "right": "Computed at the end, on the small candidate set"
             }
           ],
-          "why": "The pattern is coarse filter then exact check: the cell lookup cheaply narrows millions of drivers to dozens, and only then do you compute real distances. That two-stage shape is everywhere in this course — the same 'cheap approximate filter in front of an expensive exact one' as the rate limiter."
+          "why": "A shared Geohash prefix means two points fall within the same enclosing cell at that precision, not that every nearby pair shares a prefix. The query must include neighboring cells to catch boundary cases, then compute exact distance to remove false positives and order candidates."
         },
         {
           "id": "ride-2-4",
@@ -270,7 +464,7 @@
             "They're merged into one cell"
           ],
           "answer": 1,
-          "why": "Cells are an arbitrary grid laid over continuous space, so being close and sharing a cell aren't the same thing — a rider standing at a boundary would see nobody despite drivers metres away. Every real implementation queries the surrounding cells as well, which is a good reminder that the discretization is a convenience rather than the truth."
+          "why": "Two nearby points can have different cell keys when a grid boundary lies between them. Querying adjacent cells prevents those boundary false negatives, and an exact distance calculation removes extra candidates introduced by the wider lookup."
         },
         {
           "id": "ride-2-5",
@@ -283,7 +477,7 @@
             "Nothing"
           ],
           "answer": 1,
-          "why": "Driver density varies by orders of magnitude across a city, so any single cell size is wrong somewhere — which is why real systems use variable precision, going finer downtown and coarser in the countryside. It's unit 15's hot shard in geographic form: uniform partitioning of non-uniform data concentrates load exactly where you're busiest."
+          "why": "A fixed cell creates large candidate sets and concentrated load in dense areas, while sparse areas may require searching many empty neighboring cells. Variable precision uses smaller cells for dense regions and larger cells for sparse regions to bound candidates and lookup expansion."
         },
         {
           "id": "ride-2-6",
@@ -296,7 +490,7 @@
             "It doesn't matter"
           ],
           "answer": 1,
-          "why": "Unit 15's rule decides it: shard by what your hot query filters on, and the hot query filters on location. Driver id would distribute beautifully and force a scatter-gather on every single search — perfect balance, useless locality. The cost of choosing location is accepting the downtown hotspot, which is the trade you'd take."
+          "why": "Nearby-driver searches filter by spatial region, so location-based sharding routes a search to the relevant regional shards. Sharding by driver ID distributes writes but forces every proximity query to contact many shards; location sharding instead requires hotspot controls for dense regions."
         }
       ]
     },
@@ -307,7 +501,7 @@
         {
           "id": "ride-3-0",
           "type": "concept",
-          "title": "Assigning a driver isn't a write — it's a claim only one matcher may win",
+          "title": "Driver assignment needs an atomic, owned reservation",
           "viz": {
             "nodes": [
               {
@@ -346,24 +540,165 @@
             "edges": [
               {
                 "from": "r1",
-                "to": "m1"
+                "to": "m1",
+                "kind": "request"
               },
               {
                 "from": "r2",
-                "to": "m2"
+                "to": "m2",
+                "kind": "request"
               },
               {
                 "from": "m1",
-                "to": "d"
+                "to": "d",
+                "kind": "request"
               },
               {
                 "from": "m2",
-                "to": "d"
+                "to": "d",
+                "kind": "request"
               }
             ]
           },
-          "body": "Two riders, two matchers, one nearby driver. Both matchers look, and both see the same thing: available. You've met this shape before — unit 6, and again in the rate limiter — so you know how it ends. What's different is the blast radius. A lost counter increment is a number. This one is a real car pulling up to a kerb with two people standing at it.",
-          "note": "This is where the system stops being about data. A stale marker or a late receipt you fix quietly, and nobody finds out. An assignment leaves the building on four wheels, and no state management calls it back."
+          "body": "Each offer has a unique token. A matcher atomically changes `available` to a reservation containing driver, trip, token, and deadline. Acceptance succeeds only if all fields still match and the deadline has not passed.",
+          "note": "Expiry and reassignment invalidate the old token, fencing a delayed acceptance from an offer that no longer owns the driver."
+        },
+        {
+          "id": "ride-change-2",
+          "type": "system_change",
+          "prompt": "Two matchers read the same available driver and both assign that driver to different riders. Make driver assignment a single-winner operation.",
+          "actionLabel": "Claim the driver atomically",
+          "beforeStatus": "DRIVER D7 · assigned to Rider A and Rider B",
+          "afterStatus": "DRIVER D7 · one claim wins · loser retries",
+          "result": "Only one matcher can own the available-to-assigned transition",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Matcher A",
+                "sub": "reads available",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Matcher B",
+                "sub": "reads available",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Driver D7",
+                "sub": "double assigned",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Matcher A",
+                "sub": "claim wins",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Matcher B",
+                "sub": "claim fails",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Driver D7",
+                "sub": "assigned once",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "why": "Use a conditional write or transaction that changes the driver from available to assigned only when the stored state is still available. The losing matcher receives zero updated rows or a conflict and searches again."
+        },
+        {
+          "id": "design-ride-sharing-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Two matchers read the same available driver and both assign that driver to different riders. Make driver assignment a single-winner operation. Place Driver D7. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Matcher A",
+                "sub": "claim wins",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Matcher B",
+                "sub": "claim fails",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "sub": "assigned once",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Driver D7",
+            "Driver location",
+            "Where they are now"
+          ],
+          "answer": {
+            "d": "Driver D7"
+          },
+          "why": "The completed diagram contains these directed flows: Matcher A → Driver D7; Matcher B → Driver D7. That topology is the evidence for the answer: Use a conditional write or transaction that changes the driver from available to assigned only when the stored state is still available. The losing matcher receives zero updated rows or a conflict and searches again."
         },
         {
           "id": "ride-3-1",
@@ -376,7 +711,7 @@
             "A load balancing problem"
           ],
           "answer": 1,
-          "why": "This is unit 6's check-then-act with a person on the other end: read-decide-write across two concurrent matchers, and the second write silently overwrites the first. Unlike a lost counter increment, this one is visible in the real world — someone's car arrives and there are two people expecting it."
+          "why": "Both matchers read `available` before either writes the assignment, so each can offer the same driver to a different rider. This check-then-act race creates two commitments for one resource unless assignment is made conditional and atomic."
         },
         {
           "id": "ride-3-2",
@@ -384,12 +719,12 @@
           "prompt": "How do you make assignment safe?",
           "choices": [
             "Match more slowly",
-            "Make the claim atomic: a conditional update that only succeeds if the driver is still available, so exactly one matcher wins and the loser picks someone else",
+            "Atomically reserve the driver only if still available, recording the trip, unique offer token, and deadline",
             "Use a queue per driver",
             "Let the driver reject one"
           ],
           "answer": 1,
-          "why": "You need compare-and-set semantics — 'set this driver to assigned IF they are currently available' — so the store adjudicates rather than your application logic guessing. That's unit 9's optimistic concurrency, and it's the right shape here because collisions are rare: most requests aren't fighting over the same driver, so locking everyone up front would tax the 99% for the 1%."
+          "why": "Compare-and-set changes `available` to a reservation containing its owner, unique offer token, and deadline. Exactly one concurrent matcher satisfies the condition; failed contenders choose another driver. Recording the token now also gives the later acceptance path a value it can fence after expiry or reassignment."
         },
         {
           "id": "ride-3-3",
@@ -402,7 +737,7 @@
             "No — races are acceptable here"
           ],
           "answer": 1,
-          "why": "The claim is a single-key atomic operation, which any decent store does natively — pulling in a consensus system means operating another distributed system to solve a problem your database already solves. And a rare double-booking, while genuinely bad, is recoverable by reassigning; it's not the un-mergeable divergence that justifies consensus."
+          "why": "The assignment changes one driver's record under one conditional predicate, which a database can enforce atomically on the authoritative key. A separate coordination service is unnecessary unless the invariant spans multiple stores or records that cannot be updated atomically together."
         },
         {
           "id": "ride-3-4",
@@ -415,20 +750,20 @@
             "Distance is hard to compute"
           ],
           "answer": 1,
-          "why": "A locally optimal choice per request can be globally poor — grabbing the closest driver for rider A may strand rider B whom that driver was much better placed for. Batching over a short window turns a series of greedy picks into an assignment problem you can actually optimize, at the cost of a small delay nobody notices."
+          "why": "Choosing the nearest driver independently for each request can consume a driver who is the only good option for another nearby rider. A short batching window allows joint optimization across several riders and drivers, trading added matching latency for lower total pickup time or higher match completion."
         },
         {
           "id": "ride-3-5",
           "type": "multiple_choice",
-          "prompt": "A driver is offered a ride and doesn't respond. How long do you wait?",
+          "prompt": "Offer A expires and the driver is reassigned with offer B. What prevents a delayed acceptance of A from stealing the driver back?",
           "choices": [
-            "Until they respond",
-            "A few seconds, then offer it to someone else — but you've just met the same undecidable question again: are they ignoring it, or is their phone on a bad connection?",
-            "Thirty seconds",
-            "Cancel the ride"
+            "The driver's phone clock rejects it",
+            "A unique offer token: atomically accept only when driver, trip, token, state, and unexpired deadline still match the reservation",
+            "Idempotency by ride ID alone",
+            "A longer timeout"
           ],
           "answer": 1,
-          "why": "'Dead or just slow?' has followed this course from replication to failover to health checks, and here it's a person on a phone in a tunnel. You pick a timeout and accept both errors: too short and you snatch rides from drivers who were about to accept, too long and the rider stares at a spinner. There's no correct value, only a chosen failure mode."
+          "why": "The unique token identifies one reservation generation. Expiry or reassignment replaces that token, so the atomic acceptance predicate rejects a late message from offer A even if it arrives after offer B. A ride ID alone does not distinguish an obsolete offer from the current one, and a client clock cannot authoritatively decide server ownership."
         },
         {
           "id": "ride-3-6",
@@ -436,12 +771,12 @@
           "prompt": "The driver accepts, but the acceptance is lost in flight. What must be true of your system?",
           "choices": [
             "It should retry the whole match",
-            "Accepting must be idempotent — the driver's client retries with the same ride id, and the second accept returns the same result rather than double-booking or erroring",
+            "The client retries the same offer token; the server returns its stored result if that token already committed, and otherwise rechecks the fenced acceptance predicate",
             "The driver should tap again",
             "The rider is notified of failure"
           ],
           "answer": 1,
-          "why": "Unit 21 exactly: a timeout doesn't tell you whether the accept landed, so the client retries and the server must recognize the repeat as the same intent. Without that, a lost ack means either the driver appears not to have accepted a ride they did, or the retry creates a second assignment — both visible to real people in a car."
+          "why": "A lost acknowledgement leaves the app unable to tell whether acceptance committed. Retrying the same token is idempotent when the server records that token's result. If it already committed, return that result; if not, the server must atomically verify that the token still owns the live, unexpired reservation before accepting."
         }
       ]
     },
@@ -452,7 +787,7 @@
         {
           "id": "ride-4-0",
           "type": "concept",
-          "title": "One trip produces data with completely different costs of being wrong",
+          "title": "Consistency requirements are assigned per dataset and invariant",
           "viz": {
             "nodes": [
               {
@@ -485,20 +820,23 @@
             "edges": [
               {
                 "from": "r",
-                "to": "l"
+                "to": "l",
+                "kind": "data"
               },
               {
                 "from": "r",
-                "to": "m"
+                "to": "m",
+                "kind": "data"
               },
               {
                 "from": "r",
-                "to": "e"
+                "to": "e",
+                "kind": "event"
               }
             ]
           },
-          "body": "One trip throws off several kinds of data, and the temptation is to treat them alike because they came from one event. Resist it. Ask of each what it costs you to be wrong about it for a second — the answers aren't close to each other, they're orders of magnitude apart. Unit 19's rule applies per *dataset*, not per company, and this is where you feel it.",
-          "note": "And when the money moves, your idempotency key has to travel *to the provider*. Keep it in a local dedup table and you've quietly rebuilt the exact dual-write problem you were avoiding, with real money in the gap."
+          "body": "For each trip dataset, define the invariant that must hold, the tolerated staleness, and whether an incorrect result can be compensated. State that controls commitments needs coordination when concurrent updates could violate its invariant; telemetry can often tolerate bounded staleness.",
+          "note": "Applying strong consistency to every update adds coordination to high-rate telemetry; applying eventual consistency to commitments permits conflicting outcomes."
         },
         {
           "id": "ride-4-1",
@@ -506,12 +844,12 @@
           "prompt": "The trip is underway. Which parts of this system now need strong consistency?",
           "choices": [
             "All of it — it's a real-time system",
-            "The trip's state and the payment: those are money and commitments. The car's position on the map can be a second stale and nobody is harmed",
+            "Serialize local trip-state and ledger invariants; allow bounded map staleness only when it cannot authorize an irreversible action",
             "None of it",
             "Only the driver's location"
           ],
           "answer": 1,
-          "why": "The same product contains data with completely different costs of being wrong: a trip charged twice is a refund and a complaint, while a marker lagging one second is invisible. Unit 19's rule applies per dataset rather than per company — buy strong guarantees for the ledger and let the map be eventually consistent."
+          "why": "Assignment state and local ledger entries represent exclusive or financial commitments, so concurrent local updates must be serialized to preserve their invariants. Map position and estimated arrival time can use bounded staleness when the display is advisory. This does not make an external card charge part of the same transaction; provider outcomes need a separate reconciled workflow."
         },
         {
           "id": "ride-4-2",
@@ -524,7 +862,7 @@
             "It needs two-phase commit"
           ],
           "answer": 1,
-          "why": "Unit 9's boundary and unit 21's keys arrive together at the moment money moves: two systems can't commit as one, so you record intent, call the provider with an idempotency key, and reconcile — with a compensating refund if a later step fails. 2PC across a third party you don't control isn't available, which is why sagas exist."
+          "why": "The local trip and ledger transaction can serialize internal invariants, but it cannot atomically commit with an external payment provider. The service records a payment intent, calls the provider with an idempotency key, and reconciles unknown outcomes; a later workflow failure uses a compensating action such as a refund."
         },
         {
           "id": "ride-4-3",
@@ -532,12 +870,12 @@
           "prompt": "A concert ends and 20,000 people request rides in one neighbourhood within two minutes. What breaks first?",
           "choices": [
             "The payment system",
-            "The geo shard covering that neighbourhood — location sharding means the surge concentrates on exactly one shard, which is the hot shard you accepted when you chose the key",
+            "The geo partitions and matcher capacity serving that neighbourhood — spatial locality concentrates the surge in a small adjacent area",
             "The location firehose",
             "Nothing"
           ],
           "answer": 1,
-          "why": "You chose to shard by location for query locality, and that decision hands you geographic hotspots as its structural cost — demand is never uniform across a city. Unit 15 warned that a shard key is a permanent bet: this is the bet being called, and the answers are finer cells downtown, replicas for hot cells, and shedding load rather than melting."
+          "why": "Location-based partitioning concentrates the neighbourhood's simultaneous searches and candidate updates in a small set of cells and their serving partitions; boundary-aware queries may touch several adjacent cells rather than exactly one shard. Finer subdivision, replicated read projections, adaptive update rates, and controlled admission can protect the localized hot area."
         },
         {
           "id": "ride-4-4",
@@ -554,7 +892,7 @@
             1,
             2
           ],
-          "why": "The first three shed cost with effects users barely register — a slightly laggier map and a late email are nothing next to the app failing. Double-booking is not degradation, it's incorrectness: it puts two people in a parking lot expecting one car. Knowing which is which, before the surge, is what makes graceful degradation possible."
+          "why": "Lower map refresh frequency, delayed receipts, and coarser search precision reduce compute, writes, or fan-out while preserving core trip correctness. Allowing double booking violates the one-driver-to-one-active-trip invariant and therefore cannot be used as a degradation mode."
         },
         {
           "id": "ride-4-5",
@@ -566,7 +904,7 @@
             55,
             100
           ],
-          "why": "Queueing at a surge means riders wait five minutes to be matched with a driver who's now somewhere else, so you've spent capacity producing stale matches and a worse experience than an honest refusal. Unit 17's lesson holds here: a system that says no cleanly beats one that says yes slowly, and 'no cars right now' lets someone walk to the train instead of staring at a spinner."
+          "why": "A long matching queue operates on locations and availability that may be stale by the time work begins, wasting capacity and returning poor assignments. Load shedding gives a timely failure when the system cannot meet its matching deadline and protects capacity for requests it can still complete."
         },
         {
           "id": "ride-4-6",
@@ -574,12 +912,312 @@
           "prompt": "Summarize the ride-sharing design.",
           "choices": [
             "A geo database with real-time queries",
-            "Ephemeral location in memory with history streamed off the critical path; a geo-cell index turning 2D proximity into a 1D lookup; atomic conditional claims for matching; and strong consistency reserved for the trip and the money",
+            "Ephemeral live locations with durable history streaming; geo-cell lookup; fenced atomic offers; serialized local trip and ledger state; and reconciled idempotent provider payments",
             "A microservices architecture with a message bus",
             "A graph of drivers and riders"
           ],
           "answer": 1,
-          "why": "Every part came from asking what the data actually is: locations are disposable, so they live in memory; proximity is 2D, so you reshape it into a key an index can serve; an assignment is a commitment, so it's a compare-and-set; and money is irreversible, so it gets the strict path. The system is hard because it contains four different systems, and the skill is refusing to treat them the same."
+          "why": "The design separates data by required guarantees: current positions use a high-throughput ephemeral spatial index, trip history is durable, assignments use conditional atomic updates, and payments use idempotent reconciled workflows. This prevents low-value location churn from imposing its scale on financial and assignment correctness paths."
+        }
+      ]
+    },
+    {
+      "id": "ride-5",
+      "title": "Review the complete marketplace",
+      "exercises": [
+        {
+          "id": "ride-5-0",
+          "type": "concept",
+          "title": "Live location, matching authority, trip state, and payment have different correctness requirements",
+          "viz": {
+            "nodes": [
+              {
+                "id": "l",
+                "label": "Location stream",
+                "sub": "fast + expendable",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "m",
+                "label": "Matcher",
+                "sub": "fenced reservation",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "t",
+                "label": "Trip record",
+                "sub": "authoritative state",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "p",
+                "label": "Payment provider",
+                "sub": "stable operation key",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "l",
+                "to": "m",
+                "kind": "event"
+              },
+              {
+                "from": "m",
+                "to": "t",
+                "kind": "data"
+              },
+              {
+                "from": "t",
+                "to": "p",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "Location updates feed a spatial projection that may drop stale points. Matching claims one driver with an expiring, fenced offer. Accepted transitions advance an authoritative trip state machine, and payment uses a stable provider-facing operation identity because local and external state cannot commit atomically.",
+          "note": "Do not assign one consistency label to the entire product. Nearby dots may be stale; one driver assigned to two riders and one trip charged twice violate hard invariants."
+        },
+        {
+          "id": "ride-review-change",
+          "type": "system_change",
+          "prompt": "Matcher A's offer lease expires. Matcher B assigns the driver to another rider, but A's delayed acceptance arrives and overwrites B's newer assignment.",
+          "actionLabel": "Fence every offer generation",
+          "choices": [
+            "Accept whichever response arrives last",
+            "Attach a monotonically newer offer token and reject transitions carrying an older token",
+            "Make offer leases longer forever"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Arrival order cannot distinguish current authority from stale work.",
+            "The trip store compares the token during the state transition and rejects stale ownership.",
+            "Longer leases delay reassignment but cannot eliminate delayed messages or crashed owners."
+          ],
+          "beforeStatus": "OFFER A EXPIRED · OFFER B ACTIVE · late A steals driver",
+          "afterStatus": "TOKEN A < TOKEN B · stale acceptance rejected",
+          "result": "Expired matchers cannot mutate the current assignment",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Offer A",
+                "sub": "expired",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Driver assignment",
+                "sub": "blind overwrite",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Offer A · token 41",
+                "sub": "rejected",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Offer B · token 42",
+                "sub": "current",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Trip store",
+                "sub": "requires token 42",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "A lease limits how long an owner should act, but a delayed process may not know its lease expired. A fencing token travels to the authoritative state transition, allowing that resource to reject every operation from an older ownership generation."
+        },
+        {
+          "id": "design-ride-sharing-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Matcher A's offer lease expires. Matcher B assigns the driver to another rider, but A's delayed acceptance arrives and overwrites B's newer assignment. Place Trip store. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Offer A · token 41",
+                "sub": "rejected",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Offer B · token 42",
+                "sub": "current",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "sub": "requires token 42",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Trip store",
+            "Driver location",
+            "Where they are now"
+          ],
+          "answer": {
+            "d": "Trip store"
+          },
+          "why": "The completed diagram contains these directed flows: Offer A · token 41 → Trip store; Offer B · token 42 → Trip store. That topology is the evidence for the answer: A lease limits how long an owner should act, but a delayed process may not know its lease expired. A fencing token travels to the authoritative state transition, allowing that resource to reject every operation from an older ownership generation."
+        },
+        {
+          "id": "ride-5-1",
+          "type": "build_diagram",
+          "prompt": "Build the request-to-trip path while separating ephemeral location from durable trip history.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Ride request",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "t",
+                "label": "Trip state",
+                "col": 4,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "t",
+                "kind": "data"
+              }
+            ]
+          },
+          "palette": [
+            "Spatial index · nearby candidates",
+            "Matcher · score candidates",
+            "Atomic driver reservation",
+            "Analytics warehouse"
+          ],
+          "answer": {
+            "h1": "Spatial index · nearby candidates",
+            "h2": "Matcher · score candidates",
+            "h3": "Atomic driver reservation"
+          },
+          "why": "The spatial index narrows the search, the matcher evaluates current marketplace signals, and the reservation enforces one winner before authoritative trip creation. Analytics is downstream evidence, not assignment authority."
+        },
+        {
+          "id": "ride-5-2",
+          "type": "multi_select",
+          "prompt": "A review finds driver locations stored only in the trip database, nearest-driver selection with no reservation, wall-clock offer ordering, and a new payment key on each retry. Which failures follow? Select all.",
+          "choices": [
+            "Location writes can overload durable trip storage",
+            "Two riders can receive the same driver",
+            "Clock skew and delay can revive stale offers",
+            "An ambiguous payment retry can charge twice"
+          ],
+          "answer": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "why": "The design mixes high-volume ephemeral projection with durable state, omits single-winner assignment, trusts clocks for authority, and discards payment identity across retries. The complete trip path needs a different mechanism for each invariant."
+        },
+        {
+          "id": "xfer-ride",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "Warehouse robots publish positions into spatial cells. A robot sits near a cell boundary. Why might a nearest-robot query inspect adjacent cells?",
+          "choices": [
+            "The robot belongs to every cell",
+            "Distance has no geometry",
+            "The nearest candidate can lie just across the boundary",
+            "Spatial indexes guarantee one-cell answers"
+          ],
+          "answer": 2,
+          "why": "Cell boundaries are indexing artifacts. A physically nearby candidate may be stored in a neighboring cell, so the query expands cells until its distance bound proves no closer candidate was omitted."
         }
       ]
     }

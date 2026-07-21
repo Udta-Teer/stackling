@@ -2,7 +2,7 @@
   "unitId": "sql-vs-nosql",
   "tier": 1,
   "title": "SQL vs NoSQL",
-  "subtitle": "Not a war — a set of tradeoffs, and what each one gave up",
+  "subtitle": "Choose a data model and storage engine from access patterns and required guarantees",
   "objectives": [
     "Say what NoSQL actually means and debunk the speed and schemaless myths",
     "Match the four NoSQL families to the data shapes and access patterns they serve",
@@ -17,35 +17,192 @@
         {
           "id": "nosql-1-0",
           "type": "concept",
-          "title": "\"NoSQL\" names what these databases aren't, which is why it explains nothing",
-          "body": "It expands to *not only SQL* — a label defined by absence. The name came from a 2009 meetup, not a design principle, and it was stretched over four unrelated families: key-value, document, wide-column, graph. They share no data model, no query language, no guarantees. Each gave up part of the relational model to buy something else.",
-          "note": "Several then added SQL back once users missed it — Cassandra's query language is called `CQL` and reads almost exactly like SQL. The name outlived the claim."
+          "title": "NoSQL is an umbrella term for several non-relational data models",
+          "body": "NoSQL is a broad industry label covering key-value, document, wide-column, graph, and other non-relational databases. “Not only SQL” is a later expansion of the name, not a capability definition. The label specifies no storage engine, query language, consistency model, or performance profile; each product defines those properties.",
+          "note": "Evaluate a specific database and configuration. The NoSQL label alone does not establish transaction support, schema enforcement, durability, or horizontal scalability."
+        },
+        {
+          "id": "sql-change-1",
+          "type": "system_change",
+          "prompt": "An order write updates inventory and payment in two independent stores. Put both records in one relational transaction.",
+          "actionLabel": "Use one database transaction",
+          "beforeStatus": "CRASH AFTER PAYMENT · payment committed; inventory update missing",
+          "afterStatus": "CRASH BEFORE COMMIT · both changes roll back together",
+          "result": "The partial order state was eliminated",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Order service",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Payments DB",
+                "sub": "committed",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "i",
+                "label": "Inventory DB",
+                "sub": "missing",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "p",
+                "kind": "data"
+              },
+              {
+                "from": "p",
+                "to": "i",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Order service",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Relational DB",
+                "sub": "one transaction",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "p",
+                "label": "Payment row",
+                "sub": "rolled back",
+                "col": 2
+              },
+              {
+                "id": "i",
+                "label": "Inventory row",
+                "sub": "rolled back",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "d",
+                "to": "p",
+                "kind": "data"
+              },
+              {
+                "from": "d",
+                "to": "i",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "A transaction inside one database can commit both row changes or roll both back. This does not make an external payment provider part of the same transaction; cross-system effects still require idempotency or a workflow such as an outbox and compensation."
+        },
+        {
+          "id": "sql-vs-nosql-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: An order write updates inventory and payment in two independent stores. Put both records in one relational transaction. Place Relational DB, Payment row, Inventory row. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Order service",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "sub": "one transaction",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "sub": "rolled back",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "i",
+                "sub": "rolled back",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "d",
+                "to": "p",
+                "kind": "request"
+              },
+              {
+                "from": "d",
+                "to": "i",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Relational DB",
+            "Payment row",
+            "Inventory row",
+            "Payments DB",
+            "Inventory DB"
+          ],
+          "answer": {
+            "d": "Relational DB",
+            "p": "Payment row",
+            "i": "Inventory row"
+          },
+          "why": "The completed diagram contains these directed flows: Order service → Relational DB; Relational DB → Payment row; Relational DB → Inventory row. That topology is the evidence for the answer: A transaction inside one database can commit both row changes or roll both back. This does not make an external payment provider part of the same transaction; cross-system effects still require idempotency or a workflow such as an outbox and compensation.",
+          "connectEdges": true
         },
         {
           "id": "nosql-1-1",
           "type": "multiple_choice",
-          "prompt": "What does 'NoSQL' actually mean?",
+          "prompt": "What does the modern label 'NoSQL' tell you?",
           "choices": [
             "Databases with no query language at all",
-            "'Not only SQL' — an umbrella for non-relational databases that made different tradeoffs",
+            "It is an umbrella label for several non-relational database families; it does not specify one query language or guarantee set",
             "Databases that are always faster than SQL ones",
             "Databases that have no schema"
           ],
           "answer": 1,
-          "why": "NoSQL isn't an anti-SQL movement — it's a loose family of stores that gave up parts of the relational model to get something else, usually easier horizontal scaling or a more natural data shape. The name is genuinely terrible and has fuelled a decade of confused arguments: plenty of 'NoSQL' databases have rich query languages, and some now literally speak SQL. The useful question is never 'SQL or NoSQL' — it's *what did this database give up, and what did it buy with it?*"
+          "why": "NoSQL is now used as an umbrella label for key-value, document, wide-column, graph, and other non-relational systems. The historical name has been expanded as “not only SQL,” but that phrase is not a technical definition. Many products provide query languages, schemas, and transactions, so evaluate the product's actual data model and guarantees."
         },
         {
           "id": "nosql-1-2",
           "type": "multiple_choice",
-          "prompt": "Is NoSQL inherently faster than a relational database?",
+          "prompt": "DynamoDB reads one item by its full partition key; PostgreSQL scans an unindexed column across 50 million rows. Why can the DynamoDB request be faster in this comparison?",
           "choices": [
-            "Yes — it's newer and better engineered",
-            "No — it's faster at certain access patterns because it does less: no joins, no cross-node transactions, fewer guarantees",
-            "No — it's actually always slower",
-            "They're identical in performance"
+            "Because every NoSQL database is inherently faster",
+            "The DynamoDB request uses its designed key access path, while the PostgreSQL query lacks a matching index",
+            "Because PostgreSQL cannot look up keys",
+            "Because DynamoDB never supports transactions"
           ],
           "answer": 1,
-          "why": "Speed here isn't magic, it's subtraction: a key-value store is blisteringly fast at 'give me the value at this key' precisely because that's all it promises to do. Generalize the instinct — whenever one system is dramatically faster than another at a similar task, ask what it stopped promising. Performance almost always comes from removing a guarantee rather than writing better code, and that question will serve you for your whole career."
+          "why": "The named key lookup follows DynamoDB's intended access path, while the unindexed PostgreSQL predicate scans many rows. Adding a suitable PostgreSQL index could reverse or erase the gap. The NoSQL label alone says nothing definitive about joins, transactions, guarantees, or speed."
         },
         {
           "id": "nosql-1-3",
@@ -58,7 +215,7 @@
             "It's generated automatically at runtime"
           ],
           "answer": 1,
-          "why": "Your data always has a shape — 'schemaless' only means the database stopped enforcing it, so the enforcement moved into your code where it's optional and easy to forget. The real terms are *schema-on-write* (SQL: the database rejects malformed data at insert) versus *schema-on-read* (accept anything; readers cope). Schema-on-read feels liberating in month one and painful in year three, when one collection holds five generations of shape and every reader needs branches for all of them."
+          "why": "Every document has a schema formed by its fields, value types, and nesting. When the database permits multiple shapes in one collection, application writers validate each shape and readers support every stored version. Schema-on-read therefore requires application-level validation and migration-compatible readers whenever document versions coexist."
         },
         {
           "id": "nosql-1-4",
@@ -71,7 +228,7 @@
             "backup"
           ],
           "answer": 0,
-          "why": "Schema-on-write catches bad data at the door, before it's stored. Schema-on-read lets it in and makes every future reader deal with it."
+          "why": "Schema-on-write validates a record against declared types and constraints during insertion or update. When shape is interpreted only on read, malformed or older records can remain stored and each reader must recognize or transform them."
         },
         {
           "id": "nosql-1-5",
@@ -88,7 +245,7 @@
             1,
             3
           ],
-          "why": "Structure, joins, and strong transactions are real; 'can't handle scale' is the myth — a single well-tuned Postgres routinely serves workloads far beyond what most companies ever reach. This myth has cost the industry enormous pain: teams adopt a distributed NoSQL store at 5,000 users to prepare for a scale they never hit, and pay the cost of losing joins and transactions every single day in between."
+          "why": "Relational databases enforce schemas and relationships, execute joins across normalized tables, and support transactions with configurable isolation. Their scale limit depends on workload and architecture; relational systems can scale vertically, use replicas and partitions, or run as distributed SQL systems."
         },
         {
           "id": "nosql-1-6",
@@ -101,7 +258,7 @@
             "Which one does my favourite company use?"
           ],
           "answer": 1,
-          "why": "Access patterns and required guarantees decide the answer — the SQL/NoSQL label is a category, not a decision. Notice the question doesn't mention a single product name: if you can't answer it, no amount of benchmarking will save you, because you'll just pick fast software that's wrong for your problem."
+          "why": "Access patterns determine which reads and writes must be efficient, while required guarantees determine acceptable consistency, isolation, and durability behavior. Comparing those requirements with a database's actual mechanisms is more precise than choosing from its SQL or NoSQL category."
         }
       ]
     },
@@ -112,7 +269,7 @@
         {
           "id": "nosql-2-0",
           "type": "concept",
-          "title": "Pick the family by how you'll ask for the data, not by what the data is",
+          "title": "NoSQL data models optimize different access paths",
           "viz": {
             "nodes": [
               {
@@ -152,24 +309,135 @@
             "edges": [
               {
                 "from": "q",
-                "to": "kv"
+                "to": "kv",
+                "kind": "data"
               },
               {
                 "from": "q",
-                "to": "doc"
+                "to": "doc",
+                "kind": "data"
               },
               {
                 "from": "q",
-                "to": "wc"
+                "to": "wc",
+                "kind": "data"
               },
               {
                 "from": "q",
-                "to": "g"
+                "to": "g",
+                "kind": "data"
               }
             ]
           },
-          "body": "Four families, four questions they're fast at. *Key-value*: you know the exact key and will never ask anything else. *Document*: you want one whole self-contained record, and records needn't match each other. *Wide-column*: colossal tables, always entered through a partition key. *Graph*: your question is about the connections themselves.",
-          "note": "Each family is fast at one access pattern and clumsy at every other. Ask a key-value store which of its values mention Berlin and it has nothing to offer but reading every key it holds. The narrowness *is* the speed."
+          "body": "A key-value store maps an exact key to an opaque value. A document store indexes fields inside self-contained records. A wide-column store partitions sparse rows by a partition key and orders them within a partition. A graph store represents vertices and edges for relationship traversal.",
+          "note": "Queries outside the store's indexed access path may require a scan, duplicated data, or a separate index. Required query patterns therefore shape the storage model."
+        },
+        {
+          "id": "nosql-change-2",
+          "type": "system_change",
+          "prompt": "A product page reads one product plus 30 separately stored attribute rows. Store the read-together document under the product ID.",
+          "actionLabel": "Embed the attributes",
+          "beforeStatus": "PRODUCT PAGE · 31 record reads",
+          "afterStatus": "PRODUCT PAGE · 1 document read",
+          "result": "The storage shape now matches the dominant access pattern",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Product API",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Product row",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "x",
+                "label": "30 attributes",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "p",
+                "kind": "data"
+              },
+              {
+                "from": "a",
+                "to": "x",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Product API",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Product document",
+                "sub": "attributes embedded",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Embedding data that is read and updated as one aggregate removes joins or repeated lookups. It becomes expensive when embedded collections grow without bound or require frequent independent updates."
+        },
+        {
+          "id": "sql-vs-nosql-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A product page reads one product plus 30 separately stored attribute rows. Store the read-together document under the product ID. Place Product API, Product document. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "attributes embedded",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Product API",
+            "Product document",
+            "Order service",
+            "Payments DB"
+          ],
+          "answer": {
+            "a": "Product API",
+            "d": "Product document"
+          },
+          "why": "The completed diagram contains these directed flows: Product API → Product document. That topology is the evidence for the answer: Embedding data that is read and updated as one aggregate removes joins or repeated lookups. It becomes expensive when embedded collections grow without bound or require frequent independent updates."
         },
         {
           "id": "nosql-2-1",
@@ -177,11 +445,11 @@
           "prompt": "Match each NoSQL family to the shape it's built for.",
           "pairs": [
             {
-              "left": "Key-value (Redis, DynamoDB)",
+              "left": "Key-value (Redis; DynamoDB key API)",
               "right": "Get/put a value by one key"
             },
             {
-              "left": "Document (MongoDB)",
+              "left": "Document (MongoDB; DynamoDB documents)",
               "right": "Self-contained JSON documents"
             },
             {
@@ -193,7 +461,7 @@
               "right": "The relationships ARE the data"
             }
           ],
-          "why": "'NoSQL' isn't one thing — it's four very different answers to four very different problems, and lumping them together is most of why the debate is so muddled. These families have less in common with each other than any of them has with Postgres: a graph database and a key-value store are about as similar as a spreadsheet and a hammer, sharing a name only because of a marketing accident."
+          "why": "Key-value stores optimize lookup by one key; document stores keep self-contained structured records; wide-column stores distribute rows by partition key; graph databases represent vertices and edges for relationship traversal. The distinct data models make each family efficient for different query shapes."
         },
         {
           "id": "nosql-2-2",
@@ -206,12 +474,12 @@
             "Relational with 6 tables"
           ],
           "answer": 0,
-          "why": "One access pattern, one key — a key-value store does exactly this and nothing else, which is why it's so fast at it. Don't buy a relational engine to do a hashmap's job: this is the cleanest, least controversial NoSQL win there is, because when your access pattern really is 'get the thing at this key', everything else is overhead."
+          "why": "A session identifier maps directly to one session value, so a key-value store supports the complete access pattern with a single keyed operation. Its partitioning and indexing can be organized around that key because no joins or secondary predicates are required."
         },
         {
           "id": "nosql-2-3",
           "type": "build_diagram",
-          "prompt": "Sessions are read millions of times a second by one key, and can be rebuilt if lost. Add the right store, keeping Postgres as the source of truth.",
+          "prompt": "User profiles are durable in Postgres and read millions of times per second by user ID. Add a rebuildable serving cache in front of that source of truth.",
           "viz": {
             "nodes": [
               {
@@ -228,19 +496,22 @@
               {
                 "id": "p",
                 "label": "Postgres",
-                "sub": "source of truth",
-                "col": 2,
+                "sub": "source of truth · miss only",
+                "col": 1,
                 "kind": "db"
               }
             ],
             "edges": [
               {
                 "from": "a",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
-                "from": "h",
-                "to": "p"
+                "from": "a",
+                "to": "p",
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
@@ -252,7 +523,7 @@
           "answer": {
             "h": "Redis (key-value)"
           },
-          "why": "Sessions are a single-key, rebuildable, extremely hot access pattern — exactly a key-value store's job — so Postgres keeps the durable truth while Redis absorbs the volume. Notice you didn't choose SQL OR NoSQL; you used both, each for what it's good at. That's polyglot persistence, and it's what most real systems actually look like: the question was never either/or."
+          "why": "Redis serves high-volume profile lookups from memory, while every cached value can be rebuilt from the durable Postgres record. The design must define expiration, invalidation, and fallback behavior when Redis misses or fails; Redis is not pretending to hold the only session record."
         },
         {
           "id": "nosql-2-4",
@@ -265,7 +536,7 @@
             "One relational table with 200 mostly-null columns"
           ],
           "answer": 1,
-          "why": "Documents are self-contained and can legitimately differ in shape from each other, which is exactly what a heterogeneous catalog is. This is the strongest honest case for document stores: varied, self-contained entities you fetch whole. But be clear-eyed about the cost you just accepted — nothing now guarantees that shirts have sizes, and that check moved into your code, forever."
+          "why": "A document store can represent each product as one self-contained record with fields appropriate to its type, avoiding a very wide sparse table. If the store does not enforce per-type validation, the application must ensure that required fields such as a shirt's size are present."
         },
         {
           "id": "nosql-2-5",
@@ -278,7 +549,7 @@
             "Wide-column"
           ],
           "answer": 2,
-          "why": "Graph databases store relationships as first-class citizens, so traversals don't explode into ever-deeper joins as you add hops. The tell for a graph problem: your queries are about the CONNECTIONS rather than the entities. If you find yourself joining a table to itself repeatedly and adding a level each time the product team asks for one more hop, you may have a graph problem wearing a relational costume."
+          "why": "A graph database stores relationships as edges connected to vertices, so a traversal follows adjacent edges at each hop. This directly represents a friends-of-friends query; in a relational model, each additional hop commonly requires another self-join or recursive query step."
         },
         {
           "id": "nosql-2-6",
@@ -291,7 +562,7 @@
             "It only works on one machine"
           ],
           "answer": 1,
-          "why": "Wide-column stores buy their scale by making you commit to your access patterns in advance — the table is shaped around the query, so a new question can mean a new table. This is the trade in its purest form: Cassandra will happily take a million writes a second across a hundred nodes, but the day a product manager asks a question you didn't design for, the answer may genuinely be 'we'd have to rewrite how the data is stored'."
+          "why": "Cassandra distributes rows by partition key and orders data within each partition, so efficient queries must constrain keys that match that layout. A new access pattern may require a separately denormalized table and a backfill because cluster-wide joins and unrestricted scans are not its normal query path."
         }
       ]
     },
@@ -302,27 +573,27 @@
         {
           "id": "nosql-3-0",
           "type": "concept",
-          "title": "The join is an escape hatch, and most NoSQL stores don't have one",
-          "body": "A relational database normalizes: each fact once, and a `JOIN` assembles it into whatever answer you ask for — including answers to questions nobody has thought of yet. The join is the escape hatch. Most NoSQL stores don't have one. Take away the ability to assemble at read time and something has to happen at write time instead.",
-          "note": "Storing a fact in more than one place, on purpose, has a name: *denormalization*. It isn't sloppiness — it's the only way to answer a question you can't assemble at read time. The design turns on doing it deliberately."
+          "title": "Denormalization precomputes read shapes by duplicating data",
+          "body": "Normalized relational data stores each fact once and uses `JOIN` operations to combine related rows at read time. Stores without server-side joins often denormalize: a write copies related fields into records required by a known read path, so that read can use one lookup.",
+          "note": "Propagation to duplicated records can fail partway and expose mixed versions. Retries, repair jobs, or version checks must handle incomplete updates."
         },
         {
           "id": "nosql-3-1",
           "type": "multiple_choice",
-          "prompt": "What's the deepest difference between relational and most NoSQL modeling?",
+          "prompt": "Which contrast best describes normalized join-at-read modeling versus access-path-specific denormalization?",
           "choices": [
             "The syntax you type",
-            "SQL: model the data correctly, then query it however you like later. NoSQL: model your queries first, then shape the storage to serve them",
+            "Normalized designs store facts separately and join them for indexed access paths; denormalized designs duplicate read shapes for known queries",
             "How fast they read from disk",
             "One uses JSON and one doesn't"
           ],
           "answer": 1,
-          "why": "This is the actual mental shift and the thing people get wrong: relational lets you decide the questions later, while most NoSQL requires you to decide them first. In relational, normalize now and you can still answer questions you haven't thought of yet — the join is your escape hatch. In NoSQL you often can't join, so you must know the questions in advance and physically store the answers in the shape you'll read them."
+          "why": "Normalized designs reduce duplicated facts and reconstruct results at read time, but still need indexes, partitions, and sometimes materialized views for real access patterns. Denormalized designs precompute selected read shapes, trading simpler reads for write amplification and synchronization work."
         },
         {
           "id": "nosql-3-2",
           "type": "multiple_choice",
-          "prompt": "In DynamoDB you can't join. To show an order together with its customer's name, what do you typically do?",
+          "prompt": "An invoice must preserve the customer's name exactly as it appeared at purchase time and render with one DynamoDB item read. What should the order item store?",
           "choices": [
             "Run two queries and join in your app",
             "Duplicate the customer's name into the order record itself",
@@ -330,12 +601,12 @@
             "Store a pointer and follow it"
           ],
           "answer": 1,
-          "why": "You store the answer, not the ingredients: the order record carries the customer name so one read returns everything the screen needs. That's denormalization — it makes reads a single fast lookup, but the name now lives in two places, which is exactly unit 5's copies problem. You've traded a consistency guarantee for read speed, on purpose."
+          "why": "Copying the purchase-time name into the order creates the required historical snapshot and satisfies the one-read contract. Looking up the current customer record would change old invoices after a rename. If the product instead required current names, indirection or propagated updates could be valid."
         },
         {
           "id": "nosql-3-3",
           "type": "multiple_choice",
-          "prompt": "You denormalized a user's display name into all 10,000 of their posts. They change their name. What now?",
+          "prompt": "The product requires a user's current display name on all 10,000 old posts. You copied that name into every post, and the user renames themselves. What now?",
           "choices": [
             "One update — the database handles the rest",
             "You must update 10,000 records, and until you finish, the system displays two different names",
@@ -343,19 +614,19 @@
             "The database refuses the change"
           ],
           "answer": 1,
-          "why": "You moved the work from read-time to write-time: reads became one fast lookup, and that single rename became an enormous, slow, partially-visible operation. Here's the fundamental exchange rate of data modeling — normalized = cheap writes, expensive reads (you join); denormalized = cheap reads, expensive writes plus a consistency risk. Neither side is free; you are only ever choosing which side pays."
+          "why": "Because the requirement says every post shows the current name, propagating the rename requires up to 10,000 writes. During a non-atomic backfill, readers can see mixed versions; indirection, version checks, or repair jobs can change that tradeoff. A historical-name product would intentionally leave old posts unchanged."
         },
         {
           "id": "nosql-3-4",
           "type": "tradeoff_slider",
-          "prompt": "A social feed: 99% reads, 1% writes. Slide toward your modeling choice.",
+          "prompt": "A feed serves 10,000 reads/sec and 100 fan-out events/sec. Reads must use one keyed lookup; up to 5 minutes of staleness and 20× storage are acceptable, and workers can absorb the amplified writes. Slide toward the storage shape.",
           "leftLabel": "Normalize (join at read time)",
           "rightLabel": "Denormalize (store the answer, pay at write time)",
           "answerRange": [
             60,
             100
           ],
-          "why": "With a 99:1 read-to-write ratio, paying at write time is obviously right: do the work once when someone posts, so that millions of reads are single cheap lookups. The rule to carry: put the work where the traffic isn't — read-heavy means precompute and denormalize, write-heavy means normalize and compute at read time. You'll meet this exact reasoning again by a different name in the news feed capstone: fan-out on write vs fan-out on read."
+          "why": "The stated one-lookup read contract, 100:1 read-to-event ratio, tolerated staleness, storage budget, and available workers make precomputed feed records a fit. If freshness were immediate or celebrity fan-out exceeded write capacity, join-at-read or a hybrid design could win despite the same read ratio."
         },
         {
           "id": "nosql-3-5",
@@ -372,7 +643,7 @@
             1,
             3
           ],
-          "why": "Reads get FASTER — that's the entire point of doing it — so the costs are drifting copies, heavier writes, and committing to your query patterns early. Notice that two of those three are the same cost wearing different hats: once data lives in many places, both writing it and trusting it get harder. Duplication is never just a storage decision."
+          "why": "Duplicated values can diverge when propagation fails or is delayed, one logical change fans out into more physical writes, and the duplicated layout serves only the access patterns it anticipated. Denormalization generally improves the targeted reads by removing joins or extra lookups."
         },
         {
           "id": "nosql-3-6",
@@ -385,7 +656,7 @@
             "It can't be backed up"
           ],
           "answer": 1,
-          "why": "Modeling for your queries means your storage encodes today's questions, so a new question can require reshaping the data itself rather than just writing new SQL. This is the asymmetry that decides most real arguments: in relational, a new question costs you a query; in query-modeled NoSQL, a new question can cost you a migration. Early products change their questions constantly, which is a strong hint about what to default to."
+          "why": "A query-oriented NoSQL layout encodes its supported access patterns in partition keys, sort keys, indexes, and duplicated views. When a new query cannot use an existing access path, the system needs a new table or index and may need to backfill existing records into that structure."
         }
       ]
     },
@@ -396,22 +667,132 @@
         {
           "id": "nosql-4-0",
           "type": "concept",
-          "title": "What makes a join cheap is that nothing has to cross a network",
-          "body": "Matching two rows is nearly free when they sit on one machine and brutal when they sit on two, because every match becomes a network round trip. Agreeing on a commit across machines is worse: someone must ask every participant, wait for every participant, and hold everything still until the slowest one answers. Distance isn't a detail here. It's the cost.",
-          "note": "When a store advertises spreading across 50 machines, that's the *result* of a decision, not the decision. Ask what got dropped to make it possible — people notice the achievement immediately and the loss a year later."
+          "title": "Cross-partition joins and transactions require network coordination",
+          "body": "When related rows occupy different machines, a join must route work to multiple partitions and transfer intermediate results. An atomic transaction spanning those partitions also needs a coordination protocol so participants reach one commit outcome despite delay or failure.",
+          "note": "Coordination adds network round trips and ties completion to slow or unavailable participants. Some distributed stores restrict joins or transaction scope to keep operations local."
         },
         {
           "id": "nosql-4-1",
-          "type": "multiple_choice",
-          "prompt": "Why is a relational database genuinely hard to scale across many machines?",
-          "choices": [
-            "The software is old and poorly written",
-            "Joins and ACID transactions across machines require network coordination — which is slow and complex. Many NoSQL stores scale easily precisely because they dropped those",
-            "Because it writes to disk",
-            "Licensing restrictions"
+          "type": "build_diagram",
+          "prompt": "Build one Cassandra write route. The coordinator uses `device_id` to locate a token range, then sends the write to that range's replica set.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "write",
+                "label": "Write",
+                "sub": "`device_id = 42`",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "write",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Cassandra Coordinator",
+            "Partitioner / Token Lookup",
+            "Replica Set for Token Range",
+            "Global SQL Joiner",
+            "Graph Traversal Engine"
           ],
-          "answer": 1,
-          "why": "This is the honest technical reason rather than marketing: a join is cheap when both tables sit on one machine and brutal when the rows live on different servers across a network. So 'NoSQL scales better' really means *we removed the features that are hard to distribute* — a genuine engineering achievement AND a genuine loss. Just be certain you know which half you're buying, because people usually notice the achievement and discover the loss later."
+          "answer": {
+            "h1": "Cassandra Coordinator",
+            "h2": "Partitioner / Token Lookup",
+            "h3": "Replica Set for Token Range"
+          },
+          "why": "A Cassandra coordinator maps the partition key through the partitioner to a token range and forwards the write to replicas responsible for that range, so different keys can spread work across nodes. If one `device_id` becomes hot, all of its writes still target one replica set and can overload it even after unrelated nodes are added."
+        },
+        {
+          "id": "sql-vs-nosql-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Build one Cassandra write route. The coordinator uses `device_id` to locate a token range, then sends the write to that range's replica set.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "write",
+                "label": "Write",
+                "sub": "`device_id = 42`",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "write",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Cassandra Coordinator",
+            "Partitioner / Token Lookup",
+            "Replica Set for Token Range",
+            "Order service",
+            "Payments DB"
+          ],
+          "answer": {
+            "h1": "Cassandra Coordinator",
+            "h2": "Partitioner / Token Lookup",
+            "h3": "Replica Set for Token Range"
+          },
+          "why": "The completed diagram contains these directed flows: Write → Cassandra Coordinator; Cassandra Coordinator → Partitioner / Token Lookup; Partitioner / Token Lookup → Replica Set for Token Range. That topology is the evidence for the answer: A Cassandra coordinator maps the partition key through the partitioner to a token range and forwards the write to replicas responsible for that range, so different keys can spread work across nodes. If one `device_id` becomes hot, all of its writes still target one replica set and can overload it even after unrelated nodes are added."
         },
         {
           "id": "nosql-4-2",
@@ -428,7 +809,7 @@
             1,
             3
           ],
-          "why": "Known access patterns at scale, document-shaped data, and distributed writes without cross-node transactions are all real reasons; fashion is not. Note what the three real reasons have in common: they're statements about your workload rather than about the technology. Every good database decision is really a description of your problem."
+          "why": "A fixed high-volume key pattern can use purpose-built partitioning, self-contained entities map directly to documents, and distributed writes are simpler when cross-node transactions are unnecessary. Each is a workload requirement that can justify a specific NoSQL model; perceived modernity provides no technical fit."
         },
         {
           "id": "nosql-4-3",
@@ -441,7 +822,7 @@
             "A graph database, since everything is connected"
           ],
           "answer": 1,
-          "why": "At 1,000 users your bottleneck isn't the database — it's not yet knowing what you're building, and relational lets you change your questions cheaply, which is precisely what early products do constantly. 'You're not Google' isn't an insult, it's an engineering fact: a single well-tuned Postgres routinely handles tens of thousands of transactions per second and terabytes of data. Most teams who chose NoSQL 'for scale' hit the pain of losing joins years before they'd have hit Postgres's ceiling."
+          "why": "With modest current load and uncertain future queries, a relational database provides constraints, transactions, joins, and flexible querying without requiring access-pattern-specific duplication. A distributed store becomes justified when measured workload or availability requirements exceed that architecture's practical limits."
         },
         {
           "id": "nosql-4-4",
@@ -454,7 +835,7 @@
             "The two worlds remain completely separate"
           ],
           "answer": 1,
-          "why": "The clean 2010s dichotomy has largely dissolved — both sides absorbed the other's best ideas, and NewSQL (Spanner, CockroachDB) explicitly chases both at once. Which is why the honest modern answer is rarely 'SQL or NoSQL': it's what access patterns, what guarantees, what scale, and can my boring default already handle it? Most real systems end up polyglot anyway — Postgres for truth, Redis for hot reads, S3 for blobs. It's a toolbox, not a religion."
+          "why": "Modern products combine features across categories: PostgreSQL can store and index JSON, MongoDB supports multi-document transactions, and distributed SQL systems retain relational semantics across nodes. Product-specific guarantees and limits therefore matter more than the historical label."
         },
         {
           "id": "nosql-4-5",
@@ -467,7 +848,7 @@
             "Nothing changes"
           ],
           "answer": 1,
-          "why": "This is the most common real-world regret in database choice: they optimized for a scale problem they might have, and gave up flexibility for a problem they definitely had. Joining in application code is the worst of all worlds — you get unit 3's N+1 problem, over a network, with no query optimizer helping you, and you rebuild badly the exact feature you chose to give up."
+          "why": "Without server-side joins, the team must copy data into a query-specific view, issue and combine multiple application queries, or migrate. Application-side joining can cause N+1 requests—one initial query followed by one query per result—and lacks the database optimizer's ability to choose a set-oriented plan."
         },
         {
           "id": "nosql-4-6",
@@ -479,7 +860,7 @@
             0,
             35
           ],
-          "why": "Money needs invariants the database itself enforces and multi-row transactions that genuinely hold — correctness dwarfs scale here, and being wrong isn't a bug, it's a regulator. Contrast with the social feed slider two lessons ago, which went the opposite way: same question, opposite answers, because the cost of being wrong is completely different. That cost, not the technology, is what's actually choosing."
+          "why": "A financial ledger requires enforceable invariants and atomic multi-row changes so debits, credits, and balances cannot partially apply. A relational database is a strong default because it provides constraints and Atomicity, Consistency, Isolation, and Durability (ACID), though a NoSQL product with equivalent verified guarantees could also qualify."
         },
         {
           "id": "nosql-4-7",
@@ -492,7 +873,21 @@
             "Always SQL — NoSQL is a fad"
           ],
           "answer": 1,
-          "why": "Start from the problem — what will you ask, and what must never be wrong — then pick the boring default unless something concrete (scale profile, data shape, write distribution) forces you off it, consciously. Look back at this whole unit: every answer reduced to those same two questions, and technology names came last every single time. That ordering is the actual skill; everything else is trivia."
+          "why": "Access patterns identify required keys, joins, scans, and read/write ratios; correctness requirements identify necessary constraints, transactions, consistency, and durability. A relational default preserves broad query flexibility, while a specific workload may justify accepting a NoSQL system's narrower model or different guarantees."
+        },
+        {
+          "id": "xfer-sql-nosql",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A fraud investigator repeatedly asks for paths between accounts, devices, cards, and IP addresses up to six relationships deep. Which model matches the access pattern?",
+          "choices": [
+            "One CSV file per account",
+            "A document store guarantees every multi-hop query is cheap",
+            "A graph model with indexed relationships",
+            "A key-value lookup with no relationship traversal"
+          ],
+          "answer": 2,
+          "why": "The question is a bounded graph traversal across several relationship types. A graph model represents those edges directly; product choice still depends on scale, consistency, and operational constraints."
         }
       ]
     }

@@ -1,0 +1,1033 @@
+{
+  "unitId": "design-notification-platform",
+  "tier": 5,
+  "title": "Design a Notification Platform",
+  "subtitle": "Apply preferences, fan-out, provider limits, retries, deduplication, and priority across delivery channels",
+  "objectives": [
+    "Separate notification intent from channel delivery",
+    "Apply preferences and quiet hours before provider work",
+    "Handle retries and provider callbacks idempotently",
+    "Protect urgent traffic from bulk campaigns"
+  ],
+  "lessons": [
+    {
+      "id": "notify-1",
+      "title": "From intent to delivery jobs",
+      "exercises": [
+        {
+          "id": "notify-1-0",
+          "type": "concept",
+          "title": "A notification intent becomes channel-specific jobs after policy evaluation",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Product event",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "n",
+                "label": "Notification service",
+                "sub": "template + policy",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "q",
+                "label": "Channel queues",
+                "sub": "email · push · SMS",
+                "col": 2,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "n",
+                "kind": "request"
+              },
+              {
+                "from": "n",
+                "to": "q",
+                "kind": "event"
+              }
+            ]
+          },
+          "body": "The producer submits an intent with recipient, template, variables, priority, and operation identity. The notification service evaluates consent, channel preferences, locale, and quiet hours before creating independently retryable delivery jobs.",
+          "note": "Producers should not call email, push, and SMS providers directly; that duplicates policy and failure handling."
+        },
+        {
+          "id": "notify-change-1",
+          "type": "system_change",
+          "prompt": "An order service synchronously calls three providers, taking 2.4 seconds and failing the order when SMS is unavailable. Decouple notification delivery.",
+          "actionLabel": "Queue channel jobs",
+          "choices": [
+            "Increase checkout timeout",
+            "Persist one intent and enqueue channel jobs",
+            "Ignore provider errors and lose the notification"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A longer timeout keeps provider failures on the checkout path.",
+            "Durable jobs let checkout finish after recording intent and allow independent retries.",
+            "Ignoring errors provides no delivery or recovery path."
+          ],
+          "beforeStatus": "CHECKOUT · waits 2.4s · SMS outage fails order response",
+          "afterStatus": "CHECKOUT · records intent in 40ms · channels deliver asynchronously",
+          "result": "Provider latency is removed from the order path",
+          "viz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Order",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "3 providers",
+                "sub": "synchronous",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Order",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "q",
+                "label": "Notification queue",
+                "sub": "durable intent",
+                "col": 1,
+                "kind": "queue"
+              },
+              {
+                "id": "w",
+                "label": "Channel workers",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "q",
+                "kind": "event"
+              },
+              {
+                "from": "q",
+                "to": "w",
+                "kind": "event"
+              }
+            ]
+          },
+          "why": "The order commits a notification intent through a transactional outbox or equivalent reliable handoff. Channel workers retry independently, and duplicate delivery attempts carry one provider-facing idempotency identity."
+        },
+        {
+          "id": "design-notification-platform-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: An order service synchronously calls three providers, taking 2.4 seconds and failing the order when SMS is unavailable. Decouple notification delivery. Place Notification queue, Channel workers. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Order",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "q",
+                "sub": "durable intent",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "w",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "q",
+                "kind": "request"
+              },
+              {
+                "from": "q",
+                "to": "w",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Notification queue",
+            "Channel workers",
+            "Product event",
+            "Notification service"
+          ],
+          "answer": {
+            "q": "Notification queue",
+            "w": "Channel workers"
+          },
+          "why": "The completed diagram contains these directed flows: Order → Notification queue; Notification queue → Channel workers. That topology is the evidence for the answer: The order commits a notification intent through a transactional outbox or equivalent reliable handoff. Channel workers retry independently, and duplicate delivery attempts carry one provider-facing idempotency identity.",
+          "connectEdges": true
+        },
+        {
+          "id": "notify-1-1",
+          "type": "build_diagram",
+          "prompt": "Build the reliable handoff from an order commit to provider workers.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Order transaction",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "w",
+                "label": "Channel workers",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "h1",
+                "kind": "data"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "w",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Transactional outbox",
+            "Notification queue",
+            "CDN",
+            "Browser cookie"
+          ],
+          "answer": {
+            "h1": "Transactional outbox",
+            "h2": "Notification queue"
+          },
+          "why": "The outbox commits with the order, a relay publishes it to the queue, and workers handle provider delivery without a dual-write gap between business state and notification intent."
+        }
+      ]
+    },
+    {
+      "id": "notify-2",
+      "title": "Preferences and idempotent delivery",
+      "exercises": [
+        {
+          "id": "notify-2-0",
+          "type": "concept",
+          "title": "Eligibility is evaluated from current policy before each delivery attempt",
+          "body": "Consent, unsubscribes, quiet hours, channel validity, and jurisdiction can change after intent creation. Re-evaluate required policy near delivery while preserving the original business event and a stable notification identity.",
+          "note": "Urgent transactional messages and marketing campaigns often have different legal, preference, and quiet-hour rules."
+        },
+        {
+          "id": "notify-change-2",
+          "type": "system_change",
+          "prompt": "A provider times out after accepting an SMS. The worker retries with a new request ID and the user receives it twice.",
+          "actionLabel": "Reuse the delivery idempotency key",
+          "choices": [
+            "Never retry timeouts",
+            "Use the same notification-channel key for every attempt",
+            "Generate a new key on each retry"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A timeout does not reveal whether the provider accepted the message, so no retry can lose delivery.",
+            "One stable key lets a supporting provider or delivery ledger return the original result.",
+            "A new key makes every retry appear to be a separate message."
+          ],
+          "beforeStatus": "ONE INTENT · 2 SMS messages delivered",
+          "afterStatus": "ONE INTENT · provider accepts one delivery identity",
+          "result": "Ambiguous retries preserve one channel effect",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Worker",
+                "sub": "new ID per retry",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "SMS provider",
+                "sub": "2 accepts",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Worker",
+                "sub": "stable channel key",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Provider / ledger",
+                "sub": "deduplicate",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "p",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "The key identifies one notification on one channel across attempts. If the provider lacks idempotency, a local send ledger narrows duplicates but cannot atomically cover an external accept; callbacks and reconciliation remain necessary."
+        },
+        {
+          "id": "design-notification-platform-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A provider times out after accepting an SMS. The worker retries with a new request ID and the user receives it twice. Place Worker, Provider / ledger. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "sub": "stable channel key",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "sub": "deduplicate",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Worker",
+            "Provider / ledger",
+            "Product event",
+            "Notification service"
+          ],
+          "answer": {
+            "w": "Worker",
+            "p": "Provider / ledger"
+          },
+          "why": "The completed diagram contains these directed flows: Worker → Provider / ledger. That topology is the evidence for the answer: The key identifies one notification on one channel across attempts. If the provider lacks idempotency, a local send ledger narrows duplicates but cannot atomically cover an external accept; callbacks and reconciliation remain necessary."
+        },
+        {
+          "id": "notify-2-1",
+          "type": "multi_select",
+          "prompt": "Which facts can suppress or delay a delivery? Select all.",
+          "choices": [
+            "User unsubscribed",
+            "Quiet hours apply",
+            "Channel address is invalid",
+            "The template uses blue text"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Consent, timing policy, and channel validity determine eligibility. Presentation choices may affect content quality but do not independently define whether delivery is permitted."
+        }
+      ]
+    },
+    {
+      "id": "notify-retry-sim",
+      "title": "Provider failures can create a retry campaign",
+      "exercises": [
+        {
+          "id": "notify-retry-sim-card",
+          "type": "concept",
+          "title": "Retry only failures that can plausibly recover",
+          "body": "A provider timeout may recover; an invalid address will not. Classification prevents terminal errors from retrying, while bounded exponential backoff spreads transient attempts and an idempotency key limits duplicate delivery effects.",
+          "note": "Provider callbacks may arrive after a timeout, so reconciliation still uses stable attempt identity."
+        },
+        {
+          "id": "notify-retry-sim-0",
+          "type": "simulate",
+          "prompt": "There are 6,000 notification jobs/sec. Provider failures would retry 80% once; provider capacity is 9,000 attempts/sec. Drag the *smallest* retry share prevented by classification, backoff, and terminal-error handling.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "jobs",
+                "label": "Distinct delivery jobs",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "policy",
+                "label": "Failure classifier + backoff",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "provider",
+                "label": "Provider attempts",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "jobs",
+                "to": "policy",
+                "kind": "event"
+              },
+              {
+                "from": "policy",
+                "to": "provider",
+                "kind": "request"
+              }
+            ]
+          },
+          "sim": {
+            "input": 6000,
+            "inputLabel": "Distinct jobs/sec",
+            "chain": [
+              "policy",
+              "provider"
+            ],
+            "capacity": {
+              "provider": 9000
+            },
+            "watch": "provider",
+            "watchLabel": "Provider attempts/sec",
+            "absorb": {
+              "node": "policy",
+              "label": "Potential retries prevented",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            },
+            "model": {
+              "kind": "retry",
+              "retryFraction": 0.8
+            }
+          },
+          "answerRange": [
+            38,
+            38
+          ],
+          "why": "Unfiltered retries create 10,800 attempts/sec. Preventing 38% leaves about 8,976. Terminal errors should not retry, and transient retries need jitter and a budget so every worker does not return simultaneously."
+        }
+      ]
+    },
+    {
+      "id": "notify-3",
+      "title": "Priority, providers, and feedback",
+      "exercises": [
+        {
+          "id": "notify-3-0",
+          "type": "concept",
+          "title": "Separate priority queues prevent campaigns from delaying urgent notifications",
+          "body": "Password resets, receipts, and bulk campaigns have different latency objectives and value. Reserve worker and provider quota by priority, rate-limit each channel, and move terminal failures to a dead-letter workflow with inspection and replay controls.",
+          "note": "A dead-letter queue is an operational exception path, not permanent storage or automatic success."
+        },
+        {
+          "id": "notify-3-1",
+          "type": "spot_bottleneck",
+          "prompt": "A campaign enqueues 5 million emails ahead of password resets. Tap the component that needs isolation first.",
+          "nodes": [
+            {
+              "label": "Intent API · 20k/s",
+              "capacity": 20000
+            },
+            {
+              "label": "Shared FIFO queue · 5M campaign jobs first",
+              "capacity": 5000000
+            },
+            {
+              "label": "Email workers · 10k/s",
+              "capacity": 10000
+            }
+          ],
+          "answer": 1,
+          "why": "The shared FIFO ordering lets low-priority backlog sit ahead of urgent work even when workers are healthy. Separate priority queues and reserved worker capacity protect the reset latency objective."
+        },
+        {
+          "id": "notify-3-2",
+          "type": "order_steps",
+          "prompt": "Build one retry-exhaustion path after a provider call returns a synchronous result. Provider callbacks may arrive independently at any stage.",
+          "steps": [
+            "Record the attempt and provider request ID under the stable delivery identity",
+            "Classify the synchronous result as success, retryable, or terminal",
+            "Back off and retry transient failures within budget using the same identity",
+            "Move an exhausted or terminal job to an inspected exception path",
+            "Reconcile later provider callbacks by provider request ID without blindly overwriting newer state"
+          ],
+          "why": "Persisting attempt identity supports callbacks and reconciliation, classification avoids pointless retries, and bounded backoff protects providers. Callback arrival is asynchronous rather than the final ordered step, so reconciliation must compare identities and state transitions instead of assuming arrival order."
+        }
+      ]
+    },
+    {
+      "id": "notify-backlog-sim",
+      "title": "Provider capacity sets delivery delay",
+      "exercises": [
+        {
+          "id": "notify-backlog-sim-card",
+          "type": "concept",
+          "title": "Campaign creation can be instant while delivery debt grows",
+          "body": "A campaign can enqueue jobs faster than an email provider accepts them. Delivery delay depends on queue depth and sustained provider throughput. Reserved transactional lanes prevent marketing backlog from delaying password resets.",
+          "note": "Adding internal workers cannot exceed an external provider quota; it may only create more throttled attempts."
+        },
+        {
+          "id": "notify-backlog-sim-0",
+          "type": "simulate",
+          "prompt": "A campaign creates 12,000 email jobs/sec. Each provider lane sustains 2,000/sec. Over one minute, choose the *fewest* lanes that stop campaign backlog growth.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "jobs",
+                "label": "Email jobs",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "lanes",
+                "label": "Provider lanes",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "backlog",
+                "label": "Campaign backlog",
+                "col": 2,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "jobs",
+                "to": "lanes",
+                "kind": "event"
+              },
+              {
+                "from": "lanes",
+                "to": "backlog",
+                "kind": "event"
+              }
+            ]
+          },
+          "sim": {
+            "input": 12000,
+            "inputLabel": "Jobs/sec",
+            "chain": [
+              "lanes",
+              "backlog"
+            ],
+            "capacity": {
+              "backlog": 0
+            },
+            "watch": "backlog",
+            "watchLabel": "Jobs added after 60 sec",
+            "absorb": {
+              "node": "lanes",
+              "label": "Provider lanes",
+              "min": 1,
+              "max": 10,
+              "start": 1,
+              "unit": " lanes"
+            },
+            "model": {
+              "kind": "queue",
+              "duration": 60,
+              "servicePerUnit": 2000
+            }
+          },
+          "answerRange": [
+            6,
+            6
+          ],
+          "why": "Five lanes leave 2,000 jobs/sec unserved and add 120,000 jobs in one minute. Six match arrivals. Transactional notifications still need reserved capacity so a campaign cannot consume every lane."
+        }
+      ]
+    },
+    {
+      "id": "notify-x",
+      "title": "Policy races and channel isolation",
+      "exercises": [
+        {
+          "id": "notify-x-0",
+          "type": "concept",
+          "title": "Preference is evaluated at a declared moment",
+          "body": "A user can unsubscribe after campaign intent is created but before delivery. The product must declare whether eligibility is frozen at campaign creation, job creation, or send time. Transactional messages and legally required notices may use different policy classes.",
+          "note": "Without a declared evaluation point, retries can change eligibility and produce inconsistent outcomes for the same notification."
+        },
+        {
+          "id": "notify-x-1",
+          "type": "multiple_choice",
+          "prompt": "A marketing email waits in a queue for two hours. The user unsubscribes after enqueue and before send. The contract says preferences are checked at send time. What should the worker do?",
+          "choices": [
+            "Send because the job already exists",
+            "Re-evaluate policy and suppress the delivery",
+            "Delete the user's account",
+            "Retry until the user subscribes"
+          ],
+          "answer": 1,
+          "why": "The declared policy point is send time, so the queued job is intent rather than permission. The worker records a suppressed outcome instead of contacting the provider."
+        },
+        {
+          "id": "notify-x-2",
+          "type": "multi_select",
+          "prompt": "A promotional campaign floods the email provider. Which controls keep password-reset notifications healthy? Select all.",
+          "choices": [
+            "Separate priority queues and worker pools",
+            "Reserve provider quota for transactional traffic",
+            "Apply per-campaign admission limits",
+            "Put every channel and priority in one FIFO queue"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Queue, worker, and provider-capacity isolation prevent bulk traffic from consuming every slot. Admission limits stop one campaign before it creates an unbounded backlog."
+        },
+        {
+          "id": "notify-x-3",
+          "type": "build_diagram",
+          "prompt": "Build a send-time policy path that isolates urgent password resets from promotional email while both use the same provider.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "i",
+                "label": "Notification intent",
+                "col": 0
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h4",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "i",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h4",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "h4",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Send-time policy + priority",
+            "Reserved transactional workers",
+            "Bulk campaign workers",
+            "Provider with reserved quota",
+            "One unbounded FIFO",
+            "Analytics warehouse"
+          ],
+          "answer": {
+            "h1": "Send-time policy + priority",
+            "h2": "Reserved transactional workers",
+            "h3": "Bulk campaign workers",
+            "h4": "Provider with reserved quota"
+          },
+          "why": "Policy is checked before dispatch, then separate worker capacity prevents bulk starvation. Provider quota reservation preserves the isolation at the final external bottleneck."
+        }
+      ]
+    },
+    {
+      "id": "notify-4",
+      "title": "Review the complete platform",
+      "exercises": [
+        {
+          "id": "notify-4-0",
+          "type": "concept",
+          "title": "A notification platform stores intent, policy decisions, delivery jobs, and attempts as different records",
+          "viz": {
+            "nodes": [
+              {
+                "id": "i",
+                "label": "Intent",
+                "sub": "business meaning",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "j",
+                "label": "Channel jobs",
+                "sub": "email · push · SMS",
+                "col": 1,
+                "kind": "queue"
+              },
+              {
+                "id": "a",
+                "label": "Attempts",
+                "sub": "provider IDs + outcomes",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "i",
+                "to": "j",
+                "kind": "event"
+              },
+              {
+                "from": "j",
+                "to": "a",
+                "kind": "event"
+              }
+            ]
+          },
+          "body": "One intent identifies what the product wants to communicate. Policy evaluation creates zero or more channel jobs. Each job keeps a stable delivery identity while attempts record provider request IDs, timestamps, and outcomes. Separating these records makes retries and callbacks observable without inventing a second notification.",
+          "note": "A provider callback updates the matching attempt and derives job state through guarded transitions; arrival order alone must not overwrite a newer terminal result."
+        },
+        {
+          "id": "notify-review-change",
+          "type": "system_change",
+          "prompt": "Email provider A fails for 25 minutes. Every retry immediately returns to the same provider, consuming the retry budget while provider B is healthy.",
+          "actionLabel": "Add provider-aware failover",
+          "choices": [
+            "Retry provider A without delay",
+            "Circuit-break provider A and route eligible jobs to provider B with the same delivery identity",
+            "Mark every notification delivered"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Immediate retries amplify the failed provider and exhaust work without changing the outcome.",
+            "A breaker stops repeated calls, while controlled failover preserves one logical delivery identity across providers.",
+            "Inventing success loses messages and corrupts delivery evidence."
+          ],
+          "beforeStatus": "EMAIL · provider A unavailable · retry queue growing",
+          "afterStatus": "EMAIL · A circuit open · eligible jobs routed to B",
+          "result": "Provider failure no longer blocks the entire email channel",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Email workers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "a",
+                "label": "Provider A",
+                "sub": "down",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Email workers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Provider router",
+                "sub": "health + policy",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Provider B",
+                "sub": "healthy",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Provider selection is a delivery policy, not a new intent. The same logical delivery identity must survive failover so an ambiguous acceptance by provider A and a later attempt through B can be reconciled rather than silently producing two messages."
+        },
+        {
+          "id": "design-notification-platform-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Email provider A fails for 25 minutes. Every retry immediately returns to the same provider, consuming the retry budget while provider B is healthy. Place Provider router, Provider B. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Email workers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "sub": "health + policy",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "healthy",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Provider router",
+            "Provider B",
+            "Product event",
+            "Notification service"
+          ],
+          "answer": {
+            "r": "Provider router",
+            "b": "Provider B"
+          },
+          "why": "The completed diagram contains these directed flows: Email workers → Provider router; Provider router → Provider B. That topology is the evidence for the answer: Provider selection is a delivery policy, not a new intent. The same logical delivery identity must survive failover so an ambiguous acceptance by provider A and a later attempt through B can be reconciled rather than silently producing two messages."
+        },
+        {
+          "id": "notify-4-1",
+          "type": "match_pairs",
+          "prompt": "Match each record to the question it answers.",
+          "pairs": [
+            {
+              "left": "Notification intent",
+              "right": "What business event and recipient caused this notification?"
+            },
+            {
+              "left": "Channel job",
+              "right": "Which channel, policy result, priority, and stable delivery identity apply?"
+            },
+            {
+              "left": "Delivery attempt",
+              "right": "What provider request was made and what outcome was observed?"
+            },
+            {
+              "left": "Preference record",
+              "right": "Is this recipient currently eligible for this channel and category?"
+            }
+          ],
+          "why": "These records have different lifecycles. Preferences can change after intent creation, one intent can produce several channel jobs, and one job can produce several attempts without becoming several logical notifications."
+        },
+        {
+          "id": "notify-4-2",
+          "type": "build_diagram",
+          "prompt": "Build the complete delivery path from a committed product event to an external provider.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Order commit",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "label": "Provider",
+                "col": 4,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "h1",
+                "kind": "data"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Transactional outbox",
+            "Policy + template service",
+            "Priority channel queue",
+            "CDN image cache",
+            "Browser session"
+          ],
+          "answer": {
+            "h1": "Transactional outbox",
+            "h2": "Policy + template service",
+            "h3": "Priority channel queue"
+          },
+          "why": "The outbox closes the business-state dual-write gap. Policy and template evaluation create an eligible channel job, and the priority queue decouples provider capacity and failure from the producer."
+        },
+        {
+          "id": "notify-4-3",
+          "type": "multi_select",
+          "prompt": "A design review finds one shared FIFO queue, no stable delivery key, and provider callbacks matched only by phone number. Which are real correctness or latency failures? Select all.",
+          "choices": [
+            "Campaign traffic can delay password resets",
+            "Timeout retries can create duplicate provider effects",
+            "A late callback can update the wrong notification for the same phone number",
+            "The architecture uses too few programming languages"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Shared ordering lets bulk work block urgent jobs. Missing stable identity makes ambiguous retries unsafe, and phone number is not a unique attempt identifier, so callbacks can corrupt another delivery's state. Language count is unrelated to these invariants."
+        },
+        {
+          "id": "xfer-notify",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A marketing campaign fills every email worker while password-reset messages wait behind it. What boundary is missing?",
+          "choices": [
+            "One FIFO queue for fairness",
+            "A new idempotency key per retry",
+            "Reserved priority queues, workers, and provider quota",
+            "A larger marketing template"
+          ],
+          "answer": 2,
+          "why": "Isolation must extend through queue, worker, and external-provider capacity. Otherwise bulk traffic consumes the same bottleneck needed by urgent transactional delivery."
+        }
+      ]
+    }
+  ]
+}

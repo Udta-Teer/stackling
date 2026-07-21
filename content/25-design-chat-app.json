@@ -2,7 +2,7 @@
   "unitId": "design-chat-app",
   "tier": 4,
   "title": "Design a Chat App",
-  "subtitle": "The server has to talk first — and that changes everything",
+  "subtitle": "Route persistent connections and define delivery, ordering, presence, and group behavior",
   "objectives": [
     "Explain why request/response can't deliver messages, and what replaces it",
     "Design connection handling and routing when users are pinned to specific servers",
@@ -17,7 +17,7 @@
         {
           "id": "chat-1-0",
           "type": "concept",
-          "title": "Chat inverts HTTP: the event you need to hear about happens somewhere else",
+          "title": "A persistent duplex connection lets either endpoint send events",
           "viz": {
             "nodes": [
               {
@@ -43,16 +43,119 @@
             "edges": [
               {
                 "from": "b",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               },
               {
                 "from": "s",
-                "to": "a"
+                "to": "a",
+                "kind": "request"
               }
             ]
           },
-          "body": "Every system so far had the client ask first. Chat doesn't fit that shape. The event you need to know about — someone messaged *you* — doesn't happen where you are; it happens elsewhere, at a moment you didn't choose, and it arrives unprompted. Hold that against the request/response model you've used for twenty-four units and see what breaks.",
-          "note": "Short polling, long polling, Server-Sent Events, WebSocket — four points on one line, not four unrelated technologies. Work out what that line measures and they stop being a list to memorize."
+          "body": "A WebSocket starts with an opening handshake, commonly an HTTP Upgrade, then keeps a full-duplex connection open. Either endpoint can send framed messages, so the server can push a recipient's message without waiting for that recipient to issue another request.",
+          "note": "Each open connection consumes server state and file-descriptor capacity, and disconnects require explicit reconnection and catch-up behavior."
+        },
+        {
+          "id": "chat-change-1",
+          "type": "system_change",
+          "prompt": "A chat client polls every five seconds for new messages. Keep one WebSocket connection open so the server can push immediately.",
+          "actionLabel": "Open a WebSocket",
+          "beforeStatus": "DELIVERY DELAY · 0–5 seconds · repeated empty HTTP polls",
+          "afterStatus": "DELIVERY DELAY · one network round trip on an established connection",
+          "result": "Messages no longer waited for the next poll",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Phone",
+                "sub": "poll every 5s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Chat API",
+                "sub": "many empty polls",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Phone",
+                "sub": "open socket",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g",
+                "label": "Chat gateway",
+                "sub": "push message",
+                "col": 1,
+                "kind": "gw"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "g",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "A WebSocket gives the server a long-lived bidirectional connection for immediate push without repeated polling requests. The system must still track which gateway owns each connection and recover when mobile networks disconnect it."
+        },
+        {
+          "id": "design-chat-app-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A chat client polls every five seconds for new messages. Keep one WebSocket connection open so the server can push immediately. Place Phone, Chat gateway. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "sub": "open socket",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "g",
+                "sub": "push message",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "g",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Phone",
+            "Chat gateway",
+            "Bob sends a message",
+            "Chat server"
+          ],
+          "answer": {
+            "p": "Phone",
+            "g": "Chat gateway"
+          },
+          "why": "The completed diagram contains these directed flows: Phone → Chat gateway. That topology is the evidence for the answer: A WebSocket gives the server a long-lived bidirectional connection for immediate push without repeated polling requests. The system must still track which gateway owns each connection and recover when mobile networks disconnect it.",
+          "connectEdges": true
         },
         {
           "id": "chat-1-1",
@@ -65,7 +168,7 @@
             "It needs a database"
           ],
           "answer": 1,
-          "why": "HTTP's shape is that the client initiates, and chat inverts that: the thing you need to know about originates elsewhere and arrives unprompted. This is the first system in the course where the fundamental model from unit 2 doesn't fit — everything difficult about chat descends from the server needing to initiate."
+          "why": "Incoming chat messages originate independently of the recipient's requests, so the server needs a way to deliver data as soon as it arrives. A request-response-only design must repeatedly poll or hold requests open, while a persistent push channel supports server-initiated delivery."
         },
         {
           "id": "chat-1-2",
@@ -78,7 +181,7 @@
             "Messages arrive out of order"
           ],
           "answer": 1,
-          "why": "Polling makes you choose between latency and cost with no good answer — poll faster and the request volume explodes, poll slower and chat feels broken. At a million idle users, 2-second polling is 500,000 requests/sec almost all of which return 'nothing', so you're spending your entire capacity asking a question whose answer is usually no."
+          "why": "Two-second polling by one million idle clients produces about 500,000 requests/sec even when no messages exist. Increasing the interval reduces load but increases delivery delay, so polling couples latency to a large volume of mostly empty requests."
         },
         {
           "id": "chat-1-3",
@@ -102,7 +205,7 @@
               "right": "One connection, both directions, stays open"
             }
           ],
-          "why": "They're four points on one line: how long does a connection live, and who may speak. Long polling was the clever hack that made real-time work over plain HTTP, SSE formalized the one-way stream, and WebSocket gives you a genuine two-way pipe — which is what chat actually wants, since both sides have things to say."
+          "why": "Short polling creates repeated client requests, long polling holds one request until data arrives, Server-Sent Events (SSE) maintain a server-to-client stream, and WebSocket maintains a bidirectional connection. Chat needs frequent messages in both directions, which matches WebSocket's duplex channel."
         },
         {
           "id": "chat-1-4",
@@ -115,7 +218,7 @@
             "It compresses better"
           ],
           "answer": 1,
-          "why": "Chat is bidirectional and bursty, which is exactly what a persistent duplex connection is for: you pay the handshake once and then messages cost almost nothing in either direction. Compare unit 2's connection reuse reasoning — the same logic, taken to its limit, since the connection now outlives every individual message."
+          "why": "A WebSocket performs its connection setup once and then carries frames from either endpoint over the persistent channel. This avoids a new HTTP request for each chat event and allows the server to deliver an incoming message immediately while the connection is healthy."
         },
         {
           "id": "chat-1-5",
@@ -128,7 +231,7 @@
             "Encryption"
           ],
           "answer": 1,
-          "why": "A persistent connection IS state living on one machine, which is precisely the property unit 11 said horizontal scaling depends on not having. Every hard problem in the rest of this unit — routing, deploys, failover — traces back to this moment: you traded statelessness for the ability to push, and it was worth it, and now you pay."
+          "why": "A live WebSocket is attached to one server process, so that server holds connection-specific state. Horizontal scaling therefore requires routing messages to the process holding the recipient's connection and handling reconnection when that process restarts or fails."
         },
         {
           "id": "chat-1-6",
@@ -137,7 +240,7 @@
           "answer": 100,
           "tolerance": 20,
           "unit": "servers",
-          "why": "10,000,000 ÷ 100,000 = 100 servers, holding connections before doing any work at all. That reframes the problem usefully: your fleet is sized by concurrent CONNECTIONS rather than by request rate, which is a completely different capacity model from every system so far."
+          "why": "Ten million concurrent connections divided by 100,000 connections per server requires at least 100 servers before reserving failover or regional headroom. Connection memory, file descriptors, and heartbeat traffic therefore become primary capacity dimensions alongside message throughput."
         }
       ]
     },
@@ -148,7 +251,7 @@
         {
           "id": "chat-2-0",
           "type": "concept",
-          "title": "Delivering a message means finding one specific process on one specific machine",
+          "title": "A connection registry maps each online user to active connections",
           "viz": {
             "nodes": [
               {
@@ -172,6 +275,13 @@
                 "kind": "server"
               },
               {
+                "id": "r",
+                "label": "Connection registry",
+                "sub": "Bob → Server 31",
+                "col": 2,
+                "kind": "cache"
+              },
+              {
                 "id": "b",
                 "label": "Bob",
                 "col": 3,
@@ -181,21 +291,188 @@
             "edges": [
               {
                 "from": "a",
-                "to": "s7"
+                "to": "s7",
+                "kind": "request"
+              },
+              {
+                "from": "s7",
+                "to": "r",
+                "kind": "data"
               },
               {
                 "from": "s7",
                 "to": "s31",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               },
               {
                 "from": "s31",
-                "to": "b"
+                "to": "b",
+                "kind": "request"
               }
             ]
           },
-          "body": "A redirect could be served by any server. A feed read too. Bob's connection can't: it's an open socket on exactly one machine out of a hundred, so 'send Bob a message' first means finding out which one is holding him. Every server in your fleet is the wrong one except that server, and no load balancer knows which.",
-          "note": "That dashed arrow is the hop nobody has built yet. Whatever fills it gets consulted on every message and is wrong milliseconds after a phone enters a tunnel — so it's derived state you rebuild, not a record to mourn."
+          "body": "When a client connects, its gateway records a leased entry such as `user_id -> {connection_id, gateway_id}`. A user may have several entries. Delivery looks up the intended active connections, forwards the message to their gateways, and writes it to each selected socket.",
+          "note": "Registry entries are ephemeral derived state; heartbeats or leases must expire entries left behind by crashes and unclean disconnects."
+        },
+        {
+          "id": "chat-change-2",
+          "type": "system_change",
+          "prompt": "Bob has a live connection on Gateway 7, but Alice's message reaches Gateway 2. Route the message to the process that owns Bob's connection.",
+          "actionLabel": "Add a connection registry",
+          "beforeStatus": "DELIVERY · Gateway 2 cannot find Bob",
+          "afterStatus": "DELIVERY · registry resolves Bob → Gateway 7",
+          "result": "The message reached the machine holding Bob's live socket",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Alice",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g2",
+                "label": "Gateway 2",
+                "sub": "no Bob socket",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "g7",
+                "label": "Gateway 7",
+                "sub": "Bob connected",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "g2",
+                "kind": "request"
+              },
+              {
+                "from": "g2",
+                "to": "g7",
+                "kind": "blocked",
+                "label": "socket owner unknown"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Alice",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g2",
+                "label": "Gateway 2",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Connection registry",
+                "sub": "Bob → Gateway 7",
+                "col": 2,
+                "kind": "cache"
+              },
+              {
+                "id": "g7",
+                "label": "Gateway 7",
+                "sub": "Bob socket",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "g2",
+                "kind": "request"
+              },
+              {
+                "from": "g2",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "g2",
+                "to": "g7",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "why": "Long-lived connections are owned by specific gateway processes. The registry maps a user or connection ID to that owner and must expire stale entries when gateways disconnect or die."
+        },
+        {
+          "id": "design-chat-app-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: Bob has a live connection on Gateway 7, but Alice's message reaches Gateway 2. Route the message to the process that owns Bob's connection. Place Gateway 2, Connection registry, Gateway 7. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Alice",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g2",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "r",
+                "sub": "Bob → Gateway 7",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "g7",
+                "sub": "Bob socket",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "g2",
+                "kind": "request"
+              },
+              {
+                "from": "g2",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "g2",
+                "to": "g7",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Gateway 2",
+            "Connection registry",
+            "Gateway 7",
+            "Bob sends a message",
+            "Chat server"
+          ],
+          "answer": {
+            "g2": "Gateway 2",
+            "r": "Connection registry",
+            "g7": "Gateway 7"
+          },
+          "why": "The completed diagram contains these directed flows: Alice → Gateway 2; Gateway 2 → Connection registry; Gateway 2 → Gateway 7. That topology is the evidence for the answer: Long-lived connections are owned by specific gateway processes. The registry maps a user or connection ID to that owner and must expire stale entries when gateways disconnect or die."
         },
         {
           "id": "chat-2-1",
@@ -208,7 +485,7 @@
             "The load balancer routes it"
           ],
           "answer": 1,
-          "why": "The message has a specific destination that lives in another process on another machine, which no previous system in this course had to deal with — a redirect or a feed read could be served by any server. Now delivery means routing to one exact connection, so you need to know where it is."
+          "why": "Bob's socket exists on one connection server, so Alice's server cannot deliver directly without locating that process. The system needs a shared connection registry or routing layer that maps Bob's user ID to the server currently holding his connection."
         },
         {
           "id": "chat-2-2",
@@ -238,12 +515,14 @@
             "edges": [
               {
                 "from": "c",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
                 "from": "c",
                 "to": "m",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
@@ -255,7 +534,7 @@
           "answer": {
             "h": "Connection registry (Redis)"
           },
-          "why": "You need a shared map from user id to the server holding their connection, and every server must be able to read it — which is unit 5's answer exactly: state that all servers need goes in a shared store, not in any one server's memory. Redis fits because the lookup is by one key and the data is rebuildable when a connection drops."
+          "why": "A shared registry lets any sender resolve `user_id → connection_server` and route the message to the correct process. The mapping is ephemeral and rebuildable when clients connect, so a fast key-value store with expiration fits the access pattern."
         },
         {
           "id": "chat-2-3",
@@ -263,25 +542,88 @@
           "prompt": "Order the delivery of Alice's message to Bob.",
           "steps": [
             "Alice's client sends the message over her WebSocket to server 7",
-            "Server 7 persists the message to the message store",
-            "Server 7 looks up Bob in the connection registry — he's on server 31",
-            "Server 7 forwards the message to server 31",
-            "Server 31 pushes it down Bob's open WebSocket"
+            "One transaction stores the message and a durable delivery-stream or outbox record",
+            "A delivery worker consumes the durable record and looks up Bob's active connections",
+            "The worker routes the message to server 31, which owns Bob's socket",
+            "Server 31 pushes it down Bob's WebSocket and awaits a client acknowledgement"
           ],
-          "why": "Persist first, then route, then push — and the order matters enormously. Storing before delivering means a crash anywhere after that point loses a delivery attempt but never the message, so Bob can still fetch it later. Push first and you've built a system where a dropped connection destroys data."
+          "why": "Committing the message and delivery record together closes the failure window between persistence and forwarding. If a gateway crashes after commit, another worker can consume or retry the durable record; stable message IDs let Bob's client deduplicate redelivery. Storage alone supports later history retrieval but does not trigger timely delivery."
         },
         {
           "id": "chat-2-4",
-          "type": "multiple_choice",
-          "prompt": "Why persist the message BEFORE trying to deliver it?",
-          "choices": [
-            "It's faster",
-            "Because delivery can fail — Bob may be offline or his server may die — and the message must survive that, so the store is the source of truth and delivery is best-effort on top",
-            "The database assigns the id",
-            "To keep the order correct"
+          "type": "build_diagram",
+          "prompt": "Build durable delivery. The worker looks up Bob's gateway, then the worker—not the registry—routes the message to that gateway.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Alice's Gateway",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "sub": "message + pending delivery",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "retry delivery",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "find Bob's gateway",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "label": "Bob's Gateway",
+                "sub": "push socket",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Durable Message + Outbox Store",
+            "Delivery Worker",
+            "Connection Registry",
+            "Per-Server Memory",
+            "CDN Edge"
           ],
-          "answer": 1,
-          "why": "Delivery over a connection is inherently unreliable and the message is not, so you split them: durable write first, then an attempt to push. This is unit 5's discipline again — the store holds the truth, the push is derived — which is what makes offline delivery a natural consequence rather than a separate feature."
+          "answer": {
+            "h1": "Durable Message + Outbox Store",
+            "h2": "Delivery Worker",
+            "h3": "Connection Registry"
+          },
+          "why": "One transaction stores the message and pending-delivery record. A worker retries that durable work, queries the registry for Bob's current gateway, and then sends the message to that gateway; the registry returns routing data but never forwards message bytes. If Alice's gateway crashes after commit, another worker can still deliver."
         },
         {
           "id": "chat-2-5",
@@ -294,7 +636,7 @@
             "Alice gets an error"
           ],
           "answer": 1,
-          "why": "Because you persisted first, offline isn't a failure case needing new machinery — it's just a delivery that hasn't happened yet, and reconnection is a read. That's the payoff for getting the order right: 'Bob is offline' and 'Bob's server crashed mid-push' resolve identically, via the same fetch-on-reconnect path."
+          "why": "If Bob has no live connection, the durable message remains pending in storage. On reconnection, his client requests messages after its last received cursor, which handles both ordinary offline periods and interrupted pushes through the same catch-up path."
         },
         {
           "id": "chat-2-6",
@@ -307,7 +649,87 @@
             "His session is restored"
           ],
           "answer": 1,
-          "why": "Connections are disposable even though they're stateful, so recovery is re-register plus catch-up rather than restoring anything. The catch-up needs Bob to tell the server where he got to — 'send me everything after message X' — which makes reconnection a cursor read, the same pattern from unit 3 and the feed."
+          "why": "After a server failure, Bob establishes a new connection and registers a new server mapping. His client supplies the last acknowledged message ID or sequence as a cursor, allowing the service to replay later durable messages without restoring the old socket."
+        }
+      ]
+    },
+    {
+      "id": "chat-pool-sim",
+      "title": "Persistent connections consume fleet slots",
+      "exercises": [
+        {
+          "id": "chat-pool-sim-card",
+          "type": "concept",
+          "title": "A WebSocket gateway carries long-lived state for each connection",
+          "body": "Ten million online users occupy ten million concurrent socket slots even when message traffic is quiet. Gateway capacity depends on file descriptors, memory, heartbeat work, and network limits; reconnect bursts require spare fleet capacity.",
+          "note": "A connection registry maps each user to the gateway currently holding the socket."
+        },
+        {
+          "id": "chat-pool-sim-0",
+          "type": "simulate",
+          "prompt": "Ten million users are connected. One gateway safely holds 100,000 WebSockets. Choose the *fewest* gateways that can hold every connection.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "users",
+                "label": "Connected users",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "route",
+                "label": "Connection routing",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "fleet",
+                "label": "WebSocket gateways",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "users",
+                "to": "route",
+                "kind": "request"
+              },
+              {
+                "from": "route",
+                "to": "fleet",
+                "kind": "request"
+              }
+            ]
+          },
+          "sim": {
+            "input": 10000000,
+            "inputLabel": "Open connections",
+            "chain": [
+              "route",
+              "fleet"
+            ],
+            "capacity": {},
+            "watch": "fleet",
+            "watchLabel": "Connections / fleet slots",
+            "absorb": {
+              "node": "route",
+              "label": "Gateway servers",
+              "min": 10,
+              "max": 150,
+              "start": 10,
+              "unit": " servers"
+            },
+            "model": {
+              "kind": "pool",
+              "servicePerUnit": 100000
+            }
+          },
+          "answerRange": [
+            100,
+            100
+          ],
+          "why": "Ninety-nine gateways hold 9.9 million connections, leaving 100,000 without a slot. One hundred is the arithmetic minimum; failover requires spare capacity because reconnecting clients arrive as a burst."
         }
       ]
     },
@@ -318,7 +740,7 @@
         {
           "id": "chat-3-0",
           "type": "concept",
-          "title": "Writing to a socket tells you the bytes left — not that anyone received them",
+          "title": "Delivery state advances only when the responsible endpoint acknowledges it",
           "viz": {
             "nodes": [
               {
@@ -348,20 +770,23 @@
             "edges": [
               {
                 "from": "a",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               },
               {
                 "from": "s",
-                "to": "b"
+                "to": "b",
+                "kind": "request"
               },
               {
                 "from": "b",
-                "to": "e"
+                "to": "e",
+                "kind": "request"
               }
             ]
           },
-          "body": "The only party who knows Bob has the message is Bob's client. Everything upstream — the socket accepted the write, nothing errored — is your own process reporting on itself, not evidence about Bob. So the ticks in a chat UI aren't decoration. They're the only honest thing it can show: each is somebody, somewhere, confirming something. Work out who, and what.",
-          "note": "And notice this only settles *whether* Bob got it, never *when* relative to anything else. Delivery and ordering are two separate problems, and solving one buys you nothing at all on the other."
+          "body": "A successful socket write usually confirms only that the local networking stack accepted the bytes; it does not prove remote receipt. A recipient-client acknowledgement confirms receipt, and a separate read acknowledgement can confirm display or consumption.",
+          "note": "Lost acknowledgements cause retries, so receivers must deduplicate by message id; acknowledgements alone do not establish conversation order."
         },
         {
           "id": "chat-3-1",
@@ -374,7 +799,7 @@
             "Only if he replies"
           ],
           "answer": 1,
-          "why": "Writing to a socket means the bytes left your process, not that they arrived and were shown — this is unit 21's ambiguity in its purest form. Which is why every chat app has client acknowledgements: only Bob's client can say 'I have it', so the ticks you see in chat UIs are the protocol made visible."
+          "why": "A successful socket write confirms only that the server handed bytes to its network stack. Bob's client must acknowledge the message ID to prove receipt, and a separate read acknowledgement is required to prove that the conversation view displayed it."
         },
         {
           "id": "chat-3-2",
@@ -398,7 +823,7 @@
               "right": "The sender's client hasn't heard back yet"
             }
           ],
-          "why": "Each tick is an acknowledgement from a different party, which is why they arrive at different times and why 'delivered' can sit there for hours. The UI is honestly reporting the only thing anyone can know: what the last party confirmed."
+          "why": "`Sent` follows durable server acceptance, `delivered` follows an acknowledgement from the recipient device, and `read` follows an acknowledgement generated when the recipient views the message. These states can advance at different times because each depends on a different observer."
         },
         {
           "id": "chat-3-3",
@@ -411,7 +836,7 @@
             "Alice is notified"
           ],
           "answer": 1,
-          "why": "This is at-least-once delivery from unit 16, and the duplicate is the price of never losing anything — the alternative, acking before rendering, loses messages instead. So the client must be idempotent: track message ids it has already shown and discard repeats, which is unit 21's key applied on the phone."
+          "why": "If the acknowledgement is lost, the server cannot distinguish receipt from loss and must retry to preserve at-least-once delivery. The client deduplicates by stable message ID before rendering, so repeated delivery attempts produce one visible message."
         },
         {
           "id": "chat-3-4",
@@ -424,7 +849,7 @@
             "Alice's clock is wrong"
           ],
           "answer": 1,
-          "why": "Concurrency without a defined order is unit 16's lesson: two messages in flight finish whenever they finish. In chat this is far worse than a technicality because reordering changes meaning — a reply landing before its question is nonsense, which is precisely the causal violation unit 19 named."
+          "why": "Concurrent messages can traverse different servers and queues with different delays, so arrival order does not establish send order. Reordering within one conversation can place a reply before the message it references, changing the conversation's causal meaning."
         },
         {
           "id": "chat-3-5",
@@ -432,12 +857,12 @@
           "prompt": "How do you order a conversation's messages without trusting anyone's clock?",
           "choices": [
             "Use the sender's timestamp",
-            "Assign a per-conversation sequence number on the server — one conversation is handled in one place, so it can hand out increasing numbers that clients sort by",
+            "Partition by conversation ID and let one fenced active sequencer for that partition assign increasing conversation sequence numbers",
             "Use the server's timestamp",
             "Order by message id"
           ],
           "answer": 1,
-          "why": "Unit 19 showed why timestamps fail: clocks disagree, so 'later' depends on whose watch you believe, and a phone with a skewed clock wins or loses every race. A per-conversation counter sidesteps clocks entirely — and note the scope is per-conversation rather than global, because you only need order where meaning lives, which is exactly unit 16's per-key partitioning."
+          "why": "Hashing conversation ID assigns each conversation to a partition whose active leader sequences its messages. On failover, a higher epoch or fencing token prevents the old owner from continuing to assign valid numbers. This avoids clock ordering and global coordination, although a very large group can become a hot conversation and may need batching or a dedicated partition."
         },
         {
           "id": "chat-3-6",
@@ -445,12 +870,12 @@
           "prompt": "Why is per-conversation ordering enough — why not order all messages globally?",
           "choices": [
             "Global ordering is impossible",
-            "Because nobody can perceive the relative order of two messages in different conversations — global ordering would cost coordination across everything to guarantee something no user could ever notice",
+            "Because the product requires order within each conversation, while a global sequence would coordinate unrelated conversations without protecting an identified invariant",
             "Conversations are independent tables",
             "It would be too slow to sort"
           ],
           "answer": 1,
-          "why": "Order only matters where causality does, and two unrelated chats have none — so a global sequence would serialize the entire system to protect a property with no observer. This is the same reasoning that made causal consistency cheaper than strong in unit 19: buy ordering exactly where meaning depends on it, and nowhere else."
+          "why": "The stated product invariant is per-conversation order. Messages in separate conversations can be processed independently unless a specific cross-conversation feature defines another causal rule. A global counter would coordinate all writes through one sequence without protecting the requirement given here."
         }
       ]
     },
@@ -461,7 +886,7 @@
         {
           "id": "chat-4-0",
           "type": "concept",
-          "title": "A green dot costs you a fan-out every time someone walks into a tunnel",
+          "title": "Presence is leased state distributed to interested subscribers",
           "viz": {
             "nodes": [
               {
@@ -488,16 +913,18 @@
             "edges": [
               {
                 "from": "u",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               },
               {
                 "from": "s",
-                "to": "c"
+                "to": "c",
+                "kind": "request"
               }
             ]
           },
-          "body": "Presence looks free and isn't. Start with the data itself: it's high-churn and low-value — mobile connections flap constantly, every trip through a tunnel is a state change, and none of it matters much. Now ask who has to hear about each flap. That's the whole problem, and you already met it in unit 24 wearing a more glamorous costume.",
-          "note": "And presence is only the cheap version of this. Anything where one event has an audience bills you by the size of that audience — a sentence worth keeping, since it's now come up in three units under three names."
+          "body": "A heartbeat renews an online lease; lease expiry changes the user to offline. The presence service sends that change only to clients currently subscribed to the user's status. Each transition therefore creates fan-out proportional to the active subscriber set.",
+          "note": "Debouncing disconnects and accepting a short stale interval prevent transient mobile network loss from producing repeated offline/online fan-out."
         },
         {
           "id": "chat-4-1",
@@ -510,7 +937,7 @@
             "Store presence in the database"
           ],
           "answer": 1,
-          "why": "Presence is deceptively expensive because it's high-churn, low-value data: mobile connections flap constantly, and each flap fans out to everyone watching. It's the celebrity problem again — cost scales with how many people care — for a green dot nobody will remember seeing."
+          "why": "Presence changes frequently as mobile connectivity and app state fluctuate, and each change may be published to many contacts. The resulting write and fan-out load can be large even though the value becomes stale quickly and small inaccuracies are usually acceptable."
         },
         {
           "id": "chat-4-2",
@@ -519,7 +946,7 @@
           "choices": [
             "Only compute presence for contacts the user is actually looking at right now",
             "Debounce — wait a few seconds before declaring someone offline, so brief drops don't fan out",
-            "Accept staleness: a green dot that's a few seconds wrong harms nobody",
+            "Accept a few seconds of staleness when the product's presence and privacy contract permits it",
             "Store every presence change durably for audit"
           ],
           "answer": [
@@ -527,7 +954,7 @@
             1,
             2
           ],
-          "why": "Compute it lazily for the handful of contacts on screen, debounce the flapping, and let it be a little wrong — presence is the definitive case where staleness costs nothing, so unit 19 says buy the weakest guarantee available. Durably auditing it is the opposite instinct: paying storage and writes for data whose value expires in seconds."
+          "why": "Lazy computation limits presence work to visible contacts, and debouncing suppresses rapid connect-disconnect transitions. Short expiration is appropriate only when the product contract permits bounded presence staleness; safety-sensitive or privacy controls such as hiding online status may require faster revocation. Durable auditing adds writes and storage only when that contract actually requires an audit trail."
         },
         {
           "id": "chat-4-3",
@@ -540,7 +967,7 @@
             "Ordering breaks"
           ],
           "answer": 1,
-          "why": "This is unit 24's celebrity problem wearing a different hat — the cost of one write scales with the audience — and the resolution rhymes: for huge groups, stop pushing to everyone and let clients pull on open, since most members aren't watching. Small groups fan out eagerly because it's cheap and instant matters."
+          "why": "Pushing each message to every member makes write and delivery cost proportional to group size. Small groups can use eager fan-out for low latency, while very large groups can store one message and let active clients pull from a conversation cursor, avoiding work for inactive members."
         },
         {
           "id": "chat-4-4",
@@ -553,7 +980,7 @@
             "Nothing — deploys are seamless"
           ],
           "answer": 1,
-          "why": "Persistent connections make deploys genuinely harder than the stateless case from unit 12: draining doesn't help much because the connections are meant to be long-lived, so a restart is a synchronized mass reconnection. The fixes are jittered reconnect backoff on the client (unit 17's lesson: never let clients agree on a moment) and rolling restarts small enough that the herd stays survivable."
+          "why": "Restarting a connection server disconnects its long-lived clients, which can create a synchronized reconnection surge. Rolling a small fraction of servers at a time and adding exponential backoff with jitter spreads connection attempts and protects registries, authentication, and gateways."
         },
         {
           "id": "chat-4-5",
@@ -565,7 +992,7 @@
             60,
             100
           ],
-          "why": "A backgrounded app can't reliably hold a socket anyway — mobile operating systems suspend processes and reclaim connections, and fighting that burns the user's battery for a connection the OS will kill regardless. Push notification services exist precisely because they hold one connection on behalf of every app, which is the same consolidation argument as a shared cache: one expensive resource, amortized."
+          "why": "Mobile operating systems may suspend background apps and close their sockets, while frequent keepalives consume battery and radio time. Platform push services maintain shared device connectivity and wake the app for a notification, after which the app can reconnect and fetch durable messages."
         },
         {
           "id": "chat-4-6",
@@ -578,7 +1005,281 @@
             "A database with real-time triggers"
           ],
           "answer": 1,
-          "why": "Every piece follows from one inversion: the server has to speak first, so connections persist, so servers hold state, so routing and reconnection become the design. And the reason it holds together is the discipline from unit 5 — persist first, treat the push as derived — which turns offline users, crashed servers, and lost acks into the same recoverable case."
+          "why": "Persistent bidirectional connections provide low-latency delivery but require a connection registry, targeted routing, and reconnection handling. Persisting messages before push makes the socket a recoverable delivery channel, while acknowledgements, deduplication, and per-conversation sequences provide delivery state and ordering."
+        }
+      ]
+    },
+    {
+      "id": "chat-5",
+      "title": "Review the complete chat system",
+      "exercises": [
+        {
+          "id": "chat-5-0",
+          "type": "concept",
+          "title": "Message acceptance, routing, delivery, and reading are separate transitions",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Accept + persist",
+                "sub": "message ID + sequence",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "q",
+                "label": "Route event",
+                "col": 1,
+                "kind": "queue"
+              },
+              {
+                "id": "g",
+                "label": "Recipient gateway",
+                "sub": "active connection",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "Recipient client",
+                "sub": "delivery/read ack",
+                "col": 3,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "q",
+                "kind": "event"
+              },
+              {
+                "from": "q",
+                "to": "g",
+                "kind": "event"
+              },
+              {
+                "from": "g",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "body": "The send API assigns a stable message ID and conversation sequence, persists the message, then publishes routing work. A connection registry locates each active recipient connection. Delivery and read states advance only from acknowledgements emitted by the endpoint responsible for that state.",
+          "note": "A timeout at any transition preserves ambiguity. Retrying with the same message ID must recover the existing state instead of creating another logical message."
+        },
+        {
+          "id": "chat-review-change",
+          "type": "system_change",
+          "prompt": "The send API publishes to the delivery queue, then crashes before storing the message. Bob receives an event whose message cannot be loaded later.",
+          "actionLabel": "Commit message and outbox together",
+          "choices": [
+            "Publish first and retry the database",
+            "Store the message and outbox event in one transaction, then relay it",
+            "Keep the message only in gateway memory"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Publishing first can expose an event whose durable state never existed.",
+            "One commit makes message state and future publication recover together.",
+            "Gateway memory disappears on deploy or failure and cannot support offline delivery."
+          ],
+          "beforeStatus": "DELIVERY EVENT · message row missing",
+          "afterStatus": "MESSAGE + OUTBOX COMMITTED · relay may retry safely",
+          "result": "Every routable message has durable authoritative state",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Delivery queue",
+                "sub": "published",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "d",
+                "label": "Message DB",
+                "sub": "write failed",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "d",
+                "kind": "event"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "d",
+                "label": "Message + outbox",
+                "sub": "one transaction",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "q",
+                "label": "Delivery queue",
+                "sub": "relay retries",
+                "col": 1,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "d",
+                "to": "q",
+                "kind": "event"
+              }
+            ]
+          },
+          "why": "The queue and database cannot share an ordinary transaction. A transactional outbox records publication intent beside the message, so a relay can retry after crashes without routing a message that never committed or losing one that did."
+        },
+        {
+          "id": "design-chat-app-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: The send API publishes to the delivery queue, then crashes before storing the message. Bob receives an event whose message cannot be loaded later. Place Message + outbox, Delivery queue. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "d",
+                "sub": "one transaction",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "q",
+                "sub": "relay retries",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "d",
+                "to": "q",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Message + outbox",
+            "Delivery queue",
+            "Bob sends a message",
+            "Chat server"
+          ],
+          "answer": {
+            "d": "Message + outbox",
+            "q": "Delivery queue"
+          },
+          "why": "The completed diagram contains these directed flows: Message + outbox → Delivery queue. That topology is the evidence for the answer: The queue and database cannot share an ordinary transaction. A transactional outbox records publication intent beside the message, so a relay can retry after crashes without routing a message that never committed or losing one that did."
+        },
+        {
+          "id": "chat-5-1",
+          "type": "build_diagram",
+          "prompt": "Build the path for a durable message to reach Bob's current WebSocket process.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Committed message",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "g",
+                "label": "Bob's gateway",
+                "col": 3,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Bob's client",
+                "col": 4,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "h1",
+                "kind": "data"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "g",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Delivery queue",
+            "Delivery worker · resolve connection",
+            "Global message lock",
+            "CDN"
+          ],
+          "answer": {
+            "h1": "Delivery queue",
+            "h2": "Delivery worker · resolve connection"
+          },
+          "why": "Durable work leaves the message store through a queue. A delivery worker queries the connection registry for Bob's current connection owner, then the worker routes the message to that gateway. The registry answers a location lookup; it never forwards or persists the message."
+        },
+        {
+          "id": "chat-5-2",
+          "type": "multi_select",
+          "prompt": "A review finds gateway memory as the only message store, timestamps as the only ordering rule, no stable retry ID, and presence records with no expiry. Which failures follow? Select all.",
+          "choices": [
+            "Deploys can lose accepted messages",
+            "Clock skew can reorder one conversation",
+            "A timeout retry can create duplicate messages",
+            "Crashed clients can remain online forever"
+          ],
+          "answer": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "why": "Each shortcut confuses transient transport state with an authoritative guarantee. Durable messages survive gateways, per-conversation sequences avoid clock ordering, stable IDs deduplicate ambiguous retries, and leases let presence expire when heartbeats stop."
+        },
+        {
+          "id": "xfer-chat",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A collaborative editor writes bytes to a user's WebSocket successfully, but the user's phone loses power before processing them. What has the server proved?",
+          "choices": [
+            "Only that bytes were accepted by the local socket path",
+            "That the user read the update",
+            "That the message is durably synchronized",
+            "That every device received it"
+          ],
+          "answer": 0,
+          "why": "A successful socket write does not prove application receipt. Delivery and read states require acknowledgements from the receiving client and durable catch-up for offline devices."
         }
       ]
     }

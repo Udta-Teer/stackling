@@ -2,7 +2,7 @@
   "unitId": "transactions-and-acid",
   "tier": 1,
   "title": "Transactions & ACID",
-  "subtitle": "All or nothing — and the dial most engineers don't know they're turning",
+  "subtitle": "Define atomic changes, isolation behavior, durability, and transaction boundaries",
   "objectives": [
     "Explain atomicity and why a half-finished transfer is worse than none",
     "Define each letter of ACID, and why C is the odd one out",
@@ -17,9 +17,145 @@
         {
           "id": "txn-1-0",
           "type": "concept",
-          "title": "Some pairs of writes have no valid halfway point",
-          "body": "Take one seat off the flight's remaining count. Insert the booking row. Two writes with no valid state between them: stop after the first and a seat is gone that nobody is sitting in — no error, nothing looking wrong on its own. A *transaction* removes the between: wrap both in `BEGIN` … `COMMIT` and there is no point where one landed and the other didn't.",
-          "note": "That all-or-nothing property is *atomicity*, the A in ACID, and it's the one with no middle setting. There is no \"partly atomic\" — either the whole unit landed, or the database acts as though you never asked."
+          "title": "A transaction commits a group of database operations atomically",
+          "body": "`BEGIN` starts a transaction and `COMMIT` makes its operations succeed as one unit. `ROLLBACK` discards provisional changes. Statement-error behavior varies by database, so application code must handle the error and roll back when required. No partial group becomes committed.",
+          "note": "Crash recovery uses the transaction log to preserve committed work and remove incomplete work, so a restart does not expose a partially applied transaction."
+        },
+        {
+          "id": "txn-change-1",
+          "type": "system_change",
+          "prompt": "A transfer debits Account A and then crashes before crediting Account B. Wrap both writes in one transaction.",
+          "actionLabel": "Make the transfer atomic",
+          "beforeStatus": "CRASH RESULT · A lost $100; B received $0",
+          "afterStatus": "CRASH RESULT · debit rolls back; both balances remain unchanged",
+          "result": "The half-finished transfer disappeared",
+          "viz": {
+            "nodes": [
+              {
+                "id": "x",
+                "label": "Transfer",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "a",
+                "label": "Account A",
+                "sub": "-$100 committed",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "b",
+                "label": "Account B",
+                "sub": "+$0",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "x",
+                "to": "a",
+                "kind": "data"
+              },
+              {
+                "from": "a",
+                "to": "b",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "x",
+                "label": "Transaction",
+                "sub": "not committed",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "a",
+                "label": "Account A",
+                "sub": "unchanged",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "b",
+                "label": "Account B",
+                "sub": "unchanged",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "x",
+                "to": "a",
+                "kind": "data"
+              },
+              {
+                "from": "x",
+                "to": "b",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Atomicity makes the database publish all writes in the transaction or none of them. It does not guarantee that a committed transfer survives disk loss; durability and replication address that separate risk."
+        },
+        {
+          "id": "transactions-and-acid-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A transfer debits Account A and then crashes before crediting Account B. Wrap both writes in one transaction. Place Account A, Account B. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "x",
+                "label": "Transaction",
+                "sub": "not committed",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "a",
+                "sub": "unchanged",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "unchanged",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "x",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "x",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Account A",
+            "Account B",
+            "Transfer",
+            "Checkout"
+          ],
+          "answer": {
+            "a": "Account A",
+            "b": "Account B"
+          },
+          "why": "The completed diagram contains these directed flows: Transaction → Account A; Transaction → Account B. That topology is the evidence for the answer: Atomicity makes the database publish all writes in the transaction or none of them. It does not guarantee that a committed transfer survives disk loss; durability and replication address that separate risk.",
+          "connectEdges": true
         },
         {
           "id": "txn-1-1",
@@ -32,7 +168,7 @@
             "The database retries automatically"
           ],
           "answer": 1,
-          "why": "Two writes that must both happen or neither — crash in the middle and you've destroyed money, with no error, and no way for either account to know. This is the canonical example for a reason: it's the clearest case where *half done* is strictly worse than *not done at all*. A failed transfer is an inconvenience; a half transfer is a corrupted ledger, and nobody can tell by looking at it."
+          "why": "The debit and credit form one invariant: the total money across both accounts must remain unchanged. If the debit commits before the crash and the credit does not, the ledger records a partial transfer and its total is $100 lower."
         },
         {
           "id": "txn-1-2",
@@ -45,7 +181,7 @@
             "connection"
           ],
           "answer": 0,
-          "why": "A transaction turns many operations into one indivisible unit — the database's answer to 'half done'."
+          "why": "A transaction defines a boundary around related operations. On commit the database makes the transaction's changes permanent as a unit; on rollback or failure it discards them, preserving all-or-nothing atomicity."
         },
         {
           "id": "txn-1-3",
@@ -58,7 +194,7 @@
             "Write to a log file for later"
           ],
           "answer": 1,
-          "why": "`COMMIT` applies your whole transaction as one unit: either the whole thing takes effect, or none of it does. `ROLLBACK` is the opposite — discard everything since `BEGIN`, as though it never happened."
+          "why": "`COMMIT` completes the transaction and makes all of its changes durable according to the configured commit policy. If the transaction cannot commit, none of its writes may remain as a partially committed unit."
         },
         {
           "id": "txn-1-4",
@@ -71,7 +207,7 @@
             "The database pauses and asks you what to do"
           ],
           "answer": 1,
-          "why": "That's atomicity: the transaction is indivisible, so a failure anywhere undoes everything since `BEGIN` and you can never be left with a half-finished transfer sitting in the data. Be careful with a related-but-different question: could OTHER transactions have seen those 5 writes before you committed? That is NOT atomicity — it's isolation, and the answer depends on the isolation level you're running (at Read Uncommitted they genuinely could — a *dirty read*). Atomicity is only about whether you can be left half-done; lesson 3 takes isolation apart properly."
+          "why": "Atomicity treats the ten writes as one commit unit. When an error causes rollback before commit, the database removes the effects of all five completed statements. Whether concurrent transactions could observe uncommitted values is a separate isolation property."
         },
         {
           "id": "txn-1-5",
@@ -84,7 +220,7 @@
             "`COMMIT`",
             "All the changes take effect together"
           ],
-          "why": "Open it, do the work, commit — and only at `COMMIT` do all the changes take effect, as one unit, with anything before that point still undoable. If anything fails between `BEGIN` and `COMMIT` — an error, a crash, a `ROLLBACK` — the database rewinds to the state at `BEGIN`, and that rewind is exactly what the write-ahead log from unit 6 makes possible."
+          "why": "`BEGIN` opens the transaction, the debit and credit execute inside it, and `COMMIT` establishes the all-or-nothing outcome. Before commit, the database retains enough undo or version information to abort; after commit, both account changes belong to the same completed transaction."
         },
         {
           "id": "txn-1-6",
@@ -97,7 +233,7 @@
             "Transactions are always the right tool"
           ],
           "answer": 1,
-          "why": "Atomicity matters when several changes must hold together; a single independent insert is already all-or-nothing by itself, so wrapping it in a transaction buys you nothing. Good instinct to build: reach for a transaction when there's an invariant across multiple writes. The question is never 'is this important data?' — it's 'is there a rule that would break if only some of this landed?'"
+          "why": "The transfer changes two rows governed by one conservation invariant, so partial success is invalid. A single analytics insert is already one atomic statement in typical relational databases; an explicit multi-statement transaction adds no cross-write atomicity unless other changes must commit with it."
         }
       ]
     },
@@ -108,9 +244,129 @@
         {
           "id": "txn-2-0",
           "type": "concept",
-          "title": "ACID is four unrelated promises wearing one acronym",
-          "body": "*Atomicity*: the whole unit lands or none of it does. *Consistency*: the constraints you declared — `UNIQUE`, foreign keys, checks — still hold. *Isolation*: what concurrent transactions can see of each other's unfinished work. *Durability*: once committed, it survives a crash. Four separate promises. The acronym flatters them into a set.",
-          "note": "Coined in 1983 to describe what a transaction *is*, not to certify a product — which is why \"we're ACID\" settles fewer arguments than people assume. The four letters have very different characters."
+          "title": "ACID names four properties of transaction processing",
+          "body": "*Atomicity* applies all operations or none. *Consistency* preserves declared constraints. *Isolation* controls interference between concurrent transactions. *Durability* retains commits across failures covered by the configured persistence policy. Logs, concurrency control, and constraints implement these properties.",
+          "note": "An ACID label does not identify the configured isolation level or durability settings; those choices determine which anomalies and acknowledged-write risks remain."
+        },
+        {
+          "id": "txn-change-2",
+          "type": "system_change",
+          "prompt": "An order insert commits, then the inventory update fails. Put both database writes in one transaction.",
+          "actionLabel": "Commit both writes atomically",
+          "choices": [
+            "Retry only the inventory update",
+            "Put both database writes in one transaction",
+            "Cache the inventory count"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A retry might repair this incident, but readers can observe the partial order before it runs and retries can fail again.",
+            "One transaction makes the two database changes commit or roll back together.",
+            "A cache adds another copy and cannot make two authoritative writes atomic."
+          ],
+          "beforeStatus": "FAILURE · order exists · inventory unchanged",
+          "afterStatus": "FAILURE · both writes roll back · no partial order",
+          "result": "The database stopped exposing half of the operation",
+          "viz": {
+            "nodes": [
+              {
+                "id": "s",
+                "label": "Checkout",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "o",
+                "label": "Order insert",
+                "sub": "committed",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "i",
+                "label": "Inventory update",
+                "sub": "failed",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "s",
+                "to": "o",
+                "kind": "data"
+              },
+              {
+                "from": "o",
+                "to": "i",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "s",
+                "label": "Checkout transaction",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "all commit or all rollback",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "s",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Atomicity makes the database commit all writes in the transaction or expose none of them. Calls to external payment or shipping providers remain outside that database boundary and need idempotency, an outbox, or compensation."
+        },
+        {
+          "id": "transactions-and-acid-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: An order insert commits, then the inventory update fails. Put both database writes in one transaction. Place Checkout transaction, Database. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "s",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "all commit or all rollback",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "s",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Checkout transaction",
+            "Database",
+            "Transfer",
+            "Account A"
+          ],
+          "answer": {
+            "s": "Checkout transaction",
+            "d": "Database"
+          },
+          "why": "The completed diagram contains these directed flows: Checkout transaction → Database. That topology is the evidence for the answer: Atomicity makes the database commit all writes in the transaction or expose none of them. Calls to external payment or shipping providers remain outside that database boundary and need idempotency, an outbox, or compensation."
         },
         {
           "id": "txn-2-1",
@@ -131,23 +387,23 @@
             },
             {
               "left": "Durability",
-              "right": "Committed means it survives a crash"
+              "right": "Acknowledged commits survive failures covered by the persistence policy"
             }
           ],
-          "why": "Four promises: indivisible, rule-abiding, non-interfering, and permanent. They're not equally interesting, which the acronym hides — one is barely the database's doing, only one is a flat promise you simply get, and two are dials you're probably turning without realising. The rest of this lesson sorts out which is which."
+          "why": "Atomicity makes a transaction all-or-nothing; Consistency preserves declared invariants across a valid transaction; Isolation controls how concurrent transactions interact; Durability preserves committed effects after failures covered by the configured persistence policy."
         },
         {
           "id": "txn-2-2",
           "type": "multiple_choice",
-          "prompt": "Durability: you commit, and a microsecond later the power dies. Your data?",
+          "prompt": "Synchronous write-ahead log flushing is enabled. The database acknowledges `COMMIT`, and local power fails a microsecond later. Your data?",
           "choices": [
             "Lost — it was still in memory",
-            "There — commit meant it was durably recorded before the database answered you",
+            "Recoverable — the committed log record reached stable storage before acknowledgement",
             "Partially there",
             "Recovered only if you had a backup"
           ],
           "answer": 1,
-          "why": "That's the D, and it's the promise you met in unit 6: by default the write-ahead log is forced to disk before `COMMIT` returns. Which is why `COMMIT` isn't instant — it's waiting on physics, and every 'why are my writes slow?' question eventually arrives here: you asked for a guarantee that requires the disk to confirm."
+          "why": "Durability means an acknowledged commit survives the failures covered by the configured policy. With synchronous log flushing, the database persists the transaction's write-ahead log record before replying, then replays it during crash recovery if data pages were not yet written."
         },
         {
           "id": "txn-2-3",
@@ -160,7 +416,7 @@
             "Durability"
           ],
           "answer": 1,
-          "why": "A, I, and D are properties the engine provides; C only says the database won't let you violate the constraints you defined — so if you declared no constraints, C promises approximately nothing. Plenty of practitioners argue the C is a bit of a cheat, since it's really 'the database enforces your declared invariants', which is just... constraints. And watch out: the C in CAP means something completely different, a collision of names that has confused engineers for twenty years."
+          "why": "ACID Consistency means a valid transaction takes the database from one state satisfying its declared invariants to another. The database can enforce constraints such as `UNIQUE`, foreign keys, and checks; invariants omitted from the schema or transaction logic are outside that promise."
         },
         {
           "id": "txn-2-4",
@@ -176,7 +432,7 @@
             1,
             2
           ],
-          "why": "Two of the four are dials, and the acronym hides it. Isolation is the famous one: several levels, and the level decides which concurrency bugs remain possible in your code. Durability is the one that catches people — `synchronous_commit = off` in Postgres, `innodb_flush_log_at_trx_commit = 0` in MySQL, and MongoDB's `w`/`j` write concern each let a write the database already told you it accepted vanish in a crash, in exchange for speed. Not knowing that dial exists is how a team ships a database quietly configured to lose acknowledged writes. Atomicity is not a dial — there is no 'partly atomic' — and ACID's Consistency is mostly your declared constraints doing the work, not the engine's. The uncomfortable part: most engineers can't tell you which isolation level their production database runs at, so they're relying on guarantees they've never looked up, and the defaults are not the strongest ones."
+          "why": "Isolation levels permit different concurrency anomalies in exchange for less coordination. Durability settings can acknowledge before a local log flush or before replication, reducing latency while expanding the failures that can lose an acknowledged write. Atomicity remains all-or-nothing within the transaction boundary, and Consistency depends on declared invariants."
         },
         {
           "id": "txn-2-5",
@@ -193,7 +449,7 @@
             1,
             3
           ],
-          "why": "Isolation is the dial you'll actually reason about, and databases differ in both their defaults and what their level names even mean. That last point is a genuine trap: two databases can both say 'Repeatable Read' and give you materially different guarantees, so the label is not the specification."
+          "why": "Atomicity guarantees all-or-nothing execution, Durability guarantees committed data survives crashes, and ACID Consistency guarantees that a transaction preserves declared database invariants. Isolation controls the concurrent histories transactions may observe. Its configured levels and their anomaly behavior depend on the database engine's implementation."
         },
         {
           "id": "txn-2-6",
@@ -206,7 +462,7 @@
             "ACID only applies to reads"
           ],
           "answer": 1,
-          "why": "'ACID compliant' is not a force field: the I in ACID is whatever level you're running, and the default is not serializable. This misconception causes real bugs — teams assume the database is protecting an invariant it was never asked to protect, then find corrupted data months later with no error in any log. Concurrency bugs don't crash, they quietly lie."
+          "why": "PostgreSQL's default Read Committed isolation prevents dirty reads but still permits other interleavings, including non-repeatable reads and some lost-update patterns in application read-modify-write code. Protecting a specific invariant may require an atomic statement, constraint, lock, or stronger isolation."
         }
       ]
     },
@@ -217,9 +473,9 @@
         {
           "id": "txn-3-0",
           "type": "concept",
-          "title": "Your database is running a weaker isolation level than you think it is",
-          "body": "Isolation decides what one transaction may see of another's unfinished work. Forbidding more of it means doing more: holding locks for longer, or watching for conflicts and aborting whoever loses. Postgres defaults to Read Committed, a fresh snapshot per *statement*; MySQL's InnoDB to Repeatable Read. Neither is the strongest available.",
-          "note": "And the names lie across engines: Postgres's \"Repeatable Read\" is really snapshot isolation, and Postgres quietly treats Read Uncommitted as Read Committed — you cannot get a dirty read out of it however hard you ask."
+          "title": "Isolation controls which concurrent transaction histories are allowed",
+          "body": "A database exposes an *isolation level* that defines which versions a transaction may read and which conflicting writes may commit. Serializable isolation permits only outcomes equivalent to some serial order, while weaker levels admit specific anomalies to reduce coordination.",
+          "note": "Stronger isolation can increase lock waits or serialization failures. Applications using abort-based concurrency control must retry the entire transaction safely."
         },
         {
           "id": "txn-3-1",
@@ -232,7 +488,14 @@
             "It's a licensing restriction"
           ],
           "answer": 1,
-          "why": "Isolation is bought with throughput: the stricter you go, the more the database must coordinate or abort, so it lets you pick your point on the curve. And the defaults are NOT the strictest — Postgres defaults to Read Committed, MySQL's InnoDB to Repeatable Read, neither of which is serializable. So unless you changed it deliberately, you are running with known anomalies permitted, right now, in production."
+          "why": "Stronger isolation requires the engine to block conflicting work, track more dependencies, or abort transactions whose combined result is invalid. Those mechanisms increase waiting and retries under contention, so databases expose levels that trade permitted anomalies against throughput and latency."
+        },
+        {
+          "id": "txn-3-7",
+          "type": "concept",
+          "title": "Concurrency anomalies name specific harmful interleavings",
+          "body": "A dirty read sees another transaction's uncommitted value. A non-repeatable read sees one row change between two reads. A phantom changes which rows match a repeated range query. A lost update occurs when two clients read one value, compute changes, and one write overwrites the other.",
+          "note": "Isolation levels and database engines prevent different sets of anomalies. Naming the observed interleaving is more precise than saying transactions simply 'interfere.'"
         },
         {
           "id": "txn-3-2",
@@ -256,7 +519,7 @@
               "right": "Two read-modify-writes; one is silently overwritten"
             }
           ],
-          "why": "Each isolation level is defined by which of these it forbids, so knowing the anomalies is how you read the levels. You already met lost update in unit 6 — the counter that went from 10 to 11 instead of 12 — and it wasn't a database bug: it was an isolation level doing exactly what it promised, which was less than you assumed."
+          "why": "A dirty read observes an uncommitted value; a non-repeatable read observes one row change within a transaction; a phantom changes the membership of a repeated range query; a lost update occurs when one read-modify-write overwrites another. Isolation mechanisms differ in which interleavings they prevent."
         },
         {
           "id": "txn-3-3",
@@ -268,7 +531,7 @@
             "Repeatable Read",
             "Serializable"
           ],
-          "why": "Each rung forbids more anomalies and costs more coordination: Read Uncommitted allows dirty reads, Read Committed stops them, Repeatable Read stops non-repeatable reads, and Serializable stops everything. Read Uncommitted is almost never worth using — you get dirty reads for a performance win modern engines barely deliver — so the real decision in practice is between the other three."
+          "why": "The standard orders these levels by increasingly serial behavior: Read Uncommitted, Read Committed, Repeatable Read, then Serializable. Engines may provide stronger behavior than the standard minimum, so the exact anomalies and implementation must be checked for the selected database."
         },
         {
           "id": "txn-3-4",
@@ -281,7 +544,7 @@
             "That reads are always fast"
           ],
           "answer": 1,
-          "why": "It's a promise about the outcome rather than the schedule: the database may run everything concurrently, as long as the final state matches SOME serial order. That 'as if' does enormous work — the engine may let transactions run in parallel and then ABORT one when it spots a conflict that couldn't have arisen serially, which means under Serializable your transaction can fail through no fault of its own and your code must be ready to retry. Correctness didn't become free; it moved into your error handling."
+          "why": "Serializable permits concurrent execution only when the committed outcome is equivalent to some one-at-a-time ordering. The engine can enforce this with locks or dependency detection; either approach can block or abort a transaction, so applications must handle serialization failures and retry the whole transaction."
         },
         {
           "id": "txn-3-5",
@@ -294,7 +557,7 @@
             "A deadlock"
           ],
           "answer": 1,
-          "why": "No two transactions touched the same row, so most isolation levels see no conflict at all — yet together they broke an invariant that neither broke alone. This is the anomaly that snapshot isolation (which is what Postgres's 'Repeatable Read' actually is) still permits, and that Serializable prevents. It's subtle precisely BECAUSE nothing overlapped: the bug lives in a rule spanning rows rather than in any single row, so if your correctness depends on an invariant across multiple rows, Read Committed and Repeatable Read will not save you."
+          "why": "This is write skew: both transactions read the shared on-call condition, then update different doctor rows, so row-level write-conflict detection sees no collision. Snapshot isolation can permit this result; Serializable must reject an execution that cannot match any valid serial order."
         },
         {
           "id": "txn-3-6",
@@ -307,7 +570,7 @@
             "Switch to NoSQL"
           ],
           "answer": 1,
-          "why": "Three real options: pay for Serializable and be ready to retry, lock explicitly so conflicts are visible, or reshape the data so the rule is enforceable in one place. That third one is underrated — if the invariant can be expressed as a single row (a counter, a constraint, a unique key), the database can enforce it cheaply and unconditionally. Often the best fix for a hard concurrency problem is a better data model rather than a stronger isolation level."
+          "why": "Serializable can detect invalid cross-row interleavings but may abort transactions. Explicitly locking the rows or predicate serializes the decision. Restructuring the invariant into one constrained row or key can make conflicting updates meet at an enforceable location with less coordination."
         }
       ]
     },
@@ -318,9 +581,9 @@
         {
           "id": "txn-4-0",
           "type": "concept",
-          "title": "A lock is held until you commit, not until you're done with it",
-          "body": "Locks are one way a database keeps transactions apart: touch a row and you hold it until you commit, whether you're still using it or not. So a transaction wanting two rows takes one and waits for the other — still holding the first. Databases know this can knot into a *deadlock*, so they watch for a cycle of waiters and abort somebody when they find one.",
-          "note": "It's a cycle, so you prevent it by never letting one form: take every lock in a fixed order — always the lower id first — and two transactions can't end up waiting on each other's tail."
+          "title": "A deadlock is a cycle of transactions waiting for locks",
+          "body": "A transaction may hold one row lock while waiting for another. If transaction A holds a lock needed by B and B holds a lock needed by A, neither can proceed. The database detects this wait-for cycle, aborts one victim, releases its locks, and lets the other continue.",
+          "note": "Acquire shared resources in a consistent global order to prevent this deadlock pattern, and retry a transaction when the database selects it as the victim."
         },
         {
           "id": "txn-4-1",
@@ -333,7 +596,7 @@
             "The database crashes"
           ],
           "answer": 1,
-          "why": "Each holds what the other needs, and real databases detect the cycle and abort a victim rather than hanging forever — so one transaction gets an error out of nowhere. The classic prevention is to always acquire locks in a consistent order (e.g. always lock the lower account id first) so a cycle can't form. Deadlocks aren't a database defect; they're an emergent property of concurrent code, and your app must be prepared to retry."
+          "why": "The wait-for graph contains a cycle: transaction 1 waits for transaction 2's B lock while transaction 2 waits for transaction 1's A lock. The database breaks the cycle by aborting one victim; consistent lock ordering prevents this two-resource cycle, and the application must retry aborted work."
         },
         {
           "id": "txn-4-2",
@@ -346,7 +609,7 @@
             "The database ignores idle transactions"
           ],
           "answer": 1,
-          "why": "A held transaction holds locks and pins old versions of rows, so everyone who needs those rows queues behind you — for as long as a third party takes to answer. The rule: never do network I/O inside a transaction. This is one of the most common real production outages there is — the slow API call holds locks, waiting transactions pile up (unit 4's queueing), the connection pool exhausts, and a payments hiccup becomes a total site outage. Do the I/O first, then open a short transaction to record the result."
+          "why": "The transaction can retain locks and, under multi-version concurrency control, keep old row versions visible until it ends. A ten-minute network call therefore lengthens lock waits, delays cleanup, and occupies a database connection; queued requests can then exhaust the connection pool."
         },
         {
           "id": "txn-4-3",
@@ -370,7 +633,7 @@
               "right": "Two transactions each holding what the other wants"
             }
           ],
-          "why": "Two philosophies: prevent conflicts by excluding others, or allow them and detect collisions at the end. Optimistic concurrency is usually a version column — read version 7, write only if it's still 7; if someone else got there first it's now 8, your update matches nothing, and you retry. It's just compare-and-set, applied to a row."
+          "why": "Pessimistic locking acquires exclusion before modifying shared data. Optimistic concurrency proceeds without that lock and detects a collision with a version check at write time; a changed version causes the conditional update to affect no row, so the transaction retries. A deadlock is a cycle of lock dependencies."
         },
         {
           "id": "txn-4-4",
@@ -383,20 +646,108 @@
             "It makes no difference"
           ],
           "answer": 1,
-          "why": "If collisions are rare, locking everyone up front taxes the 99% of transactions that would never have conflicted — let them run and pay only when you actually collide. The inverse matters just as much: under HIGH contention, optimistic degenerates as everyone retries, collides again, and you burn capacity making no progress, so pessimistic is calmer there. Choose from how often you actually collide, not from which sounds more sophisticated."
+          "why": "With rare conflicts, optimistic concurrency avoids lock acquisition and waiting on the common path, paying for a retry only on collision. Under high contention, repeated optimistic retries can waste capacity, making pessimistic serialization more predictable."
         },
         {
           "id": "txn-4-5",
-          "type": "multiple_choice",
-          "prompt": "You must charge a credit card (an external service) AND create an order (your database) atomically. Can a database transaction do this?",
-          "choices": [
-            "Yes — wrap both in `BEGIN`/`COMMIT`",
-            "No — a database transaction only covers its own database; the card charge is a separate system that knows nothing about your `COMMIT` or `ROLLBACK`",
-            "Yes, if you use Serializable",
-            "Yes, with the right driver"
+          "type": "build_diagram",
+          "prompt": "Complete the order workflow. Put the local source of truth inside the database transaction path and the independently committed payment action outside it.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "app",
+                "label": "Order Service",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "tx",
+                "sub": "inside `BEGIN` / `COMMIT`",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "pay",
+                "sub": "separate commit authority",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "app",
+                "to": "tx",
+                "kind": "request"
+              },
+              {
+                "from": "app",
+                "to": "pay",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Order Database",
+            "Card Processor",
+            "Read Replica",
+            "Shared Cache"
           ],
-          "answer": 1,
-          "why": "Atomicity stops at the database boundary: your `ROLLBACK` can rewind your rows, but it cannot un-charge someone's card. This is where people get badly burned, because the code LOOKS atomic. The real patterns are two-phase commit (a coordinator asks every participant to prepare, then commit — correct, but slow, and it blocks if the coordinator dies mid-flight) or a saga (do the steps, and if a later one fails, run compensating actions like a refund). Most modern systems choose sagas plus idempotency over 2PC."
+          "answer": {
+            "tx": "Order Database",
+            "pay": "Card Processor"
+          },
+          "why": "`BEGIN` and `COMMIT` can atomically change the order database because it participates in that local transaction. The card processor commits under its own authority and does not observe a database `ROLLBACK`; if the service crashes after the charge but before the order commits, the customer can be charged without an order, so the workflow needs idempotent retries and explicit recovery or compensation."
+        },
+        {
+          "id": "transactions-and-acid-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Complete the order workflow. Put the local source of truth inside the database transaction path and the independently committed payment action outside it.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "app",
+                "label": "Order Service",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "tx",
+                "sub": "inside `BEGIN` / `COMMIT`",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "pay",
+                "sub": "separate commit authority",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "app",
+                "to": "tx",
+                "kind": "request"
+              },
+              {
+                "from": "app",
+                "to": "pay",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Order Database",
+            "Card Processor",
+            "Transfer",
+            "Account A"
+          ],
+          "answer": {
+            "tx": "Order Database",
+            "pay": "Card Processor"
+          },
+          "why": "The completed diagram contains these directed flows: Order Service → Order Database; Order Service → Card Processor. That topology is the evidence for the answer: `BEGIN` and `COMMIT` can atomically change the order database because it participates in that local transaction. The card processor commits under its own authority and does not observe a database `ROLLBACK`; if the service crashes after the charge but before the order commits, the customer can be charged without an order, so the workflow needs idempotent retries and explicit recovery or compensation."
         },
         {
           "id": "txn-4-6",
@@ -408,7 +759,7 @@
             55,
             100
           ],
-          "why": "Across services, 2PC's blocking behaviour and coordinator failure modes are usually worse than the complexity of writing compensating actions, so most real distributed systems choose sagas. But be honest about what you gave up: there's now a window where the payment succeeded and the order doesn't exist yet — you accepted a temporarily inconsistent state plus a compensation path, because the alternative (a distributed lock spanning services) is worse. That acceptance is the road to eventual consistency, and it's where Tier 3 begins."
+          "why": "A saga lets each service commit locally, then advances the workflow with retries and compensating actions such as a refund. It avoids holding a distributed transaction open across services, while accepting temporary states and requiring idempotency, durable workflow state, and tested compensation."
         },
         {
           "id": "txn-4-7",
@@ -421,7 +772,21 @@
             "Transactions make concurrency bugs impossible"
           ],
           "answer": 1,
-          "why": "Powerful, bounded, and configurable — the power is real; the boundary and the dial are what people forget. Three things most engineers get wrong, in order of damage: they don't know their isolation level, they hold transactions open across network calls, and they assume atomicity extends across services. Fix those three and you're ahead of most working engineers — and ready for what happens when the copies can't talk to each other."
+          "why": "Within one database, a transaction provides all-or-nothing atomicity and the configured isolation behavior. Keeping it short reduces lock, version-retention, and connection costs. External services do not join that boundary automatically, so their failures require a separate distributed-workflow design."
+        },
+        {
+          "id": "xfer-txn",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "Two buyers concurrently reserve the final concert seat. Which invariant must the authoritative write enforce?",
+          "choices": [
+            "At most one successful reservation for the seat",
+            "Both buyers receive confirmation, then support chooses",
+            "The cache decides the winner",
+            "Whichever client clock is earlier wins"
+          ],
+          "answer": 0,
+          "why": "The seat transition needs one atomic winner under concurrent attempts, typically through a conditional update, unique constraint, or lock inside the authoritative transaction."
         }
       ]
     }

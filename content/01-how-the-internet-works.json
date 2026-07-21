@@ -2,7 +2,7 @@
   "unitId": "how-internet-works",
   "tier": 0,
   "title": "How the Internet Works",
-  "subtitle": "The internet is just computers passing notes",
+  "subtitle": "Packets, addressing, name resolution, and transport from browser to server",
   "objectives": [
     "Explain what actually happens when you open a website",
     "Describe how packets, IP addresses, and DNS get data to the right place",
@@ -12,19 +12,19 @@
   "lessons": [
     {
       "id": "hiw-1",
-      "title": "It's just computers passing notes",
+      "title": "Packets move through a network of routers",
       "fieldTask": {
         "where": "Terminal",
         "seconds": 20,
         "do": "traceroute google.com",
         "alt": "On Windows, it's `tracert google.com`",
-        "notice": "Every numbered line is one router your packets actually passed through. Count them — that's the 10–20 hops from this lesson, and they're real machines in real buildings between you and Google."
+        "notice": "Each numbered line is a router that answered along the measured path. Your count may be lower or higher than 10–20, and `*` means that hop did not answer the probe—not that no router exists there."
       },
       "exercises": [
         {
           "id": "hiw-1-0",
           "type": "concept",
-          "title": "Nothing connects your laptop to the server — your data is passed hand to hand",
+          "title": "Routers pass your data toward its destination one hop at a time",
           "viz": {
             "nodes": [
               {
@@ -59,24 +59,109 @@
             "edges": [
               {
                 "from": "you",
-                "to": "r1"
+                "to": "r1",
+                "kind": "request"
               },
               {
                 "from": "r1",
-                "to": "r2"
+                "to": "r2",
+                "kind": "request"
               },
               {
                 "from": "r2",
-                "to": "r3"
+                "to": "r3",
+                "kind": "request"
               },
               {
                 "from": "r3",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               }
             ]
           },
-          "body": "There is no wire from your laptop to Google. Your data is chopped into small chunks called *packets*, each stamped with the destination's IP address — a number like `142.250.72.14` that identifies one machine on the internet. A packet carries an address but no map. It's handed to a router, then another, then another, until it arrives.",
-          "note": "It's post, not a phone call. Each packet is addressed and travels alone, so two packets from the same page can take different routes and show up out of order."
+          "body": "When you open a website, the data is split into small chunks called *packets*. Each packet carries a destination IP address. Your router sends it to another router that knows a closer route; that router does the same. After roughly 10–20 hops, the packet reaches the server.",
+          "note": "No router needs a complete map of the internet. It only needs to choose a useful next hop, so traffic can route around a failed link."
+        },
+        {
+          "id": "hiw-change-1",
+          "type": "system_change",
+          "prompt": "A router on the current path stops forwarding packets. Reroute the request through a healthy router and observe whether it reaches the server.",
+          "actionLabel": "Use the alternate route",
+          "beforeStatus": "DELIVERY FAILED · 0 of 1 responses returned",
+          "afterStatus": "DELIVERED · 1 of 1 responses returned through the alternate router",
+          "result": "The packet found another path",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Your phone",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r1",
+                "label": "Router A",
+                "sub": "offline",
+                "col": 1
+              },
+              {
+                "id": "s",
+                "label": "Server",
+                "sub": "unreached",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "r1",
+                "kind": "request"
+              },
+              {
+                "from": "r1",
+                "to": "s",
+                "kind": "broken",
+                "label": "router offline"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Your phone",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r2",
+                "label": "Router B",
+                "sub": "healthy",
+                "col": 1
+              },
+              {
+                "id": "s",
+                "label": "Server",
+                "sub": "request arrived",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "r2",
+                "kind": "request"
+              },
+              {
+                "from": "r2",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Internet routing does not reserve one permanent end-to-end wire. When routing protocols advertise a healthy alternate path, later packets can traverse different routers and still reach the same destination IP."
         },
         {
           "id": "hiw-1-1",
@@ -89,7 +174,7 @@
             "Exactly 100"
           ],
           "answer": 2,
-          "why": "Your data hops through many routers along the way — often 10 to 20 — each one passing it a step closer to the destination. Nothing about this is theoretical: your computer can list those hops for you, one line each, and you'll do exactly that in a moment."
+          "why": "Internet traffic commonly crosses 10–20 routers because each router forwards the packet across one segment of the route toward the destination. The exact hop count depends on network topology and routing policy."
         },
         {
           "id": "hiw-1-2",
@@ -102,12 +187,12 @@
             "threads"
           ],
           "answer": 0,
-          "why": "The internet splits your data into small packets, sends them independently, and reassembles them at the other end. Because they travel independently, packets can take *different routes* and arrive out of order — so something has to put them back in sequence, which is TCP's job in lesson 4."
+          "why": "A packet is a bounded chunk of data with addressing and control information. Splitting a message into packets lets routers forward each chunk independently; the receiver then reconstructs the original byte stream."
         },
         {
           "id": "hiw-1-3",
           "type": "multiple_choice",
-          "prompt": "Every device on the internet needs one of these to be found. What is it?",
+          "prompt": "A router is forwarding a packet across the internet. Which field tells it the packet's network-layer destination?",
           "choices": [
             "A username",
             "An IP address",
@@ -115,7 +200,7 @@
             "A phone number"
           ],
           "answer": 1,
-          "why": "An IP address (like `142.250.72.14`) is a device's location on the internet — data can't be delivered without one. There aren't enough of the old IPv4 addresses (~4.3 billion) for the world, which is exactly why IPv6 exists with an address space large enough that running out stops being a concern."
+          "why": "A destination Internet Protocol (IP) address identifies a network-layer endpoint, usually an interface, for packet delivery. Routers use its network prefix to choose a next hop. It is not a physical location: addresses can change, one device can have several, and Network Address Translation can let many devices share one public address."
         },
         {
           "id": "hiw-1-4",
@@ -128,27 +213,74 @@
             },
             {
               "left": "IP address",
-              "right": "A device's location on the internet"
+              "right": "A logical source or destination for IP packets"
             },
             {
               "left": "Router",
               "right": "Passes packets toward their destination"
             }
           ],
-          "why": "Packets carry the data, IP addresses say where it's going, and routers move it hop by hop. The surprising part is that no router knows the whole path — each one only knows the *next best hop*, so the internet has no central map of itself."
+          "why": "A packet carries a chunk of data, an IP address names a logical network-layer source or destination, and a router forwards packets toward the destination prefix. An address identifies a network interface; it does not encode the device's physical location."
         },
         {
           "id": "hiw-1-5",
-          "type": "multiple_choice",
-          "prompt": "There's no master computer running the internet. So how do packets find their way?",
-          "choices": [
-            "A central server in the US decides every route",
-            "Each router just forwards to the next-best hop toward the target",
-            "Packets are sent to every computer until one matches",
-            "Your ISP pre-computes the full path"
+          "type": "build_diagram",
+          "prompt": "Build the packet's path from your laptop toward a website. Each router chooses only the next hop; the final component owns the destination address.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "laptop",
+                "label": "Your Laptop",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "laptop",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Home / ISP Router",
+            "Transit Router",
+            "Web Server",
+            "DNS Resolver",
+            "Database"
           ],
-          "answer": 1,
-          "why": "The internet is decentralized: each router makes a local decision — *who gets me closer?* — and no single machine is in charge. That's precisely why it's so resilient; knock out a router and traffic routes around it. Worth killing a myth attached to this, because you will hear it repeated: ARPANET was not built to survive a nuclear war. Its own directors said so — it was built to share a handful of very expensive research computers. The survivability motive belongs to Paul Baran's separate RAND work on distributed networks, which did feed the design. The resilience is real; the origin story usually told about it isn't."
+          "answer": {
+            "h1": "Home / ISP Router",
+            "h2": "Transit Router",
+            "h3": "Web Server"
+          },
+          "why": "The laptop sends the packet to its local gateway, transit routers forward it toward the destination prefix, and the web server receives it at the addressed endpoint. No central machine chooses the whole path; if a router or link fails, packets may be dropped until routing converges on an alternate next hop."
         }
       ]
     },
@@ -159,7 +291,7 @@
         {
           "id": "hiw-2-0",
           "type": "concept",
-          "title": "`google.com` is not an address — it's a name that has to be looked up first",
+          "title": "DNS turns a domain name into an IP address",
           "viz": {
             "nodes": [
               {
@@ -186,16 +318,111 @@
             "edges": [
               {
                 "from": "b",
-                "to": "d"
+                "to": "d",
+                "kind": "control"
               },
               {
                 "from": "b",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               }
             ]
           },
-          "body": "Routers move packets toward numbers, not names. So before your browser can connect to `google.com`, something has to turn that name into an IP address. That something is DNS — the Domain Name System, the internet's phonebook. Give it a name, it hands back a number. Every connection you make starts with this translation.",
-          "note": "The indirection is the feature: because you connect to a name, the company behind it can swap machines, add servers, or point you at a nearer one — and your browser simply gets a different number back."
+          "body": "People type `google.com`, but routers need a numeric IP address. Before the browser connects, it asks the Domain Name System (DNS) for the IP linked to that name. DNS returns the number; the browser can then send packets toward it.",
+          "note": "A name can keep working while its IP changes. That lets a service replace servers or direct users to a nearby location without teaching users a new address."
+        },
+        {
+          "id": "hiw-change-2",
+          "type": "system_change",
+          "prompt": "A browser in London resolves `shop.example` to a Virginia service. Change the DNS answer to the London service address.",
+          "actionLabel": "Return the nearby IP",
+          "choices": [
+            "Increase the Virginia server's CPU",
+            "Return the London service IP",
+            "Set a longer DNS TTL"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Server CPU does not shorten the approximately 80ms network round trip.",
+            "The new DNS answer sends future connections to the nearby deployment.",
+            "A longer TTL keeps clients on the distant address for longer."
+          ],
+          "beforeStatus": "NETWORK RTT · approximately 80ms · London → Virginia",
+          "afterStatus": "NETWORK RTT · approximately 10ms · London → London",
+          "result": "DNS directed the new connection to a nearby deployment",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "London user",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "DNS answer",
+                "sub": "Virginia IP",
+                "col": 1,
+                "kind": "dns"
+              },
+              {
+                "id": "v",
+                "label": "Virginia service",
+                "sub": "~80ms RTT",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "d",
+                "kind": "control"
+              },
+              {
+                "from": "d",
+                "to": "v",
+                "kind": "control"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "London user",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "DNS answer",
+                "sub": "London IP",
+                "col": 1,
+                "kind": "dns"
+              },
+              {
+                "id": "m",
+                "label": "London service",
+                "sub": "~10ms RTT",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "d",
+                "kind": "control"
+              },
+              {
+                "from": "d",
+                "to": "m",
+                "kind": "control"
+              }
+            ]
+          },
+          "why": "DNS can return different service addresses based on routing policy or resolver location. Existing cached answers remain until their TTL expires, so a DNS change does not move every client immediately."
         },
         {
           "id": "hiw-2-1",
@@ -208,33 +435,33 @@
             "Your Wi-Fi router alone"
           ],
           "answer": 1,
-          "why": "DNS (Domain Name System) is the internet's phonebook — it looks up `google.com` and returns its IP address. Humans remember names and machines need numbers, so DNS is the translation layer that lets us live in a world of words."
+          "why": "The Domain Name System (DNS) resolves a domain name such as `google.com` to records that can include IP addresses. The browser uses a returned address to open a connection to the destination service."
         },
         {
           "id": "hiw-2-2",
-          "type": "fill_blank",
-          "prompt": "DNS translates a human-friendly ______ into a machine-friendly IP address.",
+          "type": "multiple_choice",
+          "prompt": "DNS returns `A 203.0.113.8` and `AAAA 2001:db8::8` for one name. What did the two records provide?",
           "choices": [
-            "domain name",
-            "password",
-            "packet",
-            "port"
+            "An IPv4 address and an IPv6 address",
+            "A primary server and a backup server",
+            "A port number and a password",
+            "Two physical locations"
           ],
           "answer": 0,
-          "why": "A domain name like `netflix.com` is for humans; DNS converts it to the IP address machines actually use to route packets."
+          "why": "A DNS `A` record carries an Internet Protocol version 4 (IPv4) address, while an `AAAA` record carries an Internet Protocol version 6 (IPv6) address. A client can try a returned address when opening its connection; neither record promises a physical location or backup role."
         },
         {
           "id": "hiw-2-3",
           "type": "order_steps",
           "prompt": "Put a DNS lookup in order (simplified).",
           "steps": [
-            "Browser asks: what's the IP for `example.com`?",
-            "Check the local cache — seen it recently?",
+            "Browser needs an IP for `example.com`",
+            "Browser and operating system check their valid DNS caches",
             "If not cached, ask a DNS resolver",
             "Resolver returns the IP address",
             "Browser connects to that IP"
           ],
-          "why": "DNS checks the fastest source first (the local cache) before asking a resolver, then hands the browser an IP to connect to. Results get cached at many levels — browser, operating system, resolver — each honouring a TTL (time to live), which is why a DNS change can take hours to reach everyone."
+          "why": "The browser needs an address, but it checks browser and operating-system caches before sending a resolver query. On a miss, a resolver obtains the record and returns an IP address; each cached record remains usable only for its time to live (TTL)."
         },
         {
           "id": "hiw-2-4",
@@ -247,7 +474,7 @@
             "Everyone's Wi-Fi"
           ],
           "answer": 1,
-          "why": "Dyn was a big DNS provider, and taking out DNS means users can't translate names to IPs — so the sites become unreachable while running perfectly. DNS is a quiet single point of failure for huge chunks of the web, which is why serious systems use multiple DNS providers."
+          "why": "Dyn provided authoritative DNS service for the affected domains. When those DNS answers became unavailable, clients could not discover the sites’ IP addresses even though the application servers were healthy; independent authoritative providers reduce this shared failure risk."
         },
         {
           "id": "hiw-2-5",
@@ -264,7 +491,69 @@
             1,
             3
           ],
-          "why": "Caching is about speed and load: popular names are requested constantly, so remembering the answer avoids a repeat round trip. It does NOT make answers more accurate — a stale cache can happily serve an outdated IP. This is your first taste of caching, a theme you'll meet everywhere: keep the hot answer close, and accept that it might be behind."
+          "why": "A cached DNS record avoids repeated resolver round trips and reduces query load when many clients request the same name. Caching can return an older address until the record’s time to live expires, so it improves latency and capacity without guaranteeing freshness."
+        },
+        {
+          "id": "hiw-2-7",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the two separate exchanges on a cache miss: the browser asks a resolver, the resolver obtains the authoritative answer, and the browser then connects directly to the web server.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "b",
+                "label": "Browser",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "DNS resolver",
+            "Authoritative DNS",
+            "Web server",
+            "Database",
+            "Load balancer"
+          ],
+          "answer": {
+            "h1": "DNS resolver",
+            "h2": "Authoritative DNS",
+            "h3": "Web server"
+          },
+          "why": "The browser asks a resolver, which obtains the domain's record from authoritative DNS when no cache can answer. The browser receives the IP address and then opens a separate connection to the web server; DNS never forwards the HTTP request.",
+          "connectEdges": true
         }
       ]
     },
@@ -275,9 +564,9 @@
         {
           "id": "hiw-3-0",
           "type": "concept",
-          "title": "A request can't start until it knows where it's going",
-          "body": "The order of a page load isn't a convention — it's forced. Each step can only run on what the step before it produced, so the chain can't be shuffled or skipped: nothing can be sent to an address you don't have yet, and nothing can be answered before it's been asked. And nothing paints on your screen until the answer has finished travelling back.",
-          "note": "Distance gets charged more than once. A fresh HTTPS connection can spend round trips on a DNS lookup, then the TCP handshake, then the TLS handshake — all before one byte of your actual page is sent."
+          "title": "A page load is a chain of dependent network steps",
+          "body": "On a fresh visit without cached DNS or a reusable connection, the browser resolves the name, opens a connection, completes TLS for HTTPS, sends the HTTP request, receives the response, and renders it. Cached results and existing connections can skip earlier steps.",
+          "note": "A fresh HTTPS visit may spend separate round trips on DNS, the TCP connection, and TLS encryption before the browser requests the page itself."
         },
         {
           "id": "hiw-3-1",
@@ -290,7 +579,7 @@
             "More RAM"
           ],
           "answer": 0,
-          "why": "You can't send data anywhere without a destination address, so DNS supplies the server's IP first — and only then can the request travel."
+          "why": "An HTTP connection needs a routable destination. When the URL contains a domain name, DNS supplies an IP address before the browser can send packets toward the server."
         },
         {
           "id": "hiw-3-2",
@@ -304,12 +593,12 @@
             "Server sends back an HTTP response",
             "Browser renders the page"
           ],
-          "why": "Every page load is this dance: name → IP → connect → ask → process → answer → render. On a real HTTPS site there's also a TLS handshake right after connecting, which encrypts everything — that's the *s* in `https`."
+          "why": "DNS resolution supplies the destination IP, the browser opens a connection, and HTTP carries the request and response over that connection. Server processing must finish before the response can be returned and rendered."
         },
         {
           "id": "hiw-3-3",
           "type": "build_diagram",
-          "prompt": "Place the missing piece: your browser needs to turn `example.com` into an IP before reaching the server.",
+          "prompt": "Complete the separate lookup leg. The browser asks one service for an address, then connects directly to the web server.",
           "viz": {
             "nodes": [
               {
@@ -326,18 +615,20 @@
               {
                 "id": "w",
                 "label": "Web Server",
-                "col": 2,
+                "col": 1,
                 "kind": "server"
               }
             ],
             "edges": [
               {
                 "from": "b",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
-                "from": "h",
-                "to": "w"
+                "from": "b",
+                "to": "w",
+                "kind": "request"
               }
             ]
           },
@@ -349,16 +640,20 @@
           "answer": {
             "h": "DNS"
           },
-          "why": "DNS sits between you and the server on that first step, translating the name so your browser knows where to connect."
+          "why": "The browser first exchanges a lookup with the Domain Name System (DNS), then uses a returned IP address to connect directly to the web server. Web traffic does not pass through DNS; the two edges represent separate network exchanges."
         },
         {
           "id": "hiw-3-4",
-          "type": "estimate",
-          "prompt": "Light travels fast, but not instantly. A round trip from New York to a server in London and back takes roughly how many milliseconds in practice?",
-          "answer": 70,
-          "tolerance": 30,
-          "unit": "ms",
-          "why": "New York to London is about 5,570 km, so there and back is ~11,140 km. Light in fibre travels at roughly two-thirds of its vacuum speed — about 200,000 km/s — which puts the floor near 56ms. Real cables don't run in straight lines and every switch adds a little, so what you actually measure is ~70-80ms. Physics sets a floor no amount of engineering beats: you can't outrun light, so you shorten the distance instead. That is the entire reason companies put servers close to users rather than trying to make the trip faster."
+          "type": "multiple_choice",
+          "prompt": "A user has a 70ms round trip to the origin server and a 10ms round trip to a nearby edge server. Which change directly reduces the network-latency floor?",
+          "choices": [
+            "Serve the response from the nearby edge without an origin round trip",
+            "Give the distant origin more CPU cores",
+            "Increase the origin database storage",
+            "Compress server logs"
+          ],
+          "answer": 0,
+          "why": "Serving from the nearby edge reduces round-trip time from 70ms to 10ms because packets traverse a shorter network path and do not continue to the origin. Faster application code can reduce processing time, but it cannot reduce the propagation portion of this measured network path."
         },
         {
           "id": "hiw-3-5",
@@ -371,18 +666,90 @@
             "Your CPU was busy"
           ],
           "answer": 1,
-          "why": "If the server itself only took 5ms, the other 295ms was the network — the round trips of getting data there and back. A useful rule of thumb: the *network*, not the server, is often your latency bottleneck, so measure before you optimize."
+          "why": "Server processing accounts for 5ms of the 300ms total, leaving about 295ms elsewhere in the request path. Network round trips are therefore the dominant measured component under the stated timings."
+        },
+        {
+          "id": "hiw-3-6",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the first uncached HTTPS visit after the browser receives a URL. Put the network-dependent steps in the order that makes the HTTP request possible.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "URL entered",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "h4",
+                "col": 4,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "h4",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Resolve name with DNS",
+            "Open transport connection",
+            "Complete TLS handshake",
+            "Send HTTP request",
+            "Render before receiving bytes"
+          ],
+          "answer": {
+            "h1": "Resolve name with DNS",
+            "h2": "Open transport connection",
+            "h3": "Complete TLS handshake",
+            "h4": "Send HTTP request"
+          },
+          "why": "On a fresh HTTPS visit, DNS supplies an address, transport establishes communication, TLS authenticates and encrypts the connection, and HTTP then carries the application request. Caches, connection reuse, and newer protocols can combine or skip work, but none can send the request before a usable secure path exists."
         }
       ]
     },
     {
       "id": "hiw-4",
-      "title": "TCP vs UDP: reliable vs fast",
+      "title": "TCP and UDP: different transport guarantees",
       "exercises": [
         {
           "id": "hiw-4-0",
           "type": "concept",
-          "title": "The internet doesn't promise your packets will arrive — TCP does, UDP doesn't",
+          "title": "TCP repairs missing or out-of-order data; UDP leaves that choice to the app",
           "viz": {
             "nodes": [
               {
@@ -400,7 +767,7 @@
               {
                 "id": "u",
                 "label": "UDP",
-                "sub": "fire, forget",
+                "sub": "independent datagrams",
                 "col": 1
               },
               {
@@ -413,29 +780,33 @@
             "edges": [
               {
                 "from": "app",
-                "to": "t"
+                "to": "t",
+                "kind": "request"
               },
               {
                 "from": "app",
-                "to": "u"
+                "to": "u",
+                "kind": "request"
               },
               {
                 "from": "t",
-                "to": "n"
+                "to": "n",
+                "kind": "request"
               },
               {
                 "from": "u",
-                "to": "n"
+                "to": "n",
+                "kind": "request"
               }
             ]
           },
-          "body": "Routers drop packets when they're overloaded, and packets arrive out of order. The network itself doesn't care. So you pick a protocol on top. TCP — Transmission Control Protocol — numbers every packet, notices what went missing, re-sends it, and hands your app the bytes in order. UDP — User Datagram Protocol — does none of that.",
-          "note": "The obvious way to be reliable would be: send a chunk, wait for the *ack*, send the next. TCP doesn't. It keeps a whole window of packets in flight at once, which is how it's reliable without crawling."
+          "body": "IP can lose packets or deliver them out of order. Transmission Control Protocol (TCP) detects gaps, retransmits missing data, and gives the application an ordered byte stream. User Datagram Protocol (UDP) sends independent messages without providing those guarantees.",
+          "note": "Protocols can build reliability above UDP. HTTP/3 uses reliable QUIC streams over UDP, while HTTP/1.1 and HTTP/2 normally use TCP."
         },
         {
           "id": "hiw-4-1",
           "type": "multiple_choice",
-          "prompt": "You're loading a bank statement. Every byte must arrive, in order, no errors. Which protocol fits?",
+          "prompt": "Which transport directly presents an application with a reliable, ordered byte stream?",
           "choices": [
             "UDP",
             "TCP",
@@ -443,12 +814,12 @@
             "Both equally"
           ],
           "answer": 1,
-          "why": "TCP (Transmission Control Protocol) guarantees delivery and order — it re-sends lost packets and reassembles them correctly, which is what you want for data you can't afford to lose. It manages that with acknowledgements and a sliding window: the receiver confirms what arrived, but the sender keeps many segments in flight instead of waiting for each one — which is exactly why TCP can be both reliable and fast. So reliability doesn't cost you a round trip per chunk; it costs you the handshake before you start, and a re-send whenever something is genuinely lost."
+          "why": "Transmission Control Protocol (TCP) numbers bytes, acknowledges received data, retransmits losses, and directly presents the application with an ordered byte stream. Bare UDP provides independent datagrams instead; protocols such as QUIC can build reliable streams above UDP."
         },
         {
           "id": "hiw-4-2",
           "type": "multiple_choice",
-          "prompt": "You're on a live video call. A dropped frame is fine, but a 2-second delay to re-send it is not. Which protocol fits?",
+          "prompt": "An application wants independent messages and will decide for itself whether any missing message is still worth retrying. Which bare transport fits?",
           "choices": [
             "TCP",
             "UDP",
@@ -456,56 +827,56 @@
             "Always TCP for video"
           ],
           "answer": 1,
-          "why": "UDP (User Datagram Protocol) just fires packets and doesn't wait for confirmation. For live audio and video, a missing frame beats a laggy one — speed matters more than perfection. This is a classic tradeoff you'll make again and again: reliability against latency."
+          "why": "User Datagram Protocol (UDP) exposes independent datagrams without transport-level retransmission or ordering. That lets the application decide whether to ignore, retry, or add its own ordering for each message; it does not make every UDP-based application unreliable."
         },
         {
           "id": "hiw-4-3",
           "type": "match_pairs",
-          "prompt": "Match the use case to the better protocol.",
+          "prompt": "Match each transport statement to the mechanism it describes.",
           "pairs": [
             {
-              "left": "Downloading a file",
-              "right": "TCP"
+              "left": "TCP",
+              "right": "Reliable, ordered byte stream"
             },
             {
-              "left": "Live game / video call",
-              "right": "UDP"
+              "left": "Bare UDP",
+              "right": "Independent datagrams; no delivery or order guarantee"
             },
             {
-              "left": "Loading a web page",
-              "right": "TCP"
+              "left": "HTTP/3",
+              "right": "Reliable QUIC streams carried over UDP"
             },
             {
-              "left": "DNS lookup (small, fast)",
-              "right": "UDP"
+              "left": "Classic DNS transport",
+              "right": "Uses UDP or TCP as the response and operation require"
             }
           ],
-          "why": "TCP for anything that must arrive complete and correct; UDP for small or real-time traffic where speed beats perfection. DNS traditionally uses UDP because a lookup is tiny — if it's lost, just ask again — while encrypted DNS wraps the lookup in TLS so your network can't read it — DNS-over-HTTPS rides TCP, DNS-over-QUIC is back on UDP. The privacy comes from the encryption, not from the transport."
+          "why": "TCP directly supplies a reliable, ordered byte stream. UDP exposes independent datagrams without delivery or ordering guarantees. An application-layer transport can add those mechanisms over UDP; QUIC does this for HTTP/3. Classic DNS commonly uses UDP for ordinary queries and TCP when needed; encrypted DNS can instead travel over protocols such as HTTPS or TLS."
         },
         {
           "id": "hiw-4-4",
           "type": "tradeoff_slider",
           "prompt": "You're designing a multiplayer game's networking. Slide toward what you'd prioritize for player-movement updates.",
-          "leftLabel": "Guaranteed delivery (TCP)",
-          "rightLabel": "Lowest latency (UDP)",
+          "leftLabel": "Recover every old update (TCP stream)",
+          "rightLabel": "Let new state supersede old (bare UDP)",
           "answerRange": [
             65,
             100
           ],
-          "why": "For fast-moving player positions, low latency wins: a slightly stale position that arrives NOW beats a perfect one that arrives late. Games send fresh position updates constantly, so a lost one is instantly replaced — meaning TCP's re-sending of old positions would actually make gameplay feel *worse*."
+          "why": "Player positions are superseded by frequent newer updates. UDP avoids transport-level retransmission and ordered delivery of obsolete positions, reducing delay when occasional packet loss is acceptable."
         },
         {
           "id": "hiw-4-5",
           "type": "fill_blank",
-          "prompt": "The core tradeoff between TCP and UDP: TCP gives you reliability, UDP gives you ______.",
+          "prompt": "Bare UDP does not retransmit missing data or restore order; those choices are left to the ______.",
           "choices": [
-            "speed",
-            "security",
-            "storage",
-            "encryption"
+            "application or protocol built above it",
+            "router nearest the sender",
+            "Domain Name System",
+            "physical cable"
           ],
           "answer": 0,
-          "why": "TCP trades speed for guaranteed, ordered delivery; UDP trades those guarantees for raw speed. Neither is 'better' — the right choice depends entirely on what your system values most, and making that judgment *is* system design."
+          "why": "User Datagram Protocol (UDP) exposes independent datagrams without transport-level retransmission or ordering. An application can accept loss, retry selected data, or use a protocol such as QUIC that implements reliable streams above UDP; UDP alone does not guarantee that an application is faster."
         },
         {
           "id": "hiw-4-6",
@@ -518,7 +889,83 @@
             "The browser stores everything locally and never contacts a server"
           ],
           "answer": 1,
-          "why": "That's the whole picture: split into packets, addressed with IPs (found via DNS), routed hop-by-hop by routers, and reassembled — reliably with TCP or fast with UDP. Everything else in this course — caching, load balancing, databases — is built on this foundation."
+          "why": "The sender divides data into packets addressed to an IP destination, routers forward them hop by hop, and the receiver reconstructs the application data. TCP adds reliable ordered delivery; UDP exposes independent datagrams with fewer guarantees."
+        },
+        {
+          "id": "hiw-4-7",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Packet 2 is lost while TCP is carrying an ordered byte stream. Build the recovery path that lets the receiving application observe bytes 1, 2, 3 in order.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "s",
+                "label": "Sender",
+                "sub": "1 · 2 · 3",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "s",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Receiver buffers 3 and reports missing 2",
+            "Sender retransmits 2",
+            "Receiver releases ordered bytes 1 · 2 · 3",
+            "Router invents packet 2",
+            "Application receives 1 · 3 immediately"
+          ],
+          "answer": {
+            "h1": "Receiver buffers 3 and reports missing 2",
+            "h2": "Sender retransmits 2",
+            "h3": "Receiver releases ordered bytes 1 · 2 · 3"
+          },
+          "why": "TCP tracks byte sequence positions. When later data arrives across a gap, the receiver retains it while loss detection triggers retransmission; only after the missing bytes arrive can the ordered stream advance. This reliability also explains why loss can delay later bytes."
+        },
+        {
+          "id": "xfer-internet",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A multiplayer client still uses an old game-server IP after DNS changed. New players connect correctly. What explains the split?",
+          "choices": [
+            "Cached DNS records have not reached their TTL",
+            "Routers permanently bind each player to one IP",
+            "TCP changes DNS answers",
+            "The new server needs more RAM"
+          ],
+          "answer": 0,
+          "why": "Existing clients may reuse a cached DNS answer until its time to live expires, while clients without that cache receive the new address. DNS changes are therefore gradual rather than simultaneous."
         }
       ]
     }

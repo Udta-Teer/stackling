@@ -2,7 +2,7 @@
   "unitId": "idempotency",
   "tier": 3,
   "title": "Idempotency",
-  "subtitle": "Doing it twice must equal doing it once — because it will happen twice",
+  "subtitle": "Make retries preserve one intended effect across ambiguous failures",
   "objectives": [
     "Explain why retries are unavoidable and therefore duplicates are inevitable",
     "Identify which operations are naturally idempotent and which need to be made so",
@@ -17,9 +17,146 @@
         {
           "id": "idem-1-0",
           "type": "concept",
-          "title": "A timeout tells you that you stopped waiting — nothing about what the server did",
-          "body": "A timeout is a fact about your patience, not about the server. You gave up at three seconds. Behind that silence the request may be queued, halfway done, finished with its reply lost on the road home, or never delivered at all — and every one of those looks *identical* from where you stand. Silence isn't information. It's the absence of it.",
-          "note": "Notice the shape of the trap: you're stuck because you need an answer you cannot get. There are only two ways out of a bind like that — get the answer, or arrange for it not to matter. One of those is impossible here."
+          "title": "A client timeout leaves the server's operation outcome unknown",
+          "body": "A client times out when no response arrives before its deadline. The request may not have reached the server, may still be running, or may have committed while its response was lost. Those cases produce the same observation at the client: no response before the deadline.",
+          "note": "A safe retry requires an idempotent operation or a stable operation identifier that the server can query or deduplicate. Retrying blindly can duplicate effects."
+        },
+        {
+          "id": "idem-change-1",
+          "type": "system_change",
+          "prompt": "A payment request times out after the provider charged the card. Retry with the same idempotency key instead of creating a new payment intent.",
+          "actionLabel": "Reuse the idempotency key",
+          "beforeStatus": "RETRY RESULT · two payment intents · customer charged twice",
+          "afterStatus": "RETRY RESULT · original result returned · customer charged once",
+          "result": "The retry stopped duplicating the side effect",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "retry as new",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Payment API",
+                "sub": "two intents",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Provider",
+                "sub": "2 charges",
+                "col": 2,
+                "kind": "gw"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "same key",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Payment API",
+                "sub": "intent already exists",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Provider",
+                "sub": "1 charge",
+                "col": 2,
+                "kind": "gw"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "The key names one payment intent across retries, allowing the provider or atomic intent store to return the original result. A local check performed separately from the provider charge creates a dual-write gap and cannot guarantee one charge."
+        },
+        {
+          "id": "idempotency-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A payment request times out after the provider charged the card. Retry with the same idempotency key instead of creating a new payment intent. Place Payment API, Provider. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "same key",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "sub": "intent already exists",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "sub": "1 charge",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Payment API",
+            "Provider",
+            "Retry A",
+            "Retry B"
+          ],
+          "answer": {
+            "a": "Payment API",
+            "p": "Provider"
+          },
+          "why": "The completed diagram contains these directed flows: Client → Payment API; Payment API → Provider. That topology is the evidence for the answer: The key names one payment intent across retries, allowing the provider or atomic intent store to return the original result. A local check performed separately from the provider charge creates a dual-write gap and cannot guarantee one charge.",
+          "connectEdges": true
         },
         {
           "id": "idem-1-1",
@@ -32,7 +169,7 @@
             "Only if you get a 500"
           ],
           "answer": 1,
-          "why": "A timeout tells you that you stopped waiting, and nothing whatsoever about what the server did — the failure could be on the way there, during processing, or on the way back with a completed charge behind it. This ambiguity is not a bug in your HTTP client; it's a permanent property of asking anything over a network, and it's the reason this entire unit exists."
+          "why": "A timeout reports that the client stopped waiting. The request may have been lost, the server may still be processing it, or the response may have been lost after the charge completed, so the client cannot infer the payment state from the timeout."
         },
         {
           "id": "idem-1-2",
@@ -45,7 +182,7 @@
             "Cancel the request"
           ],
           "answer": 1,
-          "why": "Both options are guesses about a fact you can't observe, so you're choosing which failure to inflict rather than avoiding failure — double-charge a customer, or silently drop their order. Idempotency is what dissolves the dilemma: make the retry harmless, and you can always retry, which turns an unanswerable question into a non-question."
+          "why": "Retrying can create a second charge if the first attempt completed; abandoning the request can omit the charge if it did not. Making the payment operation idempotent lets every retry represent the same intended charge, so the server can return the original outcome without charging again."
         },
         {
           "id": "idem-1-3",
@@ -58,7 +195,7 @@
             "consistent"
           ],
           "answer": 0,
-          "why": "The word says the outcome is unchanged by repetition — not that the operation refuses to run twice, but that running it twice lands you in the same state as running it once."
+          "why": "An idempotent operation may execute more than once, but repeated executions produce the same resulting state as one execution. The definition concerns the operation's effect, not the number of attempts."
         },
         {
           "id": "idem-1-4",
@@ -76,20 +213,23 @@
             2,
             3
           ],
-          "why": "All four are routine, and notice how little control you have over most of them — a proxy may retry without telling you, a queue redelivers by design (unit 16), and users click twice because your button didn't respond fast enough. Duplicates aren't an edge case you might hit; they're a standing condition of running a service on a network."
+          "why": "Clients retry timed-out calls, proxies may retry failed upstream requests, queues redeliver messages until they are acknowledged, and users may submit twice while feedback is delayed. Each mechanism can deliver the same logical intent more than once, so write handlers must account for duplicates."
         },
         {
           "id": "idem-1-5",
-          "type": "multiple_choice",
-          "prompt": "Why is 'we'll just be careful not to retry' not a strategy?",
+          "type": "multi_select",
+          "prompt": "A user clicks Pay once. Attempt `K7` times out, the SDK resends `K7`, and later the user starts a second purchase as `K8`. Which attempts represent the first logical intent? Select all.",
           "choices": [
-            "It works if the team is disciplined",
-            "Because you don't control every retry: browsers, proxies, SDKs, queues, and users all retry independently of your intentions",
-            "Retries are configured centrally",
-            "It is a valid strategy"
+            "The original request carrying `K7`",
+            "The SDK retry carrying `K7`",
+            "The later purchase carrying `K8`",
+            "A different customer's request carrying `K9`"
           ],
-          "answer": 1,
-          "why": "Your discipline governs your code and nothing else in the path — the mobile SDK, the corporate proxy, and the customer's finger all retry on their own schedules. Since you cannot make duplicates not arrive, the only durable answer is to make arriving twice harmless, which puts the responsibility where you actually have authority: the server."
+          "answer": [
+            0,
+            1
+          ],
+          "why": "The original `K7` request and its SDK retry are delivery attempts for one purchase intent, so they must share one outcome. `K8` names a new purchase even if its fields are identical. Stable intent identity lets the server distinguish a retry from a legitimate repeated action."
         },
         {
           "id": "idem-1-6",
@@ -97,12 +237,12 @@
           "prompt": "Your service is idempotent. What does that let you do that you couldn't before?",
           "choices": [
             "Serve more traffic",
-            "Retry freely — every ambiguous failure becomes safe to resolve by simply trying again",
+            "Retry the same intent safely when the key, payload, retention window, recovery rules, and downstream effects all satisfy the idempotency contract",
             "Skip error handling",
             "Remove your queue"
           ],
           "answer": 1,
-          "why": "Idempotency converts the unanswerable 'did it happen?' into an irrelevant question: try again and find out, because the retry cannot do harm. That's why it's foundational rather than defensive — reliable distributed systems are built out of retries, and retries are only safe on idempotent operations."
+          "why": "A qualifying retry reuses the same intent key and payload while its record is retained. The server must recover abandoned in-progress work and every irreversible downstream system must enforce the same identity; under those conditions, a transport timeout can be retried without creating another effect."
         }
       ]
     },
@@ -113,9 +253,9 @@
         {
           "id": "idem-2-0",
           "type": "concept",
-          "title": "An operation that names a final state repeats harmlessly; one that names a change does not",
-          "body": "Some writes name the end state they want: *make it so*. They don't care what came before, so running one again re-asserts it and nothing moves. Other writes name a *change* — shift it by this much, make me a new one — relative to what already exists, so every repeat pushes the world on. The HTTP methods sort themselves this way, if you read what each says.",
-          "note": "And *atomic* is not *idempotent* — different words, different properties, and an operation can be one without the other. Which is how a write nothing can interleave with still does the wrong thing arriving twice."
+          "title": "Repeated idempotent execution has the same intended effect as one execution",
+          "body": "An operation is idempotent when applying it multiple times has the same intended effect as applying it once. Setting `email_verified = true` reasserts a final state; appending a new audit record applies another change on every execution.",
+          "note": "Atomicity prevents partial or interleaved execution; it does not prevent a complete operation from running twice. An operation can be atomic and non-idempotent."
         },
         {
           "id": "idem-2-1",
@@ -124,22 +264,22 @@
           "pairs": [
             {
               "left": "`GET /users/42`",
-              "right": "Safe — reads change nothing"
+              "right": "Safe and idempotent — requested semantics are read-only"
             },
             {
               "left": "`DELETE /users/42`",
-              "right": "Safe — still deleted the second time"
+              "right": "Idempotent, not safe — repetition leaves it deleted"
             },
             {
               "left": "PUT balance = 100",
-              "right": "Safe — the value is absolute"
+              "right": "Idempotent, not safe — repetition keeps the value at 100"
             },
             {
               "left": "`POST /payments`",
-              "right": "Not safe — creates something new each time"
+              "right": "Neither safe nor idempotent by default — repetition may create another payment"
             }
           ],
-          "why": "The pattern is that operations naming a final state are repeatable, while operations describing an increment or a creation are not. This is unit 2's methods with the reasoning made explicit: GET, PUT, and DELETE are idempotent by their semantics, and POST is the one that isn't."
+          "why": "`GET` only reads state, `PUT` sets a resource to a specified representation, and `DELETE` leaves the resource absent, so repetition preserves the resulting state. `POST /orders` commonly creates a new server-assigned resource on each execution, so that operation is not naturally idempotent."
         },
         {
           "id": "idem-2-2",
@@ -152,7 +292,7 @@
             "They're both idempotent"
           ],
           "answer": 1,
-          "why": "Absolute operations are self-correcting under repetition because they don't care what came before — run 'set 100' five times and it's 100. Relative operations compound, so five retries of 'add 50' is 250. That's a genuine design lever: expressing an intent absolutely rather than relatively can make it idempotent for free, before any keys or bookkeeping."
+          "why": "`set balance to 100` specifies the final state, so repeated executions still leave 100. `add 50` specifies a state transition, so every execution applies another increment; expressing a write as a desired final state can provide idempotency without deduplication records."
         },
         {
           "id": "idem-2-3",
@@ -165,7 +305,7 @@
             "No, and the status code doesn't matter at all"
           ],
           "answer": 1,
-          "why": "Idempotency is a claim about state, not about status codes, and the user is equally gone either way — so DELETE is idempotent regardless. But a client can't tell 'already deleted' from 'never existed' if you say 404, and it may escalate a successful retry as an error. Returning 204 for both keeps the state guarantee and makes the retry legible."
+          "why": "Both calls leave user 42 absent, which satisfies the idempotency requirement on resource state. The second call may return `404 Not Found` because the resource is already absent. An API may return `204 No Content` for that condition to give retries a uniform success response; this response policy does not change the final-state guarantee."
         },
         {
           "id": "idem-2-4",
@@ -173,12 +313,12 @@
           "prompt": "Your endpoint is `POST /orders`. How could you make it naturally idempotent without any extra bookkeeping?",
           "choices": [
             "You can't — POST is never idempotent",
-            "Let the client supply the order's id, so a repeat is a create-if-absent on a known key rather than a new row each time",
+            "Let the client supply an order ID, atomically create that ID once, and reject later reuse when a stored request fingerprint differs",
             "Add a timestamp",
             "Return 200 instead of 201"
           ],
           "answer": 1,
-          "why": "The reason POST isn't idempotent is that the server invents the identity, so every call creates something new — hand identity to the client and the operation becomes 'ensure this specific thing exists', which repeats harmlessly. Note this is the same move as PUT, and a unique constraint on that id makes the database enforce it, which unit 6 taught is the only enforcement that can't be bypassed."
+          "why": "A client-chosen order ID makes concurrent retries contend on one unique key. The server also stores a fingerprint of fields such as customer, items, and price. An identical retry returns the existing order; reuse of that ID with different parameters is rejected because it represents a different intent."
         },
         {
           "id": "idem-2-5",
@@ -195,7 +335,7 @@
             2,
             3
           ],
-          "why": "Setting an absolute value, inserting-if-absent, and deleting a specific row all land in the same state however many times they run. The increment is the odd one out and it's worth noticing why: unit 6 recommended 'n = n + 1' as the fix for lost updates, and it's atomic — but atomic and idempotent are different properties, and a retried increment counts twice."
+          "why": "HTTP *safe* means the client requests no state change; `GET` is safe, while `PUT` and `DELETE` are not. *Idempotent* means repeating the same request has the same intended server effect: absolute `PUT` and resource `DELETE` qualify even when response statuses differ. `POST` has no default idempotency guarantee, though an endpoint can add one with an operation key."
         },
         {
           "id": "idem-2-6",
@@ -208,7 +348,7 @@
             "Does it need a transaction?"
           ],
           "answer": 1,
-          "why": "Asking it early is cheap and often free: a lot of operations can be made idempotent purely by how you phrase them, before you build any machinery. Only when the intent is genuinely creative or relative — charge this card, send this email — do you need keys and stored results, which is the next lesson and the expensive path."
+          "why": "Identifying whether a write specifies a final state reveals whether it is naturally safe to repeat. Operations that create a new effect or apply a relative change, such as charging a card or incrementing a counter, require explicit deduplication or an idempotency key."
         }
       ]
     },
@@ -219,9 +359,9 @@
         {
           "id": "idem-3-0",
           "type": "concept",
-          "title": "An idempotency key names the *intent*, so every retry of one charge arrives under the same name",
-          "body": "The client mints a unique key before its first attempt and sends the same one on every retry of that intent. Now the server has something it never had: a name for *this act*, stable across attempts that are otherwise indistinguishable. What the server does with that name is the whole design — and the order it does it in is where implementations go wrong.",
-          "note": "A key names one specific act, so the same key with a *different* body is a client bug, not a retry. Serious APIs reject it rather than returning the first result — otherwise a collision silently swallows a real request."
+          "title": "An idempotency key gives every retry of one intent the same identity",
+          "body": "For a local database effect, one transaction stores the business change, request fingerprint, result, idempotency key, and any outbox row. A conflicting retry then returns the committed result. For an external effect, pass the same key to its provider and reconcile the provider's authoritative outcome.",
+          "note": "Reserving a key and later recording the effect leaves an unknown state after a crash. Atomic local commit or provider-side deduplication closes that gap."
         },
         {
           "id": "idem-3-1",
@@ -229,25 +369,25 @@
           "prompt": "`POST /payments` genuinely creates a charge. How do you make retrying it safe?",
           "choices": [
             "Check whether a similar payment exists recently",
-            "The client generates a unique key per intended payment and sends it; the server records that key with its result and returns the original result if the key reappears",
+            "The client reuses one key for the intended payment; your service passes it to the charge provider and reconciles the provider's stored outcome on retries",
             "Add a timestamp and reject duplicates within a second",
             "Use a database transaction"
           ],
           "answer": 1,
-          "why": "The key names the INTENT rather than the request, so all retries of one intended charge carry the same key and the server can recognise them as the same act. 'Similar payment recently' is a heuristic that fails both ways — it blocks a customer legitimately buying the same coffee twice, and it misses a retry that arrives late."
+          "why": "The client reuses one key for every attempt of the same intended payment, and the provider that creates the irreversible charge enforces that identity. After an ambiguous response, your service queries or retries with that key and stores the provider's authoritative result; local deduplication alone cannot prove whether an external charge occurred."
         },
         {
           "id": "idem-3-2",
           "type": "order_steps",
-          "prompt": "Order the server's handling of a request with an idempotency key.",
+          "prompt": "Order safe handling when the effect and idempotency record share one database.",
           "steps": [
-            "Receive the request with key K",
-            "Atomically insert K as in-progress — the store's unique constraint picks the winner",
-            "If that insert conflicts, K was already claimed: return the stored result, or wait if it's still in progress",
-            "If the insert won, do the work",
-            "Update K with the result before responding"
+            "Receive key K and compute a fingerprint of the request",
+            "Begin one database transaction and insert K under a unique constraint",
+            "In that transaction, apply the business change and store its result plus any outbox row",
+            "Commit the business state, K, result, and outbox row together",
+            "On a conflicting retry, compare fingerprints and return the committed result; reject a mismatch"
           ],
-          "why": "The trick is step 2. Reserving the key atomically BEFORE doing the work is what makes two simultaneous retries resolve to exactly one winner — the store's uniqueness constraint arbitrates, and the loser is told K already exists rather than finding nothing. Looking the key up and then acting on what you found is check-then-act, the same race from unit 6, and under concurrency it double-charges: both retries look, both find nothing, both proceed. That matters because a timeout typically triggers the client's retry AND a proxy's retry at once, so the concurrent case is the normal case rather than the exotic one."
+          "why": "One transaction removes the crash gap between changing local business state and recording K's outcome: either all covered rows commit or none do. A concurrent insert blocks or conflicts on K, then uses the committed result. Fingerprint comparison prevents the same key from representing different payloads; external effects still require provider-side enforcement and reconciliation."
         },
         {
           "id": "idem-3-3",
@@ -260,20 +400,159 @@
             "For security"
           ],
           "answer": 1,
-          "why": "The key's only job is to be the same on every retry of one intent, and only the client knows that two attempts are the same intent — the server sees two indistinguishable requests. So the client mints the key once, before the first attempt, and reuses it for every retry of that attempt. A key generated per-request would make every retry look brand new."
+          "why": "The client knows which attempts represent one user intent, so it generates the key before the first request and reuses it for retries. A server-generated or per-attempt key would assign different identities to duplicate attempts and prevent deduplication."
         },
         {
           "id": "idem-3-4",
-          "type": "multiple_choice",
-          "prompt": "Two retries of the same key arrive simultaneously and both find no existing record. What happens?",
-          "choices": [
-            "Nothing — they're identical",
-            "Both proceed and you charge twice: your idempotency check is check-then-act, which is a race unless the key store enforces uniqueness atomically",
-            "The second one waits",
-            "The database prevents it automatically"
+          "type": "build_diagram",
+          "prompt": "Two `K7` retries arrive together for a local order creation. Build the database path that produces one order and one replayable result.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Retry A",
+                "sub": "key K7",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Retry B",
+                "sub": "key K7",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "claim",
+                "sub": "one winner for K7",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "commit",
+                "sub": "order + result",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "reply",
+                "label": "Same Result",
+                "sub": "returned to retries",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "claim",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "claim",
+                "kind": "request"
+              },
+              {
+                "from": "claim",
+                "to": "commit",
+                "kind": "request"
+              },
+              {
+                "from": "commit",
+                "to": "reply",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Unique Key Constraint",
+            "One DB Transaction",
+            "Read Replica Lookup",
+            "In-memory Cache"
           ],
-          "answer": 1,
-          "why": "This is unit 6's check-then-act race living inside the very mechanism meant to prevent duplicates — and it's the bug that makes an idempotency implementation look correct until traffic is concurrent. The fix is the same: let the store enforce uniqueness on the key with an atomic insert, so one attempt wins and the other sees the conflict rather than an empty result."
+          "answer": {
+            "claim": "Unique Key Constraint",
+            "commit": "One DB Transaction"
+          },
+          "why": "The unique constraint makes simultaneous inserts for `K7` contend on one authoritative row, and the winning transaction commits the order, fingerprint, and stored result together. The conflicting retry then returns that result. Without atomic uniqueness, both requests can pass a check-then-act lookup and create two orders before either records completion."
+        },
+        {
+          "id": "idempotency-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Two `K7` retries arrive together for a local order creation. Build the database path that produces one order and one replayable result.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Retry A",
+                "sub": "key K7",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Retry B",
+                "sub": "key K7",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "claim",
+                "sub": "one winner for K7",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "commit",
+                "sub": "order + result",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "reply",
+                "sub": "returned to retries",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "claim",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "claim",
+                "kind": "request"
+              },
+              {
+                "from": "claim",
+                "to": "commit",
+                "kind": "request"
+              },
+              {
+                "from": "commit",
+                "to": "reply",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Unique Key Constraint",
+            "One DB Transaction",
+            "Same Result",
+            "Client",
+            "Payment API"
+          ],
+          "answer": {
+            "claim": "Unique Key Constraint",
+            "commit": "One DB Transaction",
+            "reply": "Same Result"
+          },
+          "why": "The completed diagram contains these directed flows: Retry A → Unique Key Constraint; Retry B → Unique Key Constraint; Unique Key Constraint → One DB Transaction; One DB Transaction → Same Result. That topology is the evidence for the answer: The unique constraint makes simultaneous inserts for `K7` contend on one authoritative row, and the winning transaction commits the order, fingerprint, and stored result together. The conflicting retry then returns that result. Without atomic uniqueness, both requests can pass a check-then-act lookup and create two orders before either records completion."
         },
         {
           "id": "idem-3-5",
@@ -286,7 +565,7 @@
             "It must be in memory for performance"
           ],
           "answer": 1,
-          "why": "Unit 5's question applied to the key store gives brutal answers: lose it and you lose the record of what you already did, so it must be durable; the retry may hit any server, so it must be shared; and it accumulates a row per intent forever, so it needs a retention policy. This is why idempotency isn't free — 'make it reliable' meant 'add state, in the right place', and here the state is as critical as the payments themselves."
+          "why": "The store must be shared because a retry may reach a different server, and durable because losing a completed key permits the side effect to run again. Since it adds one record per intent, it also needs a retention policy sized to the longest supported retry window."
         },
         {
           "id": "idem-3-6",
@@ -299,7 +578,168 @@
             "Nothing — keys never expire"
           ],
           "answer": 1,
-          "why": "Retention length IS the length of your guarantee, so 'idempotent' silently means 'idempotent for 24 hours' — and that's a real window someone's dead-letter replay can walk right through. The window has to outlive your longest plausible retry path, including a human rerunning a failed batch on Monday morning, or the promise quietly stops holding exactly when it's most needed."
+          "why": "After the key expires, the server has no record linking the request to the completed operation and may execute it again. A 24-hour retention policy therefore provides duplicate protection only for retries within 24 hours; the window should cover automated redelivery and delayed manual replay requirements."
+        }
+      ]
+    },
+    {
+      "id": "idem-retry-sim",
+      "title": "Stable identity turns retry amplification into lookup traffic",
+      "exercises": [
+        {
+          "id": "idem-retry-sim-card",
+          "type": "concept",
+          "title": "A duplicate should stop at the idempotency boundary",
+          "body": "A retry carrying the same operation key reaches the idempotency store, which returns the recorded outcome instead of calling the processor again. This preserves correctness and moves duplicate load onto a cheaper lookup path.",
+          "note": "The store must still handle every attempt and reserve a new key atomically before work."
+        },
+        {
+          "id": "idem-retry-sim-0",
+          "type": "simulate",
+          "prompt": "There are 10,000 payment intents/sec. Timeouts would make 50% retry once; processor capacity is 12,000 calls/sec. Drag the *smallest* retry share absorbed by stable idempotency keys.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Payment intents",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "keys",
+                "label": "Idempotency decisions",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "processor",
+                "label": "Processor calls",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "keys",
+                "kind": "data"
+              },
+              {
+                "from": "keys",
+                "to": "processor",
+                "kind": "data"
+              }
+            ]
+          },
+          "sim": {
+            "input": 10000,
+            "inputLabel": "Distinct intents/sec",
+            "chain": [
+              "keys",
+              "processor"
+            ],
+            "capacity": {
+              "processor": 12000
+            },
+            "watch": "processor",
+            "watchLabel": "Processor attempts/sec",
+            "absorb": {
+              "node": "keys",
+              "label": "Potential retries answered from stored results",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            },
+            "model": {
+              "kind": "retry",
+              "retryFraction": 0.5
+            }
+          },
+          "answerRange": [
+            60,
+            60
+          ],
+          "why": "Without deduplication, retries create 15,000 processor calls/sec. Absorbing 60% of retry calls leaves 12,000. The idempotency store itself must be sized for every attempt even though the processor sees fewer."
+        }
+      ]
+    },
+    {
+      "id": "idem-sim",
+      "title": "Duplicate attempts still consume real capacity",
+      "exercises": [
+        {
+          "id": "idem-sim-0",
+          "type": "concept",
+          "title": "Idempotency removes duplicate effects and duplicate downstream work",
+          "body": "Ten thousand payment attempts per second may represent only seven thousand distinct operations when retries reuse stable keys. An atomic idempotency store returns recorded outcomes for duplicate keys before the processor, preserving both correctness and processor capacity.",
+          "note": "A key generated separately for every retry defeats deduplication because the server sees each attempt as new intent."
+        },
+        {
+          "id": "idem-sim-1",
+          "type": "simulate",
+          "prompt": "The API receives 10,000 attempts/sec, while the payment processor handles 7,000 operations/sec. Drag the *smallest* duplicate share absorbed by idempotency storage that keeps the processor alive.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client attempts",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "dedupe",
+                "label": "Atomic idempotency store",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "pay",
+                "label": "Payment processor",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "dedupe",
+                "kind": "data"
+              },
+              {
+                "from": "dedupe",
+                "to": "pay",
+                "kind": "data"
+              }
+            ]
+          },
+          "sim": {
+            "input": 10000,
+            "inputLabel": "Attempts/sec",
+            "chain": [
+              "dedupe",
+              "pay"
+            ],
+            "capacity": {
+              "dedupe": 50000,
+              "pay": 7000
+            },
+            "watch": "pay",
+            "watchLabel": "Distinct processor calls",
+            "absorb": {
+              "node": "dedupe",
+              "label": "Duplicate attempts answered from stored results",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            30,
+            30
+          ],
+          "why": "Absorbing 30% answers 3,000 duplicate attempts without another charge and leaves 7,000 distinct processor calls. This only works when every retry of one intent carries the same key and reservation is atomic."
         }
       ]
     },
@@ -310,7 +750,7 @@
         {
           "id": "idem-4-0",
           "type": "concept",
-          "title": "Idempotency covers exactly what the key covers, and not one thing more",
+          "title": "Idempotency applies only to effects covered by the deduplication record",
           "viz": {
             "nodes": [
               {
@@ -336,16 +776,69 @@
             "edges": [
               {
                 "from": "s",
-                "to": "k"
+                "to": "k",
+                "kind": "data"
               },
               {
                 "from": "s",
-                "to": "e"
+                "to": "e",
+                "kind": "request"
               }
             ]
           },
-          "body": "The key covers exactly one thing: the record it guards. Everything the request *also* did — every effect that left your process on the way through — was never in the deal, and a retry runs it again. Which makes for the nastiest kind of incident: a database that reconciles perfectly, books that balance, and customers who can see that something went wrong.",
-          "note": "And the fix is per-effect, not per-endpoint. Each one is a separate promise and each needs deciding on purpose: fire it from the stored result exactly once, or give it a key of its own."
+          "body": "A database transaction can atomically store an operation result, its idempotency key, and an outbox row. An outbox worker may deliver an external effect more than once, so the receiver still needs its own idempotency key or deduplication record.",
+          "note": "If the process commits the database row, emits the external effect, and crashes before recording completion, a retry can emit that effect again."
+        },
+        {
+          "id": "idempotency-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Idempotency applies only to effects covered by the deduplication record",
+          "viz": {
+            "nodes": [
+              {
+                "id": "s",
+                "label": "Payment API",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "k",
+                "sub": "covered",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "e",
+                "sub": "outside the deal",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "s",
+                "to": "k",
+                "kind": "request"
+              },
+              {
+                "from": "s",
+                "to": "e",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Key + result",
+            "Everything else it did",
+            "Client",
+            "Provider"
+          ],
+          "answer": {
+            "k": "Key + result",
+            "e": "Everything else it did"
+          },
+          "why": "A database transaction can atomically store an operation result, its idempotency key, and an outbox row. An outbox worker may deliver an external effect more than once, so the receiver still needs its own idempotency key or deduplication record. If the process commits the database row, emits the external effect, and crashes before recording completion, a retry can emit that effect again."
         },
         {
           "id": "idem-4-1",
@@ -358,7 +851,7 @@
             "The email is always deduplicated"
           ],
           "answer": 1,
-          "why": "Idempotency protects whatever the key covers and nothing else, so a side effect performed outside that record happily runs again. The fix is to make the stored result the boundary — record the outcome and fire effects from it once, or hand the email its own key. Every side effect is a separate promise, and each needs deciding."
+          "why": "Deduplicating the payment does not automatically deduplicate an email sent by separate code. The email needs its own stable event ID or must be emitted once from a durable payment outcome, otherwise a retry can reuse the charge result and still send another message."
         },
         {
           "id": "idem-4-2",
@@ -375,7 +868,7 @@
             1,
             2
           ],
-          "why": "Emails, external calls, and published events all reach outside your database and can't be rolled back — a retry that re-fires them is visible to customers or triggers downstream work twice. The read is harmless because it changes nothing, which is the whole distinction: side effects are the things the world remembers."
+          "why": "Sending an email, calling an external service, and publishing an event change state outside the current request handler, so repeating them can produce duplicate visible effects or downstream work. Reading the current balance does not change state and requires no duplicate-effect protection."
         },
         {
           "id": "idem-4-3",
@@ -388,20 +881,20 @@
             "Stripe handles it"
           ],
           "answer": 1,
-          "why": "This is unit 9's boundary again — your database and Stripe cannot commit together — so recording the key and doing the work are two steps with a crash-shaped hole between them. Which is why the mature pattern stores the key as in-progress first, then reconciles: on retry you see 'started but unconfirmed' and go ask Stripe what actually happened, using YOUR key as the identifier you gave them."
+          "why": "The database contains a key record, but the crash leaves Stripe's charge outcome unknown because the two systems cannot commit atomically. Marking the operation in progress and passing the same key to Stripe lets a retry query or repeat the provider operation safely, then reconcile the local record with the provider's result."
         },
         {
           "id": "idem-4-4",
           "type": "multiple_choice",
-          "prompt": "Why does Stripe accept an `Idempotency-Key` header from you?",
+          "prompt": "Before relying on a payment provider's idempotency key, which contract details must you verify?",
           "choices": [
-            "For their own analytics",
-            "Because they know your retries are unavoidable, so they let you name the intent and guarantee that one key charges once — pushing the guarantee to where the side effect actually happens",
-            "To rate limit you",
-            "For audit logging"
+            "Only the header name",
+            "Key scope, retention window, parameter-mismatch behavior, which responses are replayed, and how an in-progress or unknown operation is recovered",
+            "Only whether keys are random",
+            "Nothing; every provider gives the same guarantee"
           ],
           "answer": 1,
-          "why": "The only place a charge can truly be deduplicated is at the system that performs it, so Stripe offers the guarantee at the boundary where it's enforceable. The general principle is worth taking: an API that performs irreversible side effects should accept an idempotency key, because its callers will retry whether it's safe or not."
+          "why": "Provider contracts differ by account or endpoint scope, key-retention period, payload matching, cached success or error responses, and recovery behavior. Your retry is safe only within the documented contract, using the same intent and payload; after an ambiguous outcome, reconcile against the provider that owns the charge."
         },
         {
           "id": "idem-4-5",
@@ -413,7 +906,7 @@
             0,
             35
           ],
-          "why": "Heuristics guess at intent and are wrong in both directions — they block a customer genuinely ordering the same thing twice, and they miss a retry that arrives outside the window. A key is unambiguous because the client states 'this is the same intent as before', which is the one fact only the client knows. Explicit intent beats inferred intent every time you can get it."
+          "why": "An explicit key distinguishes retries of one creation intent from a later intent with identical fields. Time-window heuristics can reject legitimate repeated orders within the window and accept a delayed duplicate after it, so they provide weaker duplicate protection."
         },
         {
           "id": "idem-4-6",
@@ -426,7 +919,21 @@
             "It's provided by HTTP automatically"
           ],
           "answer": 1,
-          "why": "You cannot tell whether a timed-out request happened, so either retries are safe or your system is guessing about money — that's why this is foundational rather than defensive. And it's bounded in three ways worth naming out loud: it lasts as long as your retention, it covers only the operations you keyed, and it stops at every system boundary you don't control."
+          "why": "Idempotency lets a client retry an operation whose outcome is unknown without creating an additional effect. The guarantee applies only to side effects covered by the key, only while the key record is retained, and only across downstream systems that receive and enforce the same intent identity."
+        },
+        {
+          "id": "xfer-idempotency",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A ticket app times out after purchase and retries with a new idempotency key. Why can it still buy two tickets?",
+          "choices": [
+            "The server sees two different operation identities",
+            "Timeouts roll back purchases",
+            "Tickets cannot be idempotent",
+            "The database ignores unique constraints"
+          ],
+          "answer": 0,
+          "why": "An idempotency key identifies one intent only when every retry reuses it. A fresh key makes the retry indistinguishable from a second purchase."
         }
       ]
     }

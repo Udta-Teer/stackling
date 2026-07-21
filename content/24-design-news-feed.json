@@ -2,7 +2,7 @@
   "unitId": "design-news-feed",
   "tier": 4,
   "title": "Design a News Feed",
-  "subtitle": "Fan-out on write vs read — and why the answer is both",
+  "subtitle": "Balance feed write amplification, read-time merging, ranking, and pagination",
   "objectives": [
     "Frame the feed as a read-heavy problem and estimate what that costs",
     "Compare fan-out on write and fan-out on read, and locate where each one breaks",
@@ -17,7 +17,7 @@
         {
           "id": "feed-1-0",
           "type": "concept",
-          "title": "No two people have the same feed, so there is no one answer to cache",
+          "title": "A news feed is a personalized, usually read-heavy view",
           "viz": {
             "nodes": [
               {
@@ -44,16 +44,179 @@
             "edges": [
               {
                 "from": "c",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               },
               {
                 "from": "s",
-                "to": "d"
+                "to": "d",
+                "kind": "data"
               }
             ]
           },
-          "body": "The shortener worked because one cached answer served everybody. A feed has no shared answer: 300 million users, 300 million different lists, and each person refreshes far more often than they post. Sit with what that does to your toolkit — it quietly kills the playbook that rescued every system so far. One lever is left: *when* you build the list.",
-          "note": "There are only two possible answers, and the lever tells you why — a list can be built at exactly two moments. This unit is the argument between them. Worth guessing now which wins, because the honest answer is neither."
+          "body": "A feed selects posts from accounts one user follows, so its result differs by user. The service can assemble that view on each read or materialize a per-user candidate list as posts arrive. Materialization shifts repeated read work into writes and storage.",
+          "note": "Assembling on demand makes read cost grow with follow count; maintaining views shifts that cost to writes and consumes per-user storage."
+        },
+        {
+          "id": "feed-change-1",
+          "type": "system_change",
+          "prompt": "A celebrity with 15 million followers publishes a post. Stop copying it into every follower inbox; merge it during feed reads instead.",
+          "actionLabel": "Switch the celebrity to fan-out on read",
+          "beforeStatus": "ONE CELEBRITY POST · 15,000,000 timeline writes",
+          "afterStatus": "ONE CELEBRITY POST · 1 post write; readers merge the celebrity stream",
+          "result": "The celebrity write spike disappeared",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Celebrity",
+                "sub": "1 post",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "f",
+                "label": "Fan-out workers",
+                "sub": "15M copies",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "t",
+                "label": "Home timelines",
+                "sub": "15M writes",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "f",
+                "kind": "request"
+              },
+              {
+                "from": "f",
+                "to": "t",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Celebrity posts",
+                "sub": "1 write",
+                "col": 0,
+                "kind": "storage"
+              },
+              {
+                "id": "r",
+                "label": "Feed reader",
+                "sub": "merge on read",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "t",
+                "label": "User timeline",
+                "sub": "normal posts",
+                "col": 0,
+                "kind": "storage"
+              },
+              {
+                "id": "u",
+                "label": "Feed response",
+                "sub": "merged",
+                "col": 2,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "t",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "r",
+                "to": "u",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Fan-out on read avoids millions of writes for a celebrity post by merging that author's stream when followers read. Read work increases, so production feeds commonly push normal accounts and pull high-fan-out accounts."
+        },
+        {
+          "id": "design-news-feed-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A celebrity with 15 million followers publishes a post. Stop copying it into every follower inbox; merge it during feed reads instead. Place Feed reader, Feed response. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Celebrity posts",
+                "sub": "1 write",
+                "col": 0,
+                "kind": "storage"
+              },
+              {
+                "id": "r",
+                "sub": "merge on read",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "t",
+                "label": "User timeline",
+                "sub": "normal posts",
+                "col": 0,
+                "kind": "storage"
+              },
+              {
+                "id": "u",
+                "sub": "merged",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "t",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "r",
+                "to": "u",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Feed reader",
+            "Feed response",
+            "You refresh",
+            "Feed service"
+          ],
+          "answer": {
+            "r": "Feed reader",
+            "u": "Feed response"
+          },
+          "why": "The completed diagram contains these directed flows: Celebrity posts → Feed reader; User timeline → Feed reader; Feed reader → Feed response. That topology is the evidence for the answer: Fan-out on read avoids millions of writes for a celebrity post by merging that author's stream when followers read. Read work increases, so production feeds commonly push normal accounts and pull high-fan-out accounts.",
+          "connectEdges": true
         },
         {
           "id": "feed-1-1",
@@ -66,16 +229,20 @@
             "It's a graph problem"
           ],
           "answer": 1,
-          "why": "Two facts drive the entire design: reads massively outnumber writes, and every read is unique to one person — so you can't just cache 'the feed' the way you'd cache a homepage. Personalization is what makes this harder than the URL shortener, where one cached answer served everybody."
+          "why": "Feed reads greatly outnumber posts, and each result depends on the reader's follow graph and ranking context. The design therefore needs a low-cost personalized read path, typically backed by per-user materialization, efficient candidate retrieval, or both."
         },
         {
           "id": "feed-1-2",
-          "type": "estimate",
-          "prompt": "300 million daily users each open the feed about 10 times a day. Roughly how many feed reads per second on average?",
-          "answer": 34700,
-          "tolerance": 12000,
-          "unit": "reads/sec",
-          "why": "300M × 10 = 3 billion reads/day ÷ 86,400 ≈ 34,700/sec on average, and peaks will run several times that. That's the number that disqualifies the naive design: whatever a feed read costs, you're paying it tens of thousands of times a second, so it must be close to a single cheap lookup."
+          "type": "multiple_choice",
+          "prompt": "300 million daily users opening the feed 10 times each creates 3 billion reads/day, about 34,700 reads/sec on average before peaks. What should this drive in the design?",
+          "choices": [
+            "Build each personalized feed with a large join and sort on every read",
+            "Make the common feed read close to a bounded lookup over prepared candidates",
+            "Store every user's complete feed on the phone only",
+            "Send every post synchronously to every follower before acknowledging it"
+          ],
+          "answer": 1,
+          "why": "At roughly 34,700 average reads/sec, expensive per-read joins and sorts multiply into sustained database and compute load, with higher demand at peaks. Preparing a bounded candidate list makes the common read a predictable lookup plus limited hydration or ranking work."
         },
         {
           "id": "feed-1-3",
@@ -88,7 +255,7 @@
             "It's not personalized enough"
           ],
           "answer": 1,
-          "why": "The query is correct and impossibly expensive: a user following 500 accounts makes the database gather and sort across 500 sources for every refresh. Multiply by 34,700/sec and no amount of indexing saves you — the work per read is the problem, not the speed of any one step."
+          "why": "For each refresh, the query gathers posts from hundreds of followed accounts and sorts the combined result. Repeating that fan-in at tens of thousands of reads per second creates high read amplification even with useful indexes, so the system should bound or precompute more of the work."
         },
         {
           "id": "feed-1-4",
@@ -101,12 +268,12 @@
             "query"
           ],
           "answer": 0,
-          "why": "You fan out across everyone the user follows at the moment they ask — the work happens when the read arrives, which is exactly when you have the least time to spend."
+          "why": "Fan-out on read fetches and merges posts from all followed accounts when the feed request arrives. Its cost grows with the number of followed accounts and directly adds to user-visible latency."
         },
         {
           "id": "feed-1-5",
           "type": "multiple_choice",
-          "prompt": "Given the 100:1-ish read:write ratio, what does unit 7's rule tell you to do?",
+          "prompt": "Given the roughly 100:1 read:write ratio, where can you move repeated feed-assembly work?",
           "choices": [
             "Optimize the read query harder",
             "Put the work where the traffic isn't — do it at write time, so a read becomes one cheap lookup",
@@ -114,7 +281,7 @@
             "Cache the query results"
           ],
           "answer": 1,
-          "why": "When reads outnumber writes 100:1, doing work once per post beats doing it 100 times per post — that's the whole logic of precomputation. So the move is to build feeds when someone posts rather than when someone looks, converting an expensive read into an expensive-but-rare write."
+          "why": "When reads substantially outnumber posts, precomputing follower feed entries once at post time can avoid repeating the same merge work on many reads. This shifts cost to writes and storage in exchange for a cheaper, more predictable read path."
         },
         {
           "id": "feed-1-6",
@@ -127,7 +294,7 @@
             "It caches the post"
           ],
           "answer": 1,
-          "why": "The feed is materialized in advance: each user has a ready-made list, and posting means pushing your post id into everyone else's list. A read then becomes 'fetch my list', which is a single lookup — precisely the cheap read you need at 34,700/sec."
+          "why": "Fan-out on write appends a new post ID to each follower's materialized feed when the post is created. A later feed request reads one bounded, precomputed list, so its work depends primarily on the requested page size and hydration cost."
         }
       ]
     },
@@ -138,7 +305,7 @@
         {
           "id": "feed-2-0",
           "type": "concept",
-          "title": "Fan-out on write makes a post cost whatever the author's follower count happens to be",
+          "title": "Fan-out on write materializes follower feeds asynchronously",
           "viz": {
             "nodes": [
               {
@@ -177,24 +344,28 @@
             "edges": [
               {
                 "from": "a",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               },
               {
                 "from": "s",
-                "to": "p"
+                "to": "p",
+                "kind": "data"
               },
               {
                 "from": "s",
-                "to": "q"
+                "to": "q",
+                "kind": "event"
               },
               {
                 "from": "q",
-                "to": "f"
+                "to": "f",
+                "kind": "event"
               }
             ]
           },
-          "body": "Posting stops being one write. The post is stored once, then its *id* is appended to the ready-made feed list of every follower — 200 followers, 200 appends. A read collapses to 'fetch my list': one lookup. You bought that with a write whose size is somebody else's follower count, and nobody chose that number.",
-          "note": "The queue isn't decoration. Ask who is actually waiting on those 200 appends. Not the followers — they aren't looking yet. And work nobody is waiting on has no business sitting on the critical path of someone who is."
+          "body": "The publish transaction stores one canonical post and a durable outbox record for fan-out. A dispatcher enqueues that record; workers append the post id to follower feed lists. Feed reads fetch a bounded list of ids and hydrate the posts.",
+          "note": "The outbox closes the crash gap between storing the post and publishing work. One post still causes O(F) list writes for F followers."
         },
         {
           "id": "feed-2-1",
@@ -202,12 +373,13 @@
           "prompt": "Order what happens when a user with 200 followers posts, using fan-out on write.",
           "steps": [
             "User submits the post",
-            "Post is stored once, in the posts table",
-            "Server responds — the user's post is live",
+            "One transaction stores the post and a durable fan-out outbox record",
+            "Server responds — the post and its pending distribution are durable",
+            "An outbox dispatcher publishes the fan-out job to the queue",
             "A worker looks up the author's 200 followers",
             "The post id is appended to each of those 200 feed lists"
           ],
-          "why": "The post is stored once and referenced 200 times, and the response goes out before the fan-out finishes — the user isn't waiting on 200 list writes. That's unit 16 doing its job: the fan-out is real work that nobody is watching, so it belongs behind a queue."
+          "why": "Storing the post and outbox record in one transaction ensures that an acknowledged post cannot lose its distribution work if the server crashes. A dispatcher can retry publishing the durable outbox record, and idempotent workers can retry appends; the follower-count-dependent writes remain off the request latency path."
         },
         {
           "id": "feed-2-2",
@@ -220,7 +392,7 @@
             "Ids compress better"
           ],
           "answer": 1,
-          "why": "This is unit 5's source-of-truth discipline applied under pressure: the feed lists are derived, rebuildable pointers, while the post itself has exactly one home. Denormalizing the post body into every feed would buy one fewer lookup and cost you the edit-and-delete problem across millions of copies."
+          "why": "The post store remains the source of truth, while feed lists contain rebuildable post IDs. Copying the full body into each list would reduce hydration reads but would require updating or deleting every copy when the post changes or is removed."
         },
         {
           "id": "feed-2-3",
@@ -233,7 +405,7 @@
             "Fans out only to active followers"
           ],
           "answer": 1,
-          "why": "The cost of a post is proportional to the author's follower count, so the model that made ordinary posting cheap makes celebrity posting catastrophic — one tap generating 200 million writes. This is unit 15's celebrity problem in its most famous form, and it's exactly where fan-out on write breaks."
+          "why": "Fan-out-on-write cost grows linearly with follower count. A post to 200 million followers creates 200 million list updates, producing a write storm and queue backlog from one event, so this author class needs a different delivery path."
         },
         {
           "id": "feed-2-4",
@@ -246,7 +418,7 @@
             "The database runs out of space"
           ],
           "answer": 1,
-          "why": "Fan-out takes as long as it takes, so 'who sees it first' is decided by queue position rather than anything meaningful — and for a live event, minutes of skew is a product failure people notice and complain about. The write storm is the technical problem; the skew is the one users feel."
+          "why": "Workers update follower lists over time, so a large fan-out makes visibility depend on queue position. During a live event, early followers may see the post minutes before later followers, creating user-visible propagation skew in addition to backend load."
         },
         {
           "id": "feed-2-5",
@@ -263,7 +435,7 @@
             1,
             2
           ],
-          "why": "You pay in amplified writes, in storage for millions of lists, and in work done for accounts that haven't logged in for a year. Reads are the one thing that got FASTER — that was the entire trade, and it's unit 7's exchange rate: cheap reads bought with expensive writes."
+          "why": "Fan-out on write performs one materialized-feed update per recipient, consumes storage for those lists, and may write entries for inactive users who never read them. This write and storage cost precomputes feed membership, giving subsequent reads a bounded retrieval path with less fan-in and sorting."
         },
         {
           "id": "feed-2-6",
@@ -276,7 +448,7 @@
             "You can't"
           ],
           "answer": 1,
-          "why": "Most of a large platform's registered users aren't active, so most fan-out work is materializing feeds nobody will ever open — skipping them removes a huge fraction of the write load for free. The returning user pays a one-off expensive read, which is a fine trade because they're rare and they've just spent time away anyway."
+          "why": "Suppressing fan-out for inactive accounts avoids writes and storage for feeds unlikely to be read. When such a user returns, the system can rebuild recent candidates with a one-time fan-out-on-read query, trading occasional return latency for lower steady write amplification."
         }
       ]
     },
@@ -287,7 +459,7 @@
         {
           "id": "feed-3-0",
           "type": "concept",
-          "title": "The two models fail at opposite ends, so production runs both at once",
+          "title": "A hybrid feed selects fan-out strategy by author fan-out cost",
           "viz": {
             "nodes": [
               {
@@ -321,33 +493,258 @@
             "edges": [
               {
                 "from": "u",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               },
               {
                 "from": "s",
-                "to": "l"
+                "to": "l",
+                "kind": "data"
               },
               {
                 "from": "s",
-                "to": "c"
+                "to": "c",
+                "kind": "data"
               }
             ]
           },
-          "body": "Fan-out on write dies on huge follower counts. Fan-out on read dies on ordinary read volume. Now notice *where* each one dies — not the same place, not even close, and neither failure reaches into the other's healthy range. Two tools, each excellent exactly where the other is hopeless. There's an obvious move here, and refusing to pick is most of it.",
-          "note": "And it only works because of an accident of the follower distribution: accounts big enough to break fan-out are rare enough that you follow a handful, not five hundred. Change that fact and the hybrid stops being cheap."
+          "body": "Posts from ordinary accounts are pushed into follower feed lists at write time. Posts from high-follower accounts remain in the post store. A feed read fetches its materialized list, queries recent posts from followed high-follower accounts, merges the candidates, and ranks them.",
+          "note": "The threshold is an operational parameter derived from follower distribution, queue capacity, acceptable propagation delay, and read budget."
+        },
+        {
+          "id": "feed-change-2",
+          "type": "system_change",
+          "prompt": "Fan-out-on-write works for ordinary authors, but one celebrity with 30 million followers creates a huge write burst. Change only the celebrity path.",
+          "actionLabel": "Pull celebrity posts on read",
+          "beforeStatus": "CELEBRITY POST · 30,000,000 inbox writes",
+          "afterStatus": "CELEBRITY POST · 1 post write · merged during reads",
+          "result": "The exceptional fan-out no longer blocks the publishing path",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Celebrity post",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "w",
+                "label": "Fan-out workers",
+                "sub": "30M writes",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "i",
+                "label": "Follower inboxes",
+                "sub": "write storm",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "w",
+                "kind": "request"
+              },
+              {
+                "from": "w",
+                "to": "i",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Celebrity post",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Author posts",
+                "sub": "one write",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "m",
+                "label": "Feed merge",
+                "sub": "at read time",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "f",
+                "label": "Follower feed",
+                "col": 3,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "s",
+                "kind": "data"
+              },
+              {
+                "from": "s",
+                "to": "m",
+                "kind": "data"
+              },
+              {
+                "from": "m",
+                "to": "f",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "A hybrid feed pushes ordinary posts into follower inboxes and pulls high-fan-out authors during reads. The threshold should follow measured write amplification and read cost; celebrity status itself is only a proxy."
+        },
+        {
+          "id": "design-news-feed-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: Fan-out-on-write works for ordinary authors, but one celebrity with 30 million followers creates a huge write burst. Change only the celebrity path. Place Author posts, Feed merge, Follower feed. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Celebrity post",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "sub": "one write",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "m",
+                "sub": "at read time",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "f",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "s",
+                "kind": "request"
+              },
+              {
+                "from": "s",
+                "to": "m",
+                "kind": "request"
+              },
+              {
+                "from": "m",
+                "to": "f",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Author posts",
+            "Feed merge",
+            "Follower feed",
+            "You refresh",
+            "Feed service"
+          ],
+          "answer": {
+            "s": "Author posts",
+            "m": "Feed merge",
+            "f": "Follower feed"
+          },
+          "why": "The completed diagram contains these directed flows: Celebrity post → Author posts; Author posts → Feed merge; Feed merge → Follower feed. That topology is the evidence for the answer: A hybrid feed pushes ordinary posts into follower inboxes and pulls high-fan-out authors during reads. The threshold should follow measured write amplification and read cost; celebrity status itself is only a proxy."
         },
         {
           "id": "feed-3-1",
-          "type": "multiple_choice",
-          "prompt": "Fan-out on write breaks for celebrities. Fan-out on read breaks for everyone. What's the actual answer?",
-          "choices": [
-            "Pick the lesser evil",
-            "Both: fan out on write for ordinary accounts, and fan out on read for the handful of celebrities — merging the two at read time",
-            "Fan-out on read with a bigger cache",
-            "Shard the feed"
+          "type": "build_diagram",
+          "prompt": "Build the hybrid feed read: combine pushed ordinary posts with pulled celebrity posts before returning a page.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Reader",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Feed Service",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "sub": "ordinary authors",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "high-follower authors",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "one ranked page",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "s",
+                "kind": "request"
+              },
+              {
+                "from": "s",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "s",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Materialized Feed List",
+            "Recent Celebrity Posts",
+            "Merge + Rank",
+            "Fan-out Queue",
+            "CDN Edge"
           ],
-          "answer": 1,
-          "why": "The two approaches fail at opposite ends — write fan-out dies on huge follower counts, read fan-out dies on ordinary read volume — so you route each account to the model that suits it. A user's feed becomes their precomputed list merged with a live query for the few celebrities they follow, which is cheap because that number is small."
+          "answer": {
+            "h1": "Materialized Feed List",
+            "h2": "Recent Celebrity Posts",
+            "h3": "Merge + Rank"
+          },
+          "why": "The feed service reads the precomputed list for ordinary authors, pulls recent posts only from followed high-follower authors, then merges and ranks both candidate sets. Pushing celebrity posts would create a write storm, while pulling every followed author's posts would restore the unbounded read-time fan-in the materialized list avoids."
         },
         {
           "id": "feed-3-2",
@@ -360,7 +757,7 @@
             "Rank the merged set",
             "Return one page of results"
           ],
-          "why": "One cheap lookup plus a small live query, merged and ranked — the live part stays affordable because almost nobody follows more than a handful of accounts big enough to be excluded from fan-out. The threshold is a tuning knob: too low and you do too many live queries, too high and you're back to write storms."
+          "why": "The read combines one prepared candidate list with a query over the limited set of high-follower authors the user follows, then ranks the merged candidates. Lowering the exclusion threshold increases read-time work; raising it increases write fan-out and queue pressure."
         },
         {
           "id": "feed-3-3",
@@ -373,7 +770,7 @@
             "There shouldn't be a threshold"
           ],
           "answer": 1,
-          "why": "The right value depends on your follower distribution, write capacity, and how much read-time merging you'll tolerate — so it's a dial you set from measurements rather than a number anyone can hand you. What matters in a design discussion is knowing that the threshold exists and what it trades: write amplification against read-time work."
+          "why": "The threshold should be selected from measured follower distributions, fan-out throughput, queue-delay targets, and acceptable read-time merge cost. It controls a continuous tradeoff: more authors above the threshold reduce write amplification while increasing live query work."
         },
         {
           "id": "feed-3-4",
@@ -386,7 +783,7 @@
             "In each app server's memory"
           ],
           "answer": 1,
-          "why": "The list is exactly unit 5's derived state: lose it and you can rebuild it, so it belongs somewhere fast rather than somewhere durable. Capping it matters too — nobody scrolls to post 5,000, so storing an unbounded list per user is paying to materialize something nobody reads."
+          "why": "A feed list is derived from durable posts and follows, so it can use a fast store and be rebuilt after loss. Capping the list bounds per-user memory and write work while retaining the recent candidate window the product actually serves."
         },
         {
           "id": "feed-3-5",
@@ -399,7 +796,7 @@
             "Only new users are affected"
           ],
           "answer": 1,
-          "why": "This is why derived-versus-authoritative was worth being religious about: no data was destroyed, so it's a bad afternoon rather than a company-ending event. But 34,700 reads/sec all missing simultaneously is unit 13's thundering herd at full scale, so the recovery plan matters as much as the fact that recovery is possible."
+          "why": "Losing materialized feed lists does not destroy authoritative posts or follow relationships, so they can be rebuilt. During recovery, concurrent reads can trigger many identical reconstruction queries, so the system needs staged warming, request coalescing, or rate-limited rebuilds to protect the source stores."
         },
         {
           "id": "feed-3-6",
@@ -412,7 +809,7 @@
             "The follow is queued"
           ],
           "answer": 1,
-          "why": "Fan-out only pushes at post time, so a follow made afterwards inherits nothing historical — the list has a start date. Backfilling means merging that account's recent posts into the list, which is a small job for one follow and a large one when someone imports a thousand. Most products just let the feed fill forward, which users barely notice."
+          "why": "Fan-out on write delivers only posts created after the follow relationship exists. Showing older posts requires a backfill that inserts recent post IDs from the new account; products may limit that work or allow the feed to fill forward based on latency and experience requirements."
         }
       ]
     },
@@ -423,7 +820,7 @@
         {
           "id": "feed-4-0",
           "type": "concept",
-          "title": "Fan-out doesn't build your feed — it builds a shortlist someone still has to rank",
+          "title": "Fan-out produces candidates; read-time ranking produces order",
           "viz": {
             "nodes": [
               {
@@ -463,24 +860,28 @@
             "edges": [
               {
                 "from": "f",
-                "to": "k"
+                "to": "k",
+                "kind": "data"
               },
               {
                 "from": "c",
-                "to": "k"
+                "to": "k",
+                "kind": "data"
               },
               {
                 "from": "k",
-                "to": "r"
+                "to": "r",
+                "kind": "request"
               },
               {
                 "from": "r",
-                "to": "p"
+                "to": "p",
+                "kind": "request"
               }
             ]
           },
-          "body": "Ask what kind of thing an ordering is. Chronological order lives in the posts themselves — two posts have a fixed order and always will. Relevance doesn't live in the posts at all. It lives in *you, right now*: this session, what you just scrolled past, what's happening this minute. Two different kinds of fact, and only one of them can be settled in advance.",
-          "note": "Ranking at read time sounds like the expensive work you spent the unit avoiding. It isn't, and the reason is the candidate set: a few hundred posts, not millions. What ranking costs depends on how much you had to rank."
+          "body": "A materialized feed stores candidate post ids. At read time, a ranker scores those candidates using post features, reader features, and current context, then returns the highest-scoring page. Context-dependent relevance cannot be finalized when the author publishes.",
+          "note": "Cap the candidate set before scoring; ranker latency and compute cost grow with the number and complexity of candidates evaluated per read."
         },
         {
           "id": "feed-4-1",
@@ -493,7 +894,7 @@
             "It requires a graph database"
           ],
           "answer": 1,
-          "why": "Chronological order is a property of the posts, so it can be materialized; relevance is a property of the reader right now, so it can't. The usual resolution is to keep fan-out as a candidate-generation step — it decides WHICH posts you might see — and rank those candidates at read time, which is affordable because the candidate set is a few hundred rather than millions."
+          "why": "Fan-out can materialize a bounded set of eligible post IDs, but relevance may depend on current reader context and model features that change after posting. Ranking those prepared candidates at read time preserves personalization while avoiding a scan over the full post corpus."
         },
         {
           "id": "feed-4-2",
@@ -506,20 +907,20 @@
             "An error"
           ],
           "answer": 1,
-          "why": "Offset counts from the top of a list that keeps growing at the top, so every new post shifts the window and re-serves items the user already read. This is exactly unit 3's offset-pagination flaw, and a feed is its worst case: the insert rate is high and the insertions are precisely at the boundary offset depends on."
+          "why": "Offset pagination counts positions from a list boundary that changes whenever a new post is inserted at the top. Those insertions shift later offsets, causing duplicate or skipped items between requests."
         },
         {
           "id": "feed-4-3",
           "type": "multiple_choice",
-          "prompt": "So how do feeds paginate correctly?",
+          "prompt": "A relevance-ranked feed can rescore while the user scrolls. How should pagination handle that?",
           "choices": [
-            "Cache the first page",
-            "Cursor pagination — 'give me 20 items after this specific post' — so new arrivals at the top can't shift the window",
+            "Use an offset into the latest ranking",
+            "Use a cursor with the last ordering key and tie-breaker plus a ranking snapshot/version, or explicitly accept duplicates and skips from reranking",
             "Freeze the feed while scrolling",
             "Use bigger pages"
           ],
           "answer": 1,
-          "why": "A cursor names a position in the data rather than a count from a moving edge, so inserts above it are irrelevant to what comes next. That's why every real feed hands you an opaque cursor instead of a page number — and it's the same reasoning that made cursors right for the API unit, arriving here with much higher stakes."
+          "why": "A timestamp or score plus a unique post ID gives a deterministic position only while the ordering remains stable. Because relevance scores can change between requests, the cursor also needs a ranking snapshot or version to reproduce that order; without one, the product must accept pagination drift such as duplicates or skipped posts."
         },
         {
           "id": "feed-4-4",
@@ -535,7 +936,7 @@
             0,
             1
           ],
-          "why": "Nobody can tell whether a friend's post arrived instantly or three seconds ago, and an approximate like count harms nobody. Your own post is unit 19's read-your-writes — its absence looks like data loss and you'll be told about it. And a block that doesn't take effect isn't staleness, it's a safety failure that can put someone in danger, so it needs to be correct immediately."
+          "why": "Friend-post propagation and aggregate like counts can tolerate bounded staleness because small delays or count errors do not violate the core action. A user's own post needs read-your-writes behavior, and a block must affect authorization immediately because exposing blocked content is a safety and privacy failure."
         },
         {
           "id": "feed-4-5",
@@ -547,7 +948,7 @@
             55,
             100
           ],
-          "why": "The lists hold ids rather than content, so a deleted post is already just a dangling pointer — you're hydrating posts at read time anyway, and skipping a missing one is nearly free. Chasing 200,000 lists is a huge write storm to save a filter. The caveat that decides the other direction: if deletion is a safety or legal matter, 'filtered at read time' isn't good enough, because a missed filter is a leak."
+          "why": "Because feed lists contain IDs, read-time hydration can omit an ID whose authoritative post has been deleted, avoiding synchronous edits to 200,000 lists. Safety or legal deletion requirements may additionally require eager invalidation and audited removal because a missed read-time filter could expose prohibited content."
         },
         {
           "id": "feed-4-6",
@@ -560,7 +961,310 @@
             "Fan out everything to everyone"
           ],
           "answer": 1,
-          "why": "The whole design is one tradeoff resolved twice: reads dominate, so precompute — except where precomputing explodes, so query live there instead. Everything else follows from that hybrid: the lists are derived and rebuildable, ranking has to happen at read time because it depends on the reader, and cursors exist because the list you're paging through keeps growing at the top."
+          "why": "The hybrid precomputes feed candidates for ordinary authors and queries high-follower authors at read time, controlling both read amplification and write storms. Derived bounded lists support recovery, read-time ranking applies current context, and cursor pagination remains stable as new posts enter the top of the feed."
+        }
+      ]
+    },
+    {
+      "id": "feed-5",
+      "title": "Review the complete feed",
+      "exercises": [
+        {
+          "id": "feed-5-0",
+          "type": "concept",
+          "title": "The source post is authoritative; inbox entries are rebuildable candidate references",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Post store",
+                "sub": "authoritative content",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "q",
+                "label": "Fan-out queue",
+                "col": 1,
+                "kind": "queue"
+              },
+              {
+                "id": "i",
+                "label": "Feed inboxes",
+                "sub": "post IDs",
+                "col": 2,
+                "kind": "cache"
+              },
+              {
+                "id": "r",
+                "label": "Rank + hydrate",
+                "sub": "filter policy",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "q",
+                "kind": "event"
+              },
+              {
+                "from": "q",
+                "to": "i",
+                "kind": "event"
+              },
+              {
+                "from": "i",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "A post commit emits durable fan-out work. Ordinary authors push post IDs into bounded follower inboxes; high-fan-out authors are pulled during reads. The read service merges candidates, filters current visibility policy, hydrates authoritative posts, ranks, and returns a cursor-stable page.",
+          "note": "An inbox entry grants no visibility. Deletes, blocks, and privacy changes must be checked against authoritative policy during hydration so stale derived IDs cannot expose content."
+        },
+        {
+          "id": "feed-review-change",
+          "type": "system_change",
+          "prompt": "A private post was already copied into follower inboxes. The author blocks one follower, but that follower's next feed read still returns the post.",
+          "actionLabel": "Filter with current visibility policy",
+          "choices": [
+            "Wait for every inbox copy to expire",
+            "Authorize each hydrated post against current relationship and post policy",
+            "Delete the entire follower feed"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Expiry creates an uncontrolled privacy window.",
+            "Read-time authorization prevents stale candidate references from becoming visible content.",
+            "Deleting unrelated candidates is unnecessary and still does not define future policy checks."
+          ],
+          "beforeStatus": "STALE INBOX ID · blocked follower receives private post",
+          "afterStatus": "CANDIDATE FOUND · current policy denies hydration",
+          "result": "Derived feed state can lag without violating visibility",
+          "viz": {
+            "nodes": [
+              {
+                "id": "i",
+                "label": "Feed inbox",
+                "sub": "stale post ID",
+                "col": 0,
+                "kind": "cache"
+              },
+              {
+                "id": "u",
+                "label": "User response",
+                "sub": "post exposed",
+                "col": 1,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "i",
+                "to": "u",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "i",
+                "label": "Feed inbox",
+                "sub": "candidate only",
+                "col": 0,
+                "kind": "cache"
+              },
+              {
+                "id": "p",
+                "label": "Visibility policy",
+                "sub": "block active",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "u",
+                "label": "User response",
+                "sub": "post omitted",
+                "col": 2,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "i",
+                "to": "p",
+                "kind": "data"
+              },
+              {
+                "from": "p",
+                "to": "u",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Fan-out materializes candidates under an earlier social graph. Because blocks and privacy are safety invariants, the read path must evaluate current policy before returning content rather than treating an inbox ID as authorization."
+        },
+        {
+          "id": "design-news-feed-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A private post was already copied into follower inboxes. The author blocks one follower, but that follower's next feed read still returns the post. Place Visibility policy, User response. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "i",
+                "label": "Feed inbox",
+                "sub": "candidate only",
+                "col": 0,
+                "kind": "cache"
+              },
+              {
+                "id": "p",
+                "sub": "block active",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "u",
+                "sub": "post omitted",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "i",
+                "to": "p",
+                "kind": "data"
+              },
+              {
+                "from": "p",
+                "to": "u",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Visibility policy",
+            "User response",
+            "You refresh",
+            "Feed service"
+          ],
+          "answer": {
+            "p": "Visibility policy",
+            "u": "User response"
+          },
+          "why": "The completed diagram contains these directed flows: Feed inbox → Visibility policy; Visibility policy → User response. That topology is the evidence for the answer: Fan-out materializes candidates under an earlier social graph. Because blocks and privacy are safety invariants, the read path must evaluate current policy before returning content rather than treating an inbox ID as authorization."
+        },
+        {
+          "id": "feed-5-1",
+          "type": "build_diagram",
+          "prompt": "Build the hybrid read path that combines precomputed ordinary-author posts with celebrity posts.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Open feed",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "r",
+                "label": "Ranked page",
+                "col": 3,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "u",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "r",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Precomputed inbox IDs",
+            "Celebrity recent-post query",
+            "Merge · filter · hydrate · rank",
+            "Global offset counter"
+          ],
+          "answer": {
+            "h1": "Precomputed inbox IDs",
+            "h2": "Celebrity recent-post query",
+            "h3": "Merge · filter · hydrate · rank"
+          },
+          "why": "The hybrid bounds ordinary read work without paying celebrity fan-out. Both candidate sets meet before current-policy filtering, authoritative hydration, and ranking; cursor state then continues from the returned ordering boundary."
+        },
+        {
+          "id": "feed-5-2",
+          "type": "multi_select",
+          "prompt": "Which review findings are genuine design defects? Select all.",
+          "choices": [
+            "Full post bodies are copied into every follower inbox",
+            "Celebrity fan-out shares the same queue and workers as ordinary posts",
+            "Offset pagination is used on a changing ranked list",
+            "Feed candidates are treated as permission to display a post"
+          ],
+          "answer": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "why": "Copying bodies multiplies storage and update work, unisolated celebrity fan-out starves ordinary delivery, offsets drift as ranking changes, and candidate references can outlive the policy that originally admitted them. Each defect appears only when the complete write and read paths are considered together."
+        },
+        {
+          "id": "xfer-feed",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A project dashboard shows updates from followed repositories. One repository has ten million followers. Which delivery design avoids ten million synchronous writes on each update?",
+          "choices": [
+            "Always fan out every update before acknowledging it",
+            "Store no update record",
+            "Give every follower a database",
+            "Pull or hybrid fan-out for the exceptional publisher"
+          ],
+          "answer": 3,
+          "why": "The celebrity repository makes fan-out-on-write proportional to ten million followers. A hybrid keeps ordinary publishers precomputed while pulling exceptional publishers during reads."
         }
       ]
     }

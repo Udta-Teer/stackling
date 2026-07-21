@@ -2,7 +2,7 @@
   "unitId": "consistency-models",
   "tier": 3,
   "title": "Consistency Models",
-  "subtitle": "Not one dial from weak to strong — a menu of promises about what a read can return",
+  "subtitle": "Specify which versions a read may return and which histories clients may observe",
   "objectives": [
     "Define a consistency model as a contract about what reads may return",
     "Distinguish strong, eventual, and the useful guarantees in between",
@@ -17,7 +17,7 @@
         {
           "id": "cm-1-0",
           "type": "concept",
-          "title": "A consistency model is a contract about what a read may return — not a quality setting",
+          "title": "A consistency model defines which results concurrent operations may observe",
           "viz": {
             "nodes": [
               {
@@ -45,17 +45,197 @@
               {
                 "from": "r",
                 "to": "a",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               },
               {
                 "from": "r",
                 "to": "b",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
-          "body": "Put data on more than one machine and the copies disagree for a while. Your read lands on one of them. A consistency model is the rulebook for that gap: it states exactly which values a read is *allowed* to come back with. *Strong* forbids nearly every surprise. *Eventual* forbids almost nothing. Both are contracts, not quality levels.",
-          "note": "So \"stronger\" never means \"more correct\" — it means fewer legal surprises. And every surprise a model forbids has to be prevented by some machinery, which is why nothing on the menu is free."
+          "body": "Replicas can hold different versions while updates propagate. A consistency model constrains visible histories: linearizable reads observe the latest completed write in one global order. Eventual consistency guarantees convergence if writes cease and communication continues; replicas may also agree while writes continue.",
+          "note": "Tighter constraints require coordination, replica affinity, or version tracking. Those mechanisms add latency, reduce availability during faults, or consume state."
+        },
+        {
+          "id": "consistency-models-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: A consistency model defines which results concurrent operations may observe",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Your read",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "sub": "has the write",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "not yet",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "a",
+                "dash": true,
+                "kind": "optional"
+              },
+              {
+                "from": "r",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Replica A",
+            "Replica B",
+            "User",
+            "Replica"
+          ],
+          "answer": {
+            "a": "Replica A",
+            "b": "Replica B"
+          },
+          "why": "Replicas can hold different versions while updates propagate. A consistency model constrains visible histories: linearizable reads observe the latest completed write in one global order. Eventual consistency guarantees convergence if writes cease and communication continues; replicas may also agree while writes continue. Tighter constraints require coordination, replica affinity, or version tracking. Those mechanisms add latency, reduce availability during faults, or consume state.",
+          "connectEdges": true
+        },
+        {
+          "id": "cm-change-1",
+          "type": "system_change",
+          "prompt": "A user updates their display name and immediately reads from a lagging replica. Route that user's next read to the leader.",
+          "actionLabel": "Provide read-your-writes routing",
+          "beforeStatus": "USER READ · old display name returned from lagging replica",
+          "afterStatus": "USER READ · newly written display name returned from leader",
+          "result": "The user's own write became immediately visible",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "sub": "just wrote",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "label": "Replica",
+                "sub": "old name",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "sub": "session pinned",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "new name",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "r",
+                "label": "Replica",
+                "sub": "catching up",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "l",
+                "kind": "data"
+              },
+              {
+                "from": "l",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Routing the writer's subsequent read to the write authority provides read-your-writes for that session. Other users can still observe stale replicas, so this narrow session guarantee is not global strong consistency."
+        },
+        {
+          "id": "consistency-models-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A user updates their display name and immediately reads from a lagging replica. Route that user's next read to the leader. Place Leader, Replica. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "sub": "session pinned",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "sub": "new name",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "r",
+                "sub": "catching up",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "r",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Leader",
+            "Replica",
+            "Your read",
+            "Replica A"
+          ],
+          "answer": {
+            "l": "Leader",
+            "r": "Replica"
+          },
+          "why": "The completed diagram contains these directed flows: User → Leader; Leader → Replica. That topology is the evidence for the answer: Routing the writer's subsequent read to the write authority provides read-your-writes for that session. Other users can still observe stale replicas, so this narrow session guarantee is not global strong consistency."
         },
         {
           "id": "cm-1-1",
@@ -68,7 +248,7 @@
             "The number of replicas you keep"
           ],
           "answer": 1,
-          "why": "A consistency model isn't a quality level, it's a specification: it enumerates what a read may legally return, which means it defines exactly which weird outcomes you've agreed to. Reading it as 'stronger is better' misses the point — the model tells you which bugs are impossible and which are your job to handle."
+          "why": "A consistency model specifies which values and orderings reads may observe when data has multiple copies. It defines which anomalies the storage system prevents and which application behavior must tolerate."
         },
         {
           "id": "cm-1-2",
@@ -76,12 +256,12 @@
           "prompt": "Strong consistency: a write completes, and a read immediately after returns the new value. What does that require?",
           "choices": [
             "Fast disks",
-            "Coordination — someone must confirm the write is visible before the read can be answered, and that confirmation costs a round trip",
+            "A read path that can establish current authority or freshness, such as the leader, a valid lease, or a quorum",
             "More replicas",
             "A single-threaded database"
           ],
           "answer": 1,
-          "why": "To promise a read reflects the latest write, the system must know what the latest write IS — and with more than one machine that means asking, which costs a round trip you cannot optimize away. Strong consistency is therefore not a feature you enable; it's coordination you purchase, on every operation, at the price of the network's physics."
+          "why": "A linearizable read must not return state older than a completed write. A current leader or valid lease may answer without a new quorum round trip; other protocols use a read quorum or authority check. Quorum writes still coordinate before commitment, and operations block when their required authority is unavailable."
         },
         {
           "id": "cm-1-3",
@@ -94,7 +274,7 @@
             "Writes are never lost"
           ],
           "answer": 1,
-          "why": "Read the guarantee carefully: it says only that replicas agree in the end, given a pause in writes — it makes no claim at all about the interval you actually live in. That's why it's such a weak promise dressed in a reassuring word: 'eventually' is unbounded, and in a system that never stops writing, the precondition never arrives."
+          "why": "Eventual consistency guarantees convergence only if new writes stop and replication can continue. It does not bound replica lag or specify which intermediate value a read returns while updates are propagating."
         },
         {
           "id": "cm-1-4",
@@ -107,7 +287,7 @@
             "Linearizable"
           ],
           "answer": 0,
-          "why": "It's a promise about the destination and not the journey — which is fine when the journey is milliseconds and alarming when it's a partition lasting an hour."
+          "why": "Convergence means replicas reach the same value after writes cease and pending updates propagate. The guarantee supplies no time bound, so a long partition can prolong disagreement."
         },
         {
           "id": "cm-1-5",
@@ -115,12 +295,12 @@
           "prompt": "Why isn't 'just use strong consistency everywhere' the obvious answer?",
           "choices": [
             "It's not supported by most databases",
-            "It costs a coordination round trip on every operation, and during a partition it means refusing to answer — you'd pay latency always and availability sometimes, for data that often doesn't need it",
+            "It constrains read and write paths, and operations that cannot establish required authority may wait or fail even when their data could tolerate staleness",
             "It uses too much storage",
             "It's harder to program"
           ],
           "answer": 1,
-          "why": "Strong consistency has a price on the happy path (unit 18's latency-vs-consistency) and a price on the bad path (refusing service during a partition), and both are charged whether the data needed the guarantee or not. Buying it for a like counter means every like waits on a quorum — you've paid for a promise nobody would have missed."
+          "why": "A like counter usually tolerates temporary replica differences because no irreversible action depends on an exact current value. Strong consistency would add coordination latency and may reject operations during partitions without materially improving this use case."
         },
         {
           "id": "cm-1-6",
@@ -133,7 +313,7 @@
             "Which is most popular?"
           ],
           "answer": 1,
-          "why": "Every step toward stronger consistency buys you fewer legal surprises and costs latency and availability, so the goal is the least you can get away with rather than the most you can afford. 'Honest' is the bar: the model is adequate when no anomaly it permits would mislead a user into a decision they'd regret."
+          "why": "Stronger models forbid more observable reorderings by coordinating more operations, which generally costs latency and partition-time availability. The appropriate model is the weakest one whose permitted anomalies do not violate the product's correctness requirements."
         }
       ]
     },
@@ -144,9 +324,9 @@
         {
           "id": "cm-2-0",
           "type": "concept",
-          "title": "Between strong and eventual sits a menu of narrow promises, each forbidding one specific insult",
-          "body": "Strong and eventual are only the two ends. The useful guarantees live between them — *read-your-writes*, *monotonic reads*, *consistent prefix*, *causal consistency* — and each one bans exactly one anomaly and leaves every other one legal. That narrowness is the whole point: it's why they cost so little. The names are literal, so read them closely.",
-          "note": "Users never ask for these by name. They describe a symptom and leave you to work out which promise went missing — so the skill is turning a complaint into the one guarantee that would have prevented it."
+          "title": "Read-your-writes consistency preserves a client's completed updates",
+          "body": "Read-your-writes consistency guarantees that a client session reading an item after its own completed write sees that version or a later one. A service can implement it by routing the session to an up-to-date replica or attaching a version token that reads must satisfy.",
+          "note": "This session guarantee does not force other clients to see the update immediately. It prevents one anomaly without paying for a global order on every read."
         },
         {
           "id": "cm-2-1",
@@ -159,7 +339,7 @@
             "Monotonic reads"
           ],
           "answer": 1,
-          "why": "They don't need to see everyone's comments instantly — they need to see THEIR OWN, because they know they wrote it and its absence looks like data loss. Read-your-writes is exactly that narrow promise, and it's much cheaper than strong consistency: route that user's reads to a replica that has their write, and everyone else can lag freely."
+          "why": "Read-your-writes consistency guarantees that a session's later reads include its own successful writes. Routing that user's reads to a replica that has applied the write provides this guarantee while allowing other users to read from lagging replicas."
         },
         {
           "id": "cm-2-2",
@@ -176,14 +356,14 @@
             },
             {
               "left": "Consistent prefix",
-              "right": "Seeing an answer before the question"
+              "right": "Seeing entry 8 of one ordered log without entries 1–7"
             },
             {
-              "left": "Strong consistency",
-              "right": "Every anomaly above, at coordination cost"
+              "left": "Causal consistency",
+              "right": "Seeing a reply before the message it answers"
             }
           ],
-          "why": "Each middle guarantee names one specific way reality can look broken and forbids just that one — which is why they're useful. You buy the narrow promise your product actually needs instead of the total order you can't afford, and you get most of the felt correctness for a fraction of the cost."
+          "why": "Read-your-writes preserves a session's own completed writes, and monotonic reads prevent that session from moving backward. Consistent-prefix consistency exposes only prefixes of an agreed sequence, such as log entries 1–7 before entry 8. Causal consistency separately preserves happens-before dependencies, such as a question before its reply."
         },
         {
           "id": "cm-2-3",
@@ -196,20 +376,20 @@
             "Strong consistency"
           ],
           "answer": 1,
-          "why": "Two reads landed on replicas with different lag, so the second answered from an older state — the data was never corrupt, the user just time-travelled. Monotonic reads forbids that specific insult, and the usual mechanism is routing each user's reads to a consistent replica so their view only ever advances (with the caveat from unit 10 that re-pinning can break it)."
+          "why": "The second read reached a replica that had applied fewer updates than the first. Monotonic reads require each session's observed version to stay the same or advance, commonly by pinning the session or tracking a minimum acceptable version."
         },
         {
           "id": "cm-2-4",
           "type": "multiple_choice",
-          "prompt": "A chat shows a reply before the message it replies to. Which guarantee is missing?",
+          "prompt": "A chat shows a reply before the message it replies to. Which guarantee directly covers that dependency?",
           "choices": [
             "Monotonic reads",
-            "Consistent prefix / causal consistency — writes that caused each other must appear in that order",
+            "Causal consistency — an effect must not appear before the event it depends on",
             "Read-your-writes",
-            "Eventual consistency"
+            "Consistent prefix for an unrelated replicated log"
           ],
           "answer": 1,
-          "why": "Nobody needs a global order of every message in the world — they need effects to follow their causes, because a reply arriving before its question isn't stale, it's nonsense. Causal consistency preserves exactly the ordering that carries meaning and leaves genuinely unrelated writes free to arrive in any order, which is why it's often the sweet spot for anything conversational."
+          "why": "The reply depends on the original post, so causal consistency requires every observer to see the post before the reply. Writes without a dependency may propagate in different orders, avoiding global coordination for unrelated conversations."
         },
         {
           "id": "cm-2-5",
@@ -222,7 +402,7 @@
             "It skips durability"
           ],
           "answer": 1,
-          "why": "Strong consistency insists every write take a place in one global sequence, which means everyone agreeing about everything, all the time. Causal only insists that a write which depended on another comes after it — and in a system with millions of unrelated users, almost nothing is causally related, so almost nothing needs coordinating."
+          "why": "Strong consistency orders operations into one externally coherent history. Causal consistency orders only operations connected by a happens-before dependency, allowing independent writes to replicate concurrently with less coordination."
         },
         {
           "id": "cm-2-6",
@@ -235,7 +415,7 @@
             "No guarantees"
           ],
           "answer": 1,
-          "why": "Stating the requirement exactly reveals how narrow it is: one person needs to see one thing immediately, and the entire rest of the world can lag. Strong consistency would satisfy that requirement and charge everyone a quorum for it. Most 'we need strong consistency' claims dissolve like this once someone writes down who actually needs to see what, and when."
+          "why": "The requirement applies to the author's session after a successful post, so read-your-writes is sufficient. Other sessions may read lagging replicas without violating that requirement, avoiding global coordination on every read."
         }
       ]
     },
@@ -246,9 +426,9 @@
         {
           "id": "cm-3-0",
           "type": "concept",
-          "title": "Users report symptoms, and the clue that names the bug is usually *whose* read it was",
-          "body": "Nobody files a ticket naming a guarantee. They report a symptom — and it's the details *around* the symptom that identify which promise went missing. So interrogate every complaint the same way: whose read was it, what had they done just before, what did everybody *else* see at that moment, and did it fix itself. The bug is usually named by who, not by what.",
-          "note": "Misdiagnosis is expensive because the fixes don't overlap: what cures one of these complaints does nothing at all for the next. Guess wrong and you ship real work, the ticket stays open, and you've learned nothing."
+          "title": "Consistency failures are classified by the operation history a client observed",
+          "body": "Diagnose a stale-data report by reconstructing the history: identify the client, its preceding reads and writes, the versions returned, and whether concurrent clients differed. That sequence distinguishes session anomalies from delayed propagation, cache staleness, and application failures.",
+          "note": "A replica-affinity fix may restore one client's session ordering while leaving cross-client visibility unchanged. The observed history determines the required guarantee."
         },
         {
           "id": "cm-3-1",
@@ -261,20 +441,19 @@
             "Strong consistency is needed"
           ],
           "answer": 1,
-          "why": "The detail that identifies it is that the friend CAN see it — the write clearly succeeded and propagated, so nothing is broken except which replica the author's own read landed on. Notice the bug is defined by whose read it is rather than by the data, which is exactly why the fix is routing rather than a stronger database."
+          "why": "The friend's successful read shows that the new photo version exists and has reached at least one serving copy. The author's later session read returned the old photo, violating read-your-writes; routing that session to a sufficiently recent replica or requiring its version token prevents the regression."
         },
         {
           "id": "cm-3-2",
-          "type": "multiple_choice",
-          "prompt": "A user deletes a photo, gets confirmation, and it reappears in their feed ten minutes later. What likely happened?",
-          "choices": [
-            "The delete failed",
-            "The delete and a stale cached copy raced — or a replica that never learned about the delete served it back",
-            "The photo was restored from backup",
-            "The user misremembers"
+          "type": "order_steps",
+          "prompt": "The source of truth proves a deleted photo reappeared because replica R lagged. Order the observed history.",
+          "steps": [
+            "The source of truth commits deletion as version 12",
+            "Replica R remains at version 11, where the photo exists",
+            "A later feed read is routed to replica R",
+            "Replica R returns version 11 and the old photo reappears"
           ],
-          "answer": 1,
-          "why": "The resurrection of deleted data is a classic and it's usually a copy that never heard the news — a cache entry, a lagging replica, or a search index that indexed before the delete and was never told. Deletes are the nastiest case for derived copies because absence propagates badly: a copy holding stale data looks identical to a copy holding data that's supposed to exist."
+          "why": "The committed version 12 establishes that deletion persisted, and R's recorded version 11 identifies the lagging copy. Routing the later read to R then explains the reappearance. Without those version and routing facts, the same complaint could also come from a failed delete, restore, retry, stale cache, or asynchronous recreation."
         },
         {
           "id": "cm-3-3",
@@ -291,7 +470,7 @@
             1,
             2
           ],
-          "why": "Every copy is a chance to be behind — replicas, caches, and derived indexes are all the same shape of problem wearing different names, which is why 'stale data' incidents so often involve hunting the layer responsible. A slow query is different: it returns the RIGHT answer, late. Stale means wrong-but-fast; slow means right-but-late, and they need opposite fixes."
+          "why": "Replicas, caches, and derived indexes can each lag behind the source of truth and return an older value. A slow query is a latency failure because its value remains correct; it does not by itself indicate stale state."
         },
         {
           "id": "cm-3-4",
@@ -299,12 +478,12 @@
           "prompt": "Why is 'eventually consistent' a bad answer to give a user or a product manager?",
           "choices": [
             "It's too technical",
-            "Because it names the mechanism, not the promise — the honest version states a bound: 'usually under a second, and here's what you'll see meanwhile'",
+            "Because it gives no measurable user contract — state a target such as '99.9% visible within one second, with immediate read-your-writes' and define partition behavior",
             "It's inaccurate",
             "It sounds negative"
           ],
           "answer": 1,
-          "why": "'Eventually' describes what the database guarantees and answers nothing anyone actually asked — how long, and what does it look like in the gap? Users and product owners can reason about 'up to two seconds, and you always see your own changes immediately'. Turning the mechanism into a stated bound with an observable behaviour is what makes the tradeoff decidable rather than mystical."
+          "why": "A product requirement must state an observable lag bound and any session guarantees, such as seeing one's own changes immediately. The term eventual consistency alone supplies neither a maximum delay nor defined behavior during propagation."
         },
         {
           "id": "cm-3-5",
@@ -317,20 +496,31 @@
             "What's our budget?"
           ],
           "answer": 1,
-          "why": "'We need strong consistency' is almost always a feeling standing in for a specific fear, and naming the fear usually shrinks it — often to read-your-writes for one user on one screen. And if the honest answer to 'what goes wrong?' is a real, irreversible loss, then you've justified the coordination cost with evidence instead of anxiety."
+          "why": "The correct model follows from the exact anomaly and its consequence. A missing own-write may require only read-your-writes, while an anomaly that can create irreversible loss can justify stronger coordination."
         },
         {
           "id": "cm-3-6",
-          "type": "multiple_choice",
-          "prompt": "Which of these complaints is NOT a consistency problem?",
-          "choices": [
-            "'My comment disappeared after posting'",
-            "'The page took 8 seconds to load'",
-            "'The like count went down when I refreshed'",
-            "'I see a reply to a message I can't see'"
+          "type": "match_pairs",
+          "prompt": "Classify each concrete complaint before choosing a repair.",
+          "pairs": [
+            {
+              "left": "My comment disappeared after posting",
+              "right": "Read-your-writes violation"
+            },
+            {
+              "left": "The like count moved backward on refresh",
+              "right": "Monotonic-reads violation"
+            },
+            {
+              "left": "I see a reply before its source message",
+              "right": "Causal-consistency violation"
+            },
+            {
+              "left": "The page took 8 seconds to load",
+              "right": "Latency problem, not a consistency anomaly"
+            }
           ],
-          "answer": 1,
-          "why": "A slow page is a latency problem — the answer would have been correct, it just took too long, which is unit 4's territory and needs completely different tools. The other three are all correct-data-arriving-in-a-surprising-order: read-your-writes, monotonic reads, and causal consistency respectively. Diagnosing which family you're in is the whole first move."
+          "why": "Consistency diagnosis depends on the observed operation history: losing one's own write, moving to an older observed version, or revealing an effect before its cause violate different contracts. An eight-second response concerns timing; it can still return a value allowed by the consistency model."
         }
       ]
     },
@@ -341,22 +531,161 @@
         {
           "id": "cm-4-0",
           "type": "concept",
-          "title": "Quorum arithmetic is real, and it buys far less than almost everyone assumes",
-          "body": "A key lives on `N` replicas. A write waits for `W` of them to acknowledge it; a read asks `R` of them. Now do the counting. If `W + R > N`, the write set and the read set are too big to fit inside `N` replicas without colliding — pigeonhole forces them to share a member. Work out what that shared member gives you and you have the entire quorum guarantee.",
-          "note": "And it stops there. The arithmetic won't tell you *which* of the values is newest, won't resolve a write still in flight, won't order concurrent writes. That's linearizability: it needs a leader or consensus — unit 20."
+          "title": "Overlapping read and write quorums expose at least one acknowledged copy",
+          "body": "For a fixed set of `N` replicas, acknowledge a write after `W` replicas store it and query `R` replicas per read. When `W + R > N`, every completed write quorum intersects every read quorum, so the read contacts at least one replica that accepted the write.",
+          "note": "Intersection alone does not identify the newest version or order concurrent writes. The system still needs version comparison, conflict handling, or consensus."
         },
         {
           "id": "cm-4-1",
-          "type": "multiple_choice",
-          "prompt": "Quorum reads and writes: N=3 replicas, W=2, R=2. What does W + R > N actually guarantee?",
-          "choices": [
-            "That every read returns the latest value, always",
-            "Overlap: the read set and the write set must share at least one replica, so at least one node you read has seen the newest completed write",
-            "Nothing — the arithmetic is a coincidence",
-            "That writes are applied in order"
+          "type": "build_diagram",
+          "prompt": "For one fixed set of N=3 replicas, build read and write paths whose quorums must overlap.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "write",
+                "label": "Client Write",
+                "sub": "acknowledge",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "wq",
+                "sub": "write leg",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "read",
+                "label": "Client Read",
+                "sub": "query",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "rq",
+                "sub": "read leg",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "replicas",
+                "label": "Replica Set",
+                "sub": "N = 3",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "write",
+                "to": "wq",
+                "kind": "request"
+              },
+              {
+                "from": "wq",
+                "to": "replicas",
+                "kind": "data"
+              },
+              {
+                "from": "read",
+                "to": "rq",
+                "kind": "request"
+              },
+              {
+                "from": "rq",
+                "to": "replicas",
+                "kind": "data"
+              }
+            ]
+          },
+          "palette": [
+            "Store on W = 2",
+            "Query R = 2",
+            "Store on W = 1",
+            "Query R = 1"
           ],
-          "answer": 1,
-          "why": "It's pigeonhole arithmetic: write to 2 of 3 and read from 2 of 3, and the sets cannot be disjoint, so at least one replica you asked holds the newest completed write. Read that guarantee narrowly, though — overlap is necessary for a fresh read and NOT sufficient for strong consistency. A read racing an in-flight write can legitimately come back with either value; concurrent writes still have to be merged by some rule; and a 'sloppy' quorum that accepts writes onto substitute nodes can overlap with a set that never held the write at all. Real linearizability needs coordination — a leader, or consensus — which is what unit 20 is about. Arithmetic alone doesn't buy it."
+          "answer": {
+            "wq": "Store on W = 2",
+            "rq": "Query R = 2"
+          },
+          "why": "The write completes after two of three replicas store it, and each read queries two of the same three replicas. Because `W + R = 4 > 3`, those sets share at least one copy of the completed write. If both paths used one replica, they could be disjoint and the read could return stale data; overlap still needs version comparison and write ordering to provide linearizability."
+        },
+        {
+          "id": "consistency-models-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: For one fixed set of N=3 replicas, build read and write paths whose quorums must overlap.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "write",
+                "label": "Client Write",
+                "sub": "acknowledge",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "wq",
+                "sub": "write leg",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "read",
+                "label": "Client Read",
+                "sub": "query",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "rq",
+                "sub": "read leg",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "replicas",
+                "sub": "N = 3",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "write",
+                "to": "wq",
+                "kind": "request"
+              },
+              {
+                "from": "wq",
+                "to": "replicas",
+                "kind": "request"
+              },
+              {
+                "from": "read",
+                "to": "rq",
+                "kind": "request"
+              },
+              {
+                "from": "rq",
+                "to": "replicas",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Store on W = 2",
+            "Query R = 2",
+            "Replica Set",
+            "Your read",
+            "Replica A"
+          ],
+          "answer": {
+            "wq": "Store on W = 2",
+            "rq": "Query R = 2",
+            "replicas": "Replica Set"
+          },
+          "why": "The completed diagram contains these directed flows: Client Write → Store on W = 2; Store on W = 2 → Replica Set; Client Read → Query R = 2; Query R = 2 → Replica Set. That topology is the evidence for the answer: The write completes after two of three replicas store it, and each read queries two of the same three replicas. Because `W + R = 4 > 3`, those sets share at least one copy of the completed write. If both paths used one replica, they could be disjoint and the read could return stale data; overlap still needs version comparison and write ordering to provide linearizability."
         },
         {
           "id": "cm-4-2",
@@ -369,19 +698,19 @@
             "Better durability"
           ],
           "answer": 1,
-          "why": "W+R = 2, which isn't greater than 3, so the sets can miss each other entirely and you're squarely in eventual consistency. What you got in exchange is real: one replica is enough to serve, so writes and reads are fast and survive two nodes being down. That dial is the CAP tradeoff exposed as a config knob, and it's per-query in some systems — strict for a payment, loose for a feed."
+          "why": "With `W=1`, `R=1`, and `N=3`, the read and write sets can be disjoint, so a read may return an older value. One reachable replica can still serve each operation, providing low latency and higher availability at the cost of freshness."
         },
         {
           "id": "cm-4-3",
           "type": "tradeoff_slider",
-          "prompt": "You're designing 'items remaining in stock' shown during checkout for a limited product drop. Slide toward your model.",
+          "prompt": "You're atomically reserving the last item during checkout for a limited product drop. Slide toward your model.",
           "leftLabel": "Strong (coordinate; slower, can refuse)",
           "rightLabel": "Eventual (fast, may oversell)",
           "answerRange": [
             0,
             35
           ],
-          "why": "Overselling a limited drop is a real-world commitment you cannot take back — you take money for something that doesn't exist and then apologize to strangers. Coordination on the decrement is worth the latency here, precisely because the wrong answer creates an obligation. Contrast the same number on a browsing page, where stale stock costs nothing: the data is identical and the cost of being wrong is not."
+          "why": "An inventory reservation authorizes a sale, so concurrent attempts for the last item must be ordered against the same current stock state. Coordination adds latency and may refuse requests during faults, but it prevents two successful reservations from consuming one unit. A display-only count could instead tolerate bounded staleness."
         },
         {
           "id": "cm-4-4",
@@ -394,7 +723,7 @@
             "It's actually fine"
           ],
           "answer": 1,
-          "why": "Last-write-wins quietly assumes a shared global clock, and there isn't one — clocks drift, get corrected, and disagree by more than the interval between two writes. A machine running slightly fast can stamp a write far in the future and win every conflict for hours. This is why serious systems use logical clocks or version vectors, which order events by causality instead of trusting a wall clock nobody agrees on."
+          "why": "Physical clocks on different nodes drift and can be corrected, so timestamps may not reflect causal or real-time write order. A fast clock can make one value win later conflicts; logical clocks or version vectors track event order without assuming synchronized wall clocks."
         },
         {
           "id": "cm-4-5",
@@ -407,7 +736,7 @@
             "Only at very large scale"
           ],
           "answer": 1,
-          "why": "Consistency is a property of an operation on a piece of data, not a badge worn by a company — so forcing one model everywhere means either overpaying for your feed or under-protecting your money. Mixing deliberately is the mature position, and the work is knowing which data is which, which is a product question rather than a database one."
+          "why": "Consistency requirements apply to particular operations and data. A system can coordinate balances strongly while replicating feeds eventually, matching each model's latency and availability cost to the consequence of an anomaly."
         },
         {
           "id": "cm-4-6",
@@ -420,7 +749,21 @@
             "It's the database's decision"
           ],
           "answer": 1,
-          "why": "Every model is a deal — fewer legal surprises in exchange for latency and availability — and 'strongest affordable' is the wrong instinct because it pays for guarantees nobody would have missed. This is the same question the course has asked since unit 5, now with formal names: you have copies, copies can disagree, and the model is you deciding exactly how much disagreement is allowed to reach a user."
+          "why": "A consistency model defines which disagreement among copies may reach a read. Stronger guarantees exclude more anomalies through coordination, while weaker guarantees can reduce latency and remain available through more failures; requirements should select the minimum sufficient guarantee."
+        },
+        {
+          "id": "xfer-consistency",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A user edits a document title, then immediately reloads and sees the old title from another replica. Which session guarantee is missing?",
+          "choices": [
+            "Write durability only",
+            "Global total order for every user",
+            "Read-your-writes",
+            "Eventual convergence"
+          ],
+          "answer": 2,
+          "why": "The user's own later read failed to include their completed write. Read-your-writes can be provided through sticky routing, version tokens, or waiting for a sufficiently advanced replica."
         }
       ]
     }

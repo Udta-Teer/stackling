@@ -1,0 +1,978 @@
+{
+  "unitId": "design-cloud-file-storage",
+  "tier": 5,
+  "title": "Design Cloud File Storage",
+  "subtitle": "Separate file bytes, metadata, synchronization, sharing, and recovery",
+  "objectives": [
+    "Design direct multipart upload and download paths",
+    "Model file metadata and immutable versions",
+    "Synchronize changes across devices",
+    "Enforce sharing and deletion consistently"
+  ],
+  "lessons": [
+    {
+      "id": "files-1",
+      "title": "Bytes and metadata have different paths",
+      "exercises": [
+        {
+          "id": "files-1-0",
+          "type": "concept",
+          "title": "Large file bytes belong in object storage; transactional metadata belongs in a database",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "m",
+                "label": "Metadata API",
+                "sub": "names · owners · versions",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Metadata DB",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "o",
+                "label": "Object storage",
+                "sub": "file bytes",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "m",
+                "kind": "request"
+              },
+              {
+                "from": "m",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "c",
+                "to": "o",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "Store names, ownership, folder relationships, versions, and permissions as transactional metadata. Store large immutable byte objects in object storage and let clients transfer them directly using short-lived scoped upload or download authorization.",
+          "note": "A metadata row should reference a completed object version; incomplete uploads need expiry and cleanup."
+        },
+        {
+          "id": "files-change-1",
+          "type": "system_change",
+          "prompt": "A 10GB upload passes through the API fleet, exhausting bandwidth and failing after 9GB. Move bytes off the application path and make parts resumable.",
+          "actionLabel": "Use multipart direct upload",
+          "choices": [
+            "Increase API request timeout",
+            "Issue scoped multipart upload URLs to object storage",
+            "Store the file in one database row"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A longer timeout preserves the bandwidth bottleneck and restarts large failures.",
+            "Multipart direct upload removes API byte forwarding and retries only failed parts.",
+            "A relational row is a poor path for a 10GB transfer and does not make it resumable."
+          ],
+          "beforeStatus": "API EGRESS · 10GB per upload · retry restarts from zero",
+          "afterStatus": "API EGRESS · metadata only · failed parts resume independently",
+          "result": "The data plane bypasses the application fleet",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "10GB",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "API",
+                "sub": "forwards bytes",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "o",
+                "label": "Storage",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "o",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "multipart",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "API",
+                "sub": "scoped authorization",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "o",
+                "label": "Object storage",
+                "sub": "direct parts",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "c",
+                "to": "o",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "The API authorizes an object key and constraints, while the client sends parts directly to storage. Completion verifies all parts before publishing metadata; abandoned multipart uploads require lifecycle cleanup."
+        },
+        {
+          "id": "design-cloud-file-storage-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A 10GB upload passes through the API fleet, exhausting bandwidth and failing after 9GB. Move bytes off the application path and make parts resumable. Place API, Object storage. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "multipart",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "sub": "scoped authorization",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "o",
+                "sub": "direct parts",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "c",
+                "to": "o",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "API",
+            "Object storage",
+            "Metadata API",
+            "Metadata DB"
+          ],
+          "answer": {
+            "a": "API",
+            "o": "Object storage"
+          },
+          "why": "The completed diagram contains these directed flows: Client → API; Client → Object storage. That topology is the evidence for the answer: The API authorizes an object key and constraints, while the client sends parts directly to storage. Completion verifies all parts before publishing metadata; abandoned multipart uploads require lifecycle cleanup.",
+          "connectEdges": true
+        },
+        {
+          "id": "files-1-1",
+          "type": "build_diagram",
+          "prompt": "Build the upload control and data paths.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "c",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Metadata API",
+            "Metadata DB",
+            "Object storage",
+            "Shared session memory"
+          ],
+          "answer": {
+            "h1": "Metadata API",
+            "h2": "Metadata DB",
+            "h3": "Object storage"
+          },
+          "why": "The client uses the API for identity, metadata, and scoped transfer authorization, while bytes travel directly to object storage and metadata commits to the database."
+        }
+      ]
+    },
+    {
+      "id": "files-2",
+      "title": "Versions and synchronization",
+      "exercises": [
+        {
+          "id": "files-2-0",
+          "type": "concept",
+          "title": "Immutable file versions make synchronization and recovery explicit",
+          "body": "Each completed upload creates a version identifier and advances the file's current-version pointer conditionally. Devices synchronize from a change cursor, download missing versions, and detect concurrent edits instead of silently overwriting them.",
+          "note": "Content hashes can deduplicate bytes, but ownership, encryption, retention, and side-channel requirements determine whether cross-user deduplication is acceptable."
+        },
+        {
+          "id": "files-change-2",
+          "type": "system_change",
+          "prompt": "Two offline devices edit version 7 and both upload version 8. Prevent the second completion from silently overwriting the first.",
+          "actionLabel": "Use a conditional version advance",
+          "choices": [
+            "Last wall-clock timestamp wins silently",
+            "Advance current version only if it is still 7; otherwise create a conflict",
+            "Delete both uploads"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Device clocks and arrival order can discard a valid edit without notice.",
+            "A compare-and-set detects the concurrent branch and preserves both versions for resolution.",
+            "Deleting both loses recoverable work."
+          ],
+          "beforeStatus": "CONCURRENT EDIT · one version silently disappears",
+          "afterStatus": "CONCURRENT EDIT · one advance wins · second becomes conflict copy",
+          "result": "Concurrent edits are preserved and visible",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Device A",
+                "sub": "from v7",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Device B",
+                "sub": "from v7",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "f",
+                "label": "Current pointer",
+                "sub": "blind overwrite",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "f",
+                "kind": "data"
+              },
+              {
+                "from": "b",
+                "to": "f",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Device A",
+                "sub": "v8 wins",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Device B",
+                "sub": "conflict retained",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "f",
+                "label": "Compare current=v7",
+                "sub": "single winner",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "f",
+                "kind": "data"
+              },
+              {
+                "from": "b",
+                "to": "f",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "why": "Conditional metadata update provides one winner without deleting the other immutable byte object. The product can present a conflict copy or perform a domain-specific merge for mergeable formats."
+        },
+        {
+          "id": "design-cloud-file-storage-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Two offline devices edit version 7 and both upload version 8. Prevent the second completion from silently overwriting the first. Place Compare current=v7. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Device A",
+                "sub": "v8 wins",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Device B",
+                "sub": "conflict retained",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "f",
+                "sub": "single winner",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "f",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "f",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Compare current=v7",
+            "Client",
+            "Metadata API"
+          ],
+          "answer": {
+            "f": "Compare current=v7"
+          },
+          "why": "The completed diagram contains these directed flows: Device A → Compare current=v7; Device B → Compare current=v7. That topology is the evidence for the answer: Conditional metadata update provides one winner without deleting the other immutable byte object. The product can present a conflict copy or perform a domain-specific merge for mergeable formats."
+        },
+        {
+          "id": "files-2-1",
+          "type": "order_steps",
+          "prompt": "Build a device synchronization cycle.",
+          "steps": [
+            "Send the device's last change cursor",
+            "Receive metadata changes after that cursor",
+            "Download missing immutable versions",
+            "Apply local changes and surface conflicts",
+            "Persist the new cursor after successful application"
+          ],
+          "why": "The cursor provides incremental ordering, immutable versions make downloads repeatable, and saving progress after application prevents acknowledging changes the device did not install."
+        }
+      ]
+    },
+    {
+      "id": "files-3",
+      "title": "Sharing, deletion, and recovery",
+      "exercises": [
+        {
+          "id": "files-3-0",
+          "type": "concept",
+          "title": "Sharing grants access to metadata and bytes through one authoritative policy",
+          "body": "A share records principal, resource, allowed actions, and expiry. Download authorization checks the current policy before issuing a short-lived object URL; revocation stops new URLs while existing URLs remain valid only for their bounded lifetime.",
+          "note": "Soft deletion and version retention support recovery, while legal or user-requested erasure needs a defined purge workflow across replicas and backups."
+        },
+        {
+          "id": "files-3-1",
+          "type": "multi_select",
+          "prompt": "Which controls belong on a public share link? Select all.",
+          "choices": [
+            "High-entropy identifier",
+            "Optional expiry and password policy",
+            "Rate and abuse controls",
+            "Permanent administrator access"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "High-entropy identifiers, bounded lifetime, optional additional proof, and abuse limits reduce exposure. A share should grant only the intended file actions, never administrative authority."
+        },
+        {
+          "id": "files-3-2",
+          "type": "tradeoff_slider",
+          "prompt": "A deleted project folder must be recoverable for 30 days, then permanently erased from active recovery systems. Choose the retention emphasis.",
+          "leftLabel": "Immediate purge everywhere",
+          "rightLabel": "Versioned soft delete with scheduled verified purge",
+          "answerRange": [
+            70,
+            100
+          ],
+          "why": "A 30-day recovery requirement needs retained versions and deletion metadata, followed by a scheduled purge whose completion is verified across active copies and applicable backup-retention policy."
+        }
+      ]
+    },
+    {
+      "id": "files-pool-sim",
+      "title": "Multipart upload needs bounded worker capacity",
+      "exercises": [
+        {
+          "id": "files-pool-sim-card",
+          "type": "concept",
+          "title": "Uploaded bytes are not committed file versions",
+          "body": "Chunk workers hash and verify uploaded objects before metadata can reference them. If verification throughput falls below chunk arrivals, uploads finish transferring but wait for publication. Worker capacity and metadata correctness are separate gates.",
+          "note": "Retries use stable chunk identities so verification and object writes remain repeatable."
+        },
+        {
+          "id": "files-pool-sim-0",
+          "type": "simulate",
+          "prompt": "Clients submit 1,200 chunk uploads/sec. One verification worker hashes and commits 150 chunks/sec. Choose the *fewest* workers that keep up.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "chunks",
+                "label": "Uploaded chunks",
+                "col": 0,
+                "kind": "storage"
+              },
+              {
+                "id": "route",
+                "label": "Verification queue",
+                "col": 1,
+                "kind": "queue"
+              },
+              {
+                "id": "workers",
+                "label": "Hash + commit workers",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "chunks",
+                "to": "route",
+                "kind": "event"
+              },
+              {
+                "from": "route",
+                "to": "workers",
+                "kind": "event"
+              }
+            ]
+          },
+          "sim": {
+            "input": 1200,
+            "inputLabel": "Chunks/sec",
+            "chain": [
+              "route",
+              "workers"
+            ],
+            "capacity": {},
+            "watch": "workers",
+            "watchLabel": "Chunks / worker capacity",
+            "absorb": {
+              "node": "route",
+              "label": "Verification workers",
+              "min": 1,
+              "max": 12,
+              "start": 1,
+              "unit": " workers"
+            },
+            "model": {
+              "kind": "pool",
+              "servicePerUnit": 150
+            }
+          },
+          "answerRange": [
+            8,
+            8
+          ],
+          "why": "Seven workers verify 1,050 chunks/sec and fall behind. Eight match 1,200. Hashing capacity does not prove the object is publishable; metadata commits only after every referenced chunk is verified."
+        }
+      ]
+    },
+    {
+      "id": "files-x",
+      "title": "Chunks, conflicts, and revocation",
+      "exercises": [
+        {
+          "id": "files-x-0",
+          "type": "concept",
+          "title": "Chunking saves bandwidth but changes the security boundary",
+          "body": "A client can split a file into content-addressed chunks and upload only missing bytes. Global cross-user deduplication can reveal that another account already owns a guessed file, so privacy-sensitive systems scope deduplication to one tenant or avoid exposing existence through the API.",
+          "note": "Encryption also changes deduplication: randomized per-user ciphertext intentionally prevents equal plaintext from producing equal stored chunks."
+        },
+        {
+          "id": "files-x-1",
+          "type": "multiple_choice",
+          "prompt": "An upload API tells any user that a chunk hash already exists, so no upload is needed. What can an attacker learn?",
+          "choices": [
+            "Whether a guessed file already exists in the deduplication domain",
+            "The database password",
+            "The user's current download speed",
+            "Nothing—the hash hides existence"
+          ],
+          "answer": 0,
+          "why": "The attacker hashes a known candidate and probes its chunks. A positive existence response becomes a membership oracle even without revealing the bytes; tenant-scoped deduplication or proof-of-ownership controls reduce that leak."
+        },
+        {
+          "id": "files-x-2",
+          "type": "multi_select",
+          "prompt": "Two offline devices edit version 12 and reconnect with different version 13 contents. Which responses preserve both user edits? Select all.",
+          "choices": [
+            "Create two conflict versions with their common base",
+            "Use application-aware merge when the file format supports it",
+            "Silently keep whichever upload arrives last",
+            "Record lineage so the user can resolve the conflict"
+          ],
+          "answer": [
+            0,
+            1,
+            3
+          ],
+          "why": "Concurrent edits share a base but neither descends from the other. Preserving both versions or applying a valid semantic merge avoids silently discarding one user's work; lineage makes the conflict explainable and recoverable."
+        },
+        {
+          "id": "files-x-3",
+          "type": "build_diagram",
+          "prompt": "Build a resumable chunk upload. The client checks which hashes are missing, uploads only those chunks, then commits metadata that references the complete verified set.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client chunker",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "h4",
+                "col": 4,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "h4",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Missing-hash check",
+            "Chunk object upload",
+            "Completeness verification",
+            "Metadata version commit",
+            "Public existence oracle",
+            "Mutable shared file block"
+          ],
+          "answer": {
+            "h1": "Missing-hash check",
+            "h2": "Chunk object upload",
+            "h3": "Completeness verification",
+            "h4": "Metadata version commit"
+          },
+          "why": "The check avoids retransmitting stored chunks, object upload creates immutable bytes, verification proves every referenced chunk exists, and only then does metadata publish the new version."
+        }
+      ]
+    },
+    {
+      "id": "files-4",
+      "title": "Review the complete storage system",
+      "exercises": [
+        {
+          "id": "files-4-0",
+          "type": "concept",
+          "title": "A file operation commits metadata only after its immutable byte object is complete",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "o",
+                "label": "Object version",
+                "sub": "uploaded + verified",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "m",
+                "label": "Metadata commit",
+                "sub": "current version pointer",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "e",
+                "label": "Change event",
+                "sub": "sync devices",
+                "col": 3,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "o",
+                "kind": "data"
+              },
+              {
+                "from": "o",
+                "to": "m",
+                "kind": "data"
+              },
+              {
+                "from": "m",
+                "to": "e",
+                "kind": "event"
+              }
+            ]
+          },
+          "body": "The client uploads immutable bytes under a version-specific object key. Completion verifies size and checksum, then a conditional metadata transaction advances the file's current-version pointer and records a change cursor. Devices never discover a current version that references an incomplete object.",
+          "note": "Abandoned objects are expected temporary state. A lifecycle job removes objects that were never referenced by a committed metadata version after a safe grace period."
+        },
+        {
+          "id": "files-review-change",
+          "type": "system_change",
+          "prompt": "Metadata is committed before multipart upload completion. Readers discover version 12, but two parts are still missing.",
+          "actionLabel": "Publish after object verification",
+          "choices": [
+            "Let readers retry forever",
+            "Verify completion and checksum before conditionally advancing metadata",
+            "Copy every upload through the API"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Retries cannot manufacture missing bytes and expose an invalid current version.",
+            "Verification establishes a complete immutable object before metadata makes it visible.",
+            "Proxying bytes changes the bandwidth path but does not fix publication order."
+          ],
+          "beforeStatus": "VERSION 12 · visible · object incomplete",
+          "afterStatus": "OBJECT VERIFIED · metadata advances 11 → 12",
+          "result": "Every published version references complete bytes",
+          "viz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Metadata v12",
+                "sub": "published first",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "o",
+                "label": "Object",
+                "sub": "missing parts",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "o",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Object",
+                "sub": "complete + checksum",
+                "col": 0,
+                "kind": "storage"
+              },
+              {
+                "id": "m",
+                "label": "Metadata v12",
+                "sub": "conditional publish",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "m",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "The byte object and metadata live in different systems, so there is no cross-system transaction to make both visible atomically. Publication order creates the invariant: incomplete objects may exist privately, but committed current-version metadata references only verified objects."
+        },
+        {
+          "id": "design-cloud-file-storage-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Metadata is committed before multipart upload completion. Readers discover version 12, but two parts are still missing. Place Object, Metadata v12. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "o",
+                "sub": "complete + checksum",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "m",
+                "sub": "conditional publish",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "m",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Object",
+            "Metadata v12",
+            "Client",
+            "Metadata API"
+          ],
+          "answer": {
+            "o": "Object",
+            "m": "Metadata v12"
+          },
+          "why": "The completed diagram contains these directed flows: Object → Metadata v12. That topology is the evidence for the answer: The byte object and metadata live in different systems, so there is no cross-system transaction to make both visible atomically. Publication order creates the invariant: incomplete objects may exist privately, but committed current-version metadata references only verified objects."
+        },
+        {
+          "id": "files-4-1",
+          "type": "match_pairs",
+          "prompt": "Match each authoritative metadata field to the invariant it supports.",
+          "pairs": [
+            {
+              "left": "`file_id`",
+              "right": "Stable identity across renames and versions"
+            },
+            {
+              "left": "`current_version_id`",
+              "right": "Names the immutable byte version readers should fetch"
+            },
+            {
+              "left": "`parent_folder_id`",
+              "right": "Defines the current namespace relationship"
+            },
+            {
+              "left": "`change_sequence`",
+              "right": "Lets devices request changes after a durable cursor"
+            }
+          ],
+          "why": "Names and paths can change, so file identity must not be the display path. The current pointer chooses immutable bytes, the parent defines hierarchy, and an ordered change sequence drives incremental synchronization."
+        },
+        {
+          "id": "files-4-2",
+          "type": "build_diagram",
+          "prompt": "Build the download path without proxying large bytes through the metadata API.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "o",
+                "label": "Object storage",
+                "sub": "file bytes",
+                "col": 3,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "c",
+                "to": "o",
+                "kind": "data"
+              }
+            ]
+          },
+          "palette": [
+            "Metadata API · authorize version",
+            "Short-lived scoped URL",
+            "Shared administrator key",
+            "Queue worker"
+          ],
+          "answer": {
+            "h1": "Metadata API · authorize version",
+            "h2": "Short-lived scoped URL"
+          },
+          "why": "The API checks current permissions and selects the allowed immutable version, then issues bounded authorization. The client presents that authorization directly to storage, keeping bulk byte transfer off the application fleet."
+        },
+        {
+          "id": "files-4-3",
+          "type": "multi_select",
+          "prompt": "A review finds path names used as primary keys, mutable objects overwritten in place, and sync cursors advanced before applying changes. Which failures follow? Select all.",
+          "choices": [
+            "Renaming a folder rewrites descendant identity",
+            "Concurrent edits can silently destroy the previous bytes",
+            "A crash can skip changes the device acknowledged but never applied",
+            "Object storage becomes strongly transactional"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Path identity makes rename proportional to the subtree. In-place mutation removes a stable base for conflict and recovery, while advancing a cursor before application can permanently skip work after a crash. None of these choices creates cross-system transactions."
+        },
+        {
+          "id": "xfer-files",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A medical-image service globally deduplicates chunks and tells users when a hash already exists. What privacy risk appears?",
+          "choices": [
+            "Multipart upload becomes impossible",
+            "A user can probe whether a guessed image exists",
+            "The image automatically becomes public",
+            "Checksums stop detecting corruption"
+          ],
+          "answer": 1,
+          "why": "An existence response acts as a membership oracle for known candidate content. Tenant-scoped deduplication or proof-of-ownership controls reduce cross-user probing."
+        }
+      ]
+    }
+  ]
+}

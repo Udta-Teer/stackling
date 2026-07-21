@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Stackling · Content accuracy audit</title>
+  <style>
+    :root{--bg:#08111f;--card:#101d30;--line:#263952;--ink:#edf5ff;--muted:#a9bad0;--blue:#62b5ff;--green:#63dfa4;--amber:#ffc86b;--red:#ff7d8f}
+    *{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#08111f,#0d1829 55%,#101b2a);color:var(--ink);font:15px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    main{width:min(1080px,calc(100% - 32px));margin:48px auto 80px}.eyebrow{color:var(--blue);font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:12px}h1{font-size:clamp(34px,6vw,62px);line-height:1.02;margin:10px 0 18px;max-width:850px}h2{margin:42px 0 14px;font-size:25px}p{color:var(--muted);max-width:820px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:28px 0}.stat,.card{background:rgba(16,29,48,.9);border:1px solid var(--line);border-radius:18px}.stat{padding:18px}.stat b{display:block;font-size:28px;color:var(--green)}.stat span{color:var(--muted)}.card{padding:22px;margin:12px 0}.card h3{margin:0 0 6px;font-size:17px}.card p{margin:0}.bad{color:var(--red)}.fixed{color:var(--green)}code{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;background:#07101c;border:1px solid #29415d;border-radius:6px;padding:2px 5px;color:#9ed1ff}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.gate{border-left:4px solid var(--blue)}.caveat{border-left:4px solid var(--amber)}@media(max-width:760px){main{margin-top:28px}.summary,.grid{grid-template-columns:1fr 1fr}}@media(max-width:460px){.summary,.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">Stackling · adversarial review</div>
+  <h1>The prototype could grade the wrong architecture perfectly.</h1>
+  <p>This audit reviewed the complete 44-unit source, prioritizing the 130 architecture interactions, all numerical exercises, topology arrows, ordered workflows, terminology matches, and high-confidence answer keys. The objective was technical truth, not grammatical polish.</p>
+
+  <section class="summary">
+    <div class="stat"><b>1,014</b><span>exercises scanned</span></div>
+    <div class="stat"><b>130</b><span>architecture labs reviewed</span></div>
+    <div class="stat"><b>30+</b><span>content defects corrected</span></div>
+    <div class="stat"><b>194</b><span>browser checks passing</span></div>
+  </section>
+
+  <h2>Highest-risk defects corrected</h2>
+  <div class="grid">
+    <article class="card"><h3>Rate-limiter request path</h3><p><span class="bad">Before:</span> the token-bucket shard forwarded the API request and 500k checks/sec had no shard capacity. <span class="fixed">Now:</span> six explicitly sized shards return decisions to the gateway; only the gateway calls the backend after <code>ALLOW</code>.</p></article>
+    <article class="card"><h3>Passive stores acting like proxies</h3><p>Idempotency stores, connection registries, and caches were drawn forwarding payments, messages, or reads. The caller now queries state and performs the subsequent action itself.</p></article>
+    <article class="card"><h3>Missing components</h3><p>The “cache-first redirect” card had no cache, the connection-registry card had no registry, and the source-of-truth card had no propagation path. Their diagrams now depict the mechanism named by the lesson.</p></article>
+    <article class="card"><h3>Wrong arithmetic</h3><p>The observability exercise claimed the mean of 95×80ms, 4×500ms, and 1×6,000ms was 95.7ms. The correct mean is <code>156ms</code>; p99 remains 500ms.</p></article>
+    <article class="card"><h3>HTTP safety vs idempotency</h3><p><code>DELETE</code> and <code>PUT</code> were called “safe.” They are idempotent but not safe in HTTP terminology. The matching answer and explanation now teach both properties separately.</p></article>
+    <article class="card"><h3>Stateful definition</h3><p>“Stateful” was defined as “copies must agree.” A component is stateful when retained information affects later operations; replication and consistency are separate design choices.</p></article>
+    <article class="card"><h3>p99 definition</h3><p>A checkpoint called p99 “the worst 1%.” It is a threshold at or below which 99% of observations fall—not a set of requests.</p></article>
+    <article class="card"><h3>False total ordering</h3><p>Asynchronous replication and provider callbacks were presented as strict sequences. The lessons now identify optional timelines and explicitly state which events may race.</p></article>
+    <article class="card"><h3>Dual-write gaps</h3><p>Signup/email and refresh-token rotation used separate state changes. They now use atomic outbox or atomic credential-rotation transitions and explain retry behavior.</p></article>
+    <article class="card"><h3>Unsafe migration ordering</h3><p>The migration flow backfilled before explicitly enabling dual writes. It now starts compatible writes first and prevents a backfill from overwriting newer production data.</p></article>
+    <article class="card"><h3>Split-brain transfer</h3><p>A regional authority transfer treated network unreachability as sufficient. It now requires protocol-backed fencing; a timeout cannot prove the old writer stopped.</p></article>
+    <article class="card"><h3>Spatial hot-spot claim</h3><p>A neighbourhood surge was said to hit “exactly one shard.” Boundary-aware spatial queries can touch adjacent cells and partitions; the corrected answer describes a localized hot area.</p></article>
+    <article class="card"><h3>Cache absolutes</h3><p>CDN hits were described without the hit condition, and versioned filenames were said to eliminate all staleness. The revised text distinguishes asset identity from stale HTML references and cache misses.</p></article>
+    <article class="card"><h3>NoSQL folklore</h3><p>“Not only SQL” was presented as the definition. It is now described as a later expansion of a broad industry label; product data models and guarantees are what matter.</p></article>
+  </div>
+
+  <h2>Regression gates added</h2>
+  <article class="card gate"><p>The validator now rejects: <code>DELETE</code>/<code>PUT</code> mislabeled HTTP-safe, p99 described as the “worst 1%,” cache-first diagrams with no cache, shard-sizing questions with traffic but no per-shard capacity, and passive authorities drawn forwarding requests to compute.</p></article>
+
+  <h2>Verification</h2>
+  <article class="card"><p><strong>Green:</strong> JSON and schema validation, source-to-prototype synchronization, answer ranges, diagram topology structure, spoiler detection, all 12 renderers, phone-width diagram behavior, and the first-session prototype. Browser result: <strong>173 + 21 passed, 0 failed</strong>.</p></article>
+
+  <h2>Honest limitation</h2>
+  <article class="card caveat"><p>This is substantially safer, not mathematically “proven accurate.” Architecture correctness depends on assumptions and failure models that static validation cannot infer. Future content still needs adversarial human review; the new gates prevent the specific false models found here from silently returning.</p></article>
+</main></body></html>

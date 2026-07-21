@@ -1,0 +1,600 @@
+{
+  "unitId": "security-threat-modeling",
+  "tier": 5,
+  "title": "Security & Threat Modeling",
+  "subtitle": "Identify assets, attacker capabilities, trust boundaries, and controls before choosing security products",
+  "objectives": [
+    "Model concrete threats against assets and trust boundaries",
+    "Apply least privilege and defense in depth",
+    "Protect secrets and sensitive data through their complete lifecycle",
+    "Design abuse controls and security evidence"
+  ],
+  "lessons": [
+    {
+      "id": "sec-1",
+      "title": "Model the attacker and the asset",
+      "exercises": [
+        {
+          "id": "sec-1-0",
+          "type": "concept",
+          "title": "A threat model connects an asset, an attacker capability, and an attack path",
+          "viz": {
+            "nodes": [
+              {
+                "id": "x",
+                "label": "Untrusted client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Trust boundary",
+                "sub": "validate here",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "a",
+                "label": "Account data",
+                "sub": "protected asset",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "x",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "a",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "Begin with the asset to protect, who may attack it, what that actor can control, and which boundary the input crosses. A useful threat states a plausible path and consequence, allowing a control to block, detect, or limit that path.",
+          "note": "Calling a component secure is not a threat model. Name the operation, identity, data, boundary, and failure consequence."
+        },
+        {
+          "id": "sec-change-1",
+          "type": "system_change",
+          "prompt": "An upload service trusts the client-supplied filename and writes it directly under `/uploads`. Prevent a filename such as `../../config` from escaping the assigned object namespace.",
+          "actionLabel": "Generate a server-side object key",
+          "choices": [
+            "Reject filenames containing one known string",
+            "Generate an opaque object key and store the display name as metadata",
+            "Run the upload service as database administrator"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A blacklist misses alternative encodings and path forms.",
+            "An opaque server-side key removes the client string from the storage path.",
+            "Additional privilege increases the damage of a successful escape."
+          ],
+          "beforeStatus": "BOUNDARY FAILURE · client path selects server file location",
+          "afterStatus": "BOUNDARY ENFORCED · server key selects location · display name is data",
+          "result": "Untrusted presentation text no longer controls a storage path",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client filename",
+                "sub": "../../config",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "f",
+                "label": "Filesystem path",
+                "sub": "client-controlled",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "f",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client filename",
+                "sub": "metadata only",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "u",
+                "label": "Upload service",
+                "sub": "generate key",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "o",
+                "label": "Object storage",
+                "sub": "opaque key",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "u",
+                "kind": "request"
+              },
+              {
+                "from": "u",
+                "to": "o",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "The service assigns the storage identifier and treats the original filename as untrusted metadata. Canonicalization and allowlisted content rules remain necessary wherever external input influences a path, parser, command, or downstream request."
+        },
+        {
+          "id": "security-threat-modeling-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: An upload service trusts the client-supplied filename and writes it directly under `/uploads`. Prevent a filename such as `../../config` from escaping the assigned object namespace. Place Upload service, Object storage. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client filename",
+                "sub": "metadata only",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "u",
+                "sub": "generate key",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "o",
+                "sub": "opaque key",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "u",
+                "kind": "request"
+              },
+              {
+                "from": "u",
+                "to": "o",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Upload service",
+            "Object storage",
+            "Untrusted client",
+            "Trust boundary"
+          ],
+          "answer": {
+            "u": "Upload service",
+            "o": "Object storage"
+          },
+          "why": "The completed diagram contains these directed flows: Client filename → Upload service; Upload service → Object storage. That topology is the evidence for the answer: The service assigns the storage identifier and treats the original filename as untrusted metadata. Canonicalization and allowlisted content rules remain necessary wherever external input influences a path, parser, command, or downstream request.",
+          "connectEdges": true
+        },
+        {
+          "id": "sec-1-1",
+          "type": "multi_select",
+          "prompt": "Which questions make a threat concrete? Select all.",
+          "choices": [
+            "What asset is valuable?",
+            "What can the attacker control?",
+            "Which trust boundary is crossed?",
+            "Which cloud logo looks most secure?"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Assets, attacker capabilities, and trust boundaries define a testable attack path. A vendor choice can implement a control only after the threat and required property are clear."
+        },
+        {
+          "id": "sec-1-2",
+          "type": "match_pairs",
+          "prompt": "Match each security property to the failure it prevents.",
+          "pairs": [
+            {
+              "left": "Confidentiality",
+              "right": "Unauthorized disclosure"
+            },
+            {
+              "left": "Integrity",
+              "right": "Unauthorized modification"
+            },
+            {
+              "left": "Availability",
+              "right": "Loss of required access"
+            }
+          ],
+          "why": "Confidentiality restricts reading, integrity restricts undetected modification, and availability preserves required service. One incident can violate several properties at once."
+        }
+      ]
+    },
+    {
+      "id": "sec-2",
+      "title": "Least privilege and secret handling",
+      "exercises": [
+        {
+          "id": "sec-2-0",
+          "type": "concept",
+          "title": "Least privilege limits what one compromised component can do",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Image worker",
+                "sub": "read source · write result",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "s",
+                "label": "Object storage",
+                "sub": "one bucket prefix",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "p",
+                "label": "Payments",
+                "sub": "no access",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "s",
+                "kind": "data"
+              },
+              {
+                "from": "w",
+                "to": "p",
+                "kind": "blocked",
+                "label": "permission denied"
+              }
+            ]
+          },
+          "body": "Grant each workload only the actions and resources required for its current job. Scope permissions by operation, resource, environment, and lifetime so a compromised worker cannot automatically reach unrelated data or administrative functions.",
+          "note": "Least privilege reduces blast radius; it does not prevent the initial compromise or replace monitoring and recovery."
+        },
+        {
+          "id": "sec-change-2",
+          "type": "system_change",
+          "prompt": "An image-resize worker uses one account with read, write, delete, and payment-database access. Restrict the identity to its actual data path.",
+          "actionLabel": "Issue a scoped workload identity",
+          "choices": [
+            "Keep the administrator key but hide its filename",
+            "Grant read on source objects and write on one result prefix",
+            "Give every worker a separate administrator key"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Obscurity does not change the permissions available after compromise.",
+            "The scoped identity contains compromise to the worker's required object operations.",
+            "Separate administrator keys improve attribution but preserve excessive authority."
+          ],
+          "beforeStatus": "BLAST RADIUS · worker compromise reaches storage deletion and payments",
+          "afterStatus": "BLAST RADIUS · source read + result write in one object prefix",
+          "result": "Workload permissions now match the worker's responsibility",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Worker",
+                "sub": "administrator key",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "e",
+                "label": "Entire environment",
+                "sub": "broad access",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "e",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Worker identity",
+                "sub": "short-lived",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "o",
+                "label": "Image prefix",
+                "sub": "read source · write result",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "o",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "A short-lived workload identity with resource-scoped operations limits both exposure time and reachable assets. Permission review must also remove obsolete grants when the worker's role changes."
+        },
+        {
+          "id": "security-threat-modeling-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: An image-resize worker uses one account with read, write, delete, and payment-database access. Restrict the identity to its actual data path. Place Worker identity, Image prefix. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "sub": "short-lived",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "o",
+                "sub": "read source · write result",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "o",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Worker identity",
+            "Image prefix",
+            "Untrusted client",
+            "Trust boundary"
+          ],
+          "answer": {
+            "w": "Worker identity",
+            "o": "Image prefix"
+          },
+          "why": "The completed diagram contains these directed flows: Worker identity → Image prefix. That topology is the evidence for the answer: A short-lived workload identity with resource-scoped operations limits both exposure time and reachable assets. Permission review must also remove obsolete grants when the worker's role changes."
+        },
+        {
+          "id": "sec-2-1",
+          "type": "multiple_choice",
+          "prompt": "Why is encrypting a database while storing its decryption key beside it under the same unrestricted service account insufficient?",
+          "choices": [
+            "Encryption is always useless",
+            "The same compromise can retrieve both ciphertext and key, so the trust boundary did not change",
+            "Databases cannot store ciphertext",
+            "Keys never rotate"
+          ],
+          "answer": 1,
+          "why": "Encryption protects against threats that obtain the stored bytes without equivalent key access. Separating key authority, auditing use, and narrowing decrypt permission create a distinct boundary that the attacker must also cross."
+        },
+        {
+          "id": "sec-2-2",
+          "type": "order_steps",
+          "prompt": "Build a safe secret-rotation rollout.",
+          "steps": [
+            "Create a new secret version",
+            "Allow consumers to read both old and new versions during a bounded overlap",
+            "Deploy consumers that prefer the new version",
+            "Verify successful use and rollback readiness",
+            "Revoke the old version"
+          ],
+          "why": "A bounded overlap prevents an instantaneous fleet-wide dependency. Consumers move first, evidence confirms adoption, and revocation closes the old credential after rollback is no longer required."
+        }
+      ]
+    },
+    {
+      "id": "sec-3",
+      "title": "Abuse resistance and evidence",
+      "exercises": [
+        {
+          "id": "sec-3-0",
+          "type": "concept",
+          "title": "Security controls need prevention, detection, and recovery paths",
+          "body": "Preventive controls block known unsafe operations, detective controls record and alert on suspicious behavior, and recovery controls restore safe service after compromise. A design that only rejects requests cannot explain how an undetected breach is found or contained.",
+          "note": "Audit events must identify the principal, action, resource, result, and trustworthy time source without recording secrets unnecessarily."
+        },
+        {
+          "id": "sec-3-1",
+          "type": "build_diagram",
+          "prompt": "Build an account-protection path that can block abusive sign-in attempts and preserve evidence.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Sign-in request",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "i",
+                "label": "Identity service",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "h2",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "i",
+                "kind": "request"
+              },
+              {
+                "from": "i",
+                "to": "h2",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Risk-aware rate limit",
+            "Append-only security audit",
+            "CDN image cache",
+            "Read replica"
+          ],
+          "answer": {
+            "h1": "Risk-aware rate limit",
+            "h2": "Append-only security audit"
+          },
+          "why": "Admission controls slow automated abuse before expensive verification, while a protected audit trail preserves sign-in outcomes for detection and investigation. Neither control replaces strong credential verification."
+        },
+        {
+          "id": "security-threat-modeling-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Build an account-protection path that can block abusive sign-in attempts and preserve evidence.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Sign-in request",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "i",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "i",
+                "kind": "request"
+              },
+              {
+                "from": "i",
+                "to": "h2",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Risk-aware rate limit",
+            "Identity service",
+            "Append-only security audit",
+            "Untrusted client",
+            "Trust boundary"
+          ],
+          "answer": {
+            "h1": "Risk-aware rate limit",
+            "i": "Identity service",
+            "h2": "Append-only security audit"
+          },
+          "why": "The completed diagram contains these directed flows: Sign-in request → Risk-aware rate limit; Risk-aware rate limit → Identity service; Identity service → Append-only security audit. That topology is the evidence for the answer: Admission controls slow automated abuse before expensive verification, while a protected audit trail preserves sign-in outcomes for detection and investigation. Neither control replaces strong credential verification."
+        },
+        {
+          "id": "sec-3-2",
+          "type": "multi_select",
+          "prompt": "Which fields belong in a privileged-action audit event? Select all.",
+          "choices": [
+            "Authenticated principal",
+            "Action and resource identifier",
+            "Authorization result",
+            "The user's plaintext password"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "An audit event needs enough context to reconstruct who attempted which action on what resource and whether it succeeded. Recording a password creates a new credential exposure and is unnecessary evidence."
+        },
+        {
+          "id": "sec-3-3",
+          "type": "tradeoff_slider",
+          "prompt": "A public login endpoint sees credential-stuffing attacks from rotating addresses. Choose the admission-control emphasis.",
+          "leftLabel": "IP-only limits",
+          "rightLabel": "Risk signals across account, device, network, and behavior",
+          "answerRange": [
+            70,
+            100
+          ],
+          "why": "Rotating addresses defeat an IP-only quota. Combining account, device, network, and behavioral signals raises attacker cost, while controls need thresholds and recovery paths that limit false lockouts for legitimate users."
+        },
+        {
+          "id": "xfer-security",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A webhook tester fetches any URL supplied by a user. An attacker submits a cloud metadata address reachable only from the server. What threat is this?",
+          "choices": [
+            "Replica lag",
+            "Server-side request forgery across a trust boundary",
+            "Cross-site styling",
+            "A cache miss"
+          ],
+          "answer": 1,
+          "why": "The attacker makes the trusted server initiate a request to an internal destination they cannot reach directly. URL validation, network egress policy, and metadata-service protections constrain that capability."
+        }
+      ]
+    }
+  ]
+}

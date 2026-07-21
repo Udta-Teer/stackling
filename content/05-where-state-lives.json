@@ -2,7 +2,7 @@
   "unitId": "where-state-lives",
   "tier": 0,
   "title": "Where State Lives",
-  "subtitle": "State is the hard part — everything else is just compute",
+  "subtitle": "Place durable and ephemeral data according to access and failure requirements",
   "objectives": [
     "Identify what counts as state, and why stateless components are trivial to scale",
     "Map the places state can live and the speed/durability/trust tradeoff of each",
@@ -17,7 +17,7 @@
         {
           "id": "state-1-0",
           "type": "concept",
-          "title": "State is what your system must remember; compute is everything you could kill and restart",
+          "title": "State is information retained across requests or process restarts",
           "viz": {
             "nodes": [
               {
@@ -44,16 +44,172 @@
             "edges": [
               {
                 "from": "a",
-                "to": "r"
+                "to": "r",
+                "kind": "request"
               },
               {
                 "from": "a",
-                "to": "p"
+                "to": "p",
+                "kind": "data"
               }
             ]
           },
-          "body": "Some code only transforms: same input tomorrow, same answer, nothing kept in between. That's compute, the easy kind — run as many copies as you like, kill any of them, nobody notices, because no copy has to agree with any other. *State* is the opposite: data the system must remember. Copies of it have to agree, and that's where the hard problems live.",
-          "note": "Remembering nothing doesn't mean touching nothing — a renderer can chew through a 50MB file. It means nothing is *kept*: when the request ends, that copy is exactly as it was before it started."
+          "body": "A stateful component keeps information that later operations depend on. A stateless app instance may read shared databases, but no later request depends on request-specific data retained only by that instance. Any equivalent instance can therefore handle the next request.",
+          "note": "Request-local memory is compatible with stateless operation. State appears when a later request depends on data kept by a particular process or machine."
+        },
+        {
+          "id": "state-change-1",
+          "type": "system_change",
+          "prompt": "A user's cart exists only in Server A's memory. Move it to a shared durable store so either server can handle the next request.",
+          "actionLabel": "Move the cart to shared storage",
+          "beforeStatus": "FAILOVER TEST · Server A stops; the cart disappears",
+          "afterStatus": "FAILOVER TEST · Server B reads the same cart from shared storage",
+          "result": "The application servers became disposable",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "cart in memory",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "cart unavailable",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "stateless",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "stateless",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Cart store",
+                "sub": "shared state",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Shared durable storage lets any application server retrieve the cart. Moving state out of one server removes that server as the only copy; the shared store now needs its own availability and durability design."
+        },
+        {
+          "id": "where-state-lives-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: A user's cart exists only in Server A's memory. Move it to a shared durable store so either server can handle the next request. Place Server A, Server B, Cart store. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "sub": "stateless",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "stateless",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "shared state",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Server A",
+            "Server B",
+            "Cart store",
+            "Your app",
+            "Markdown renderer"
+          ],
+          "answer": {
+            "a": "Server A",
+            "b": "Server B",
+            "d": "Cart store"
+          },
+          "why": "The completed diagram contains these directed flows: User → Server B; Server A → Cart store; Server B → Cart store. That topology is the evidence for the answer: Shared durable storage lets any application server retrieve the cart. Moving state out of one server removes that server as the only copy; the shared store now needs its own availability and durability design.",
+          "connectEdges": true
         },
         {
           "id": "state-1-1",
@@ -66,7 +222,7 @@
             "Neither can be copied"
           ],
           "answer": 1,
-          "why": "The resizer is stateless: every copy is interchangeable, you can add or kill them freely, and no copy needs to agree with any other — while the profile store holds data, so its copies must somehow agree on the truth. Here's the thesis of the whole unit: almost every hard problem in system design is a state problem. Scaling stateless compute is boring — you add machines. Scaling state is where replication, sharding, consistency, and CAP all come from."
+          "why": "The image resizer is stateless because its output depends only on the current input. Any replica can process any image without coordinating stored user data, while profile-store replicas require durability and agreement about updates."
         },
         {
           "id": "state-1-2",
@@ -79,7 +235,7 @@
             "sharded"
           ],
           "answer": 0,
-          "why": "Stateless = no memory between requests = interchangeable copies, and that interchangeability is what makes horizontal scaling easy."
+          "why": "A stateless component retains no required request state between calls. Its replicas are interchangeable because the next request carries its inputs or reads shared state elsewhere."
         },
         {
           "id": "state-1-3",
@@ -96,7 +252,7 @@
             2,
             3
           ],
-          "why": "Carts, photos, and like counts are all data the system must remember; pure computation isn't state, since the same inputs always give the same output and nothing is retained. The practical test: if you restarted every server in your fleet right this second, what would be lost? That is your state — everything else is just compute, and compute is the easy part."
+          "why": "Shopping carts, uploaded photos, and like counts must persist information from earlier events, so they are state. A pure addition function retains nothing after returning its result and can recompute the same output from the same inputs."
         },
         {
           "id": "state-1-4",
@@ -109,31 +265,31 @@
             },
             {
               "left": "Stateful",
-              "right": "Copies must agree on the data"
+              "right": "Retains information that affects later operations"
             },
             {
               "left": "Source of truth",
-              "right": "The one authoritative copy"
+              "right": "The authority used to resolve disagreement"
             },
             {
               "left": "Derived copy",
               "right": "Can be rebuilt from the truth"
             }
           ],
-          "why": "These four words carry most of the unit: stateless scales freely, stateful needs coordination, the source of truth is authoritative, and derived copies are rebuildable. *Can it be rebuilt?* is the question separating a bad afternoon from a company-ending event — hold onto it, because lesson 3 is built on it."
+          "why": "A stateless component retains no private request history needed by the next operation; a stateful component does retain such information. If state is copied, the design then needs explicit consistency rules, but having multiple copies is not part of the definition of stateful. A source of truth resolves disagreement, while a derived copy can be rebuilt from that authority."
         },
         {
           "id": "state-1-5",
           "type": "multiple_choice",
-          "prompt": "Architects often say 'push state to the edges.' What does that mean?",
+          "prompt": "Why do horizontally scaled app servers usually keep durable shared state in a database or shared store?",
           "choices": [
-            "Put servers physically near users",
-            "Keep the middle tier stateless and interchangeable, concentrating state in a few systems built to handle it",
+            "It makes every request stay on one app server",
+            "It keeps app servers interchangeable while specialized stores coordinate persistence and shared access",
             "State should be avoided entirely",
             "Move all data to the client"
           ],
           "answer": 1,
-          "why": "You want a thin, stateless middle you can scale at will, with state concentrated in a small number of specialists (databases, caches) designed for the hard parts. This is why the classic 3-tier architecture exists at all: a stateless web/app tier you scale by adding boxes, plus a stateful data tier that's difficult, expensive, and carefully managed. The entire shape of the architecture is organized around quarantining state."
+          "why": "When durable shared state lives in a database or shared store, any app server can load it and handle the next request. The compute tier stays replaceable, while components designed for persistence and coordination enforce the required durability and consistency."
         },
         {
           "id": "state-1-6",
@@ -146,7 +302,7 @@
             "It's written in a different language"
           ],
           "answer": 1,
-          "why": "Disposability is the superpower: deploys, autoscaling, crashes, and rolling restarts all become non-events when no instance holds anything anyone needs. Every ops practice you like — blue/green deploys, autoscaling, chaos testing, spot instances — quietly depends on instances being disposable, and the moment state sneaks into an instance, all of it gets harder at once."
+          "why": "A stateless instance holds no unique required data, so replacement, autoscaling, and rolling deployment do not require state transfer or user affinity. A stateful instance needs preservation, replication, or recovery before it can disappear safely."
         }
       ]
     },
@@ -157,7 +313,7 @@
         {
           "id": "state-2-0",
           "type": "concept",
-          "title": "State has to live somewhere, and every somewhere charges a different price",
+          "title": "State placement determines durability, visibility, latency, and trust",
           "viz": {
             "nodes": [
               {
@@ -192,20 +348,160 @@
             "edges": [
               {
                 "from": "c",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               },
               {
                 "from": "s",
-                "to": "ca"
+                "to": "ca",
+                "kind": "data"
               },
               {
                 "from": "s",
-                "to": "db"
+                "to": "db",
+                "kind": "data"
               }
             ]
           },
-          "body": "State has to live somewhere, and there are only about four places: the client, a server's own RAM, a shared cache, a database on disk. Judge each on four axes: how fast, how durable (what survives a restart), who else can see it, and whether you can trust what comes back. Those four answers *are* the place's personality.",
-          "note": "Read those four axes again and notice what's missing: no single place is fast *and* durable *and* shared *and* trustworthy. Choosing where state lives always means deciding which of those you can do without."
+          "body": "Client storage, process memory, a shared in-memory store, and a disk-backed database provide different guarantees. Evaluate a value by whether it must survive restarts, which instances must read it, acceptable access latency, and whether the writer is trusted.",
+          "note": "Treat client-provided values as untrusted. Authenticate the caller, authorize the action, validate the input, and obtain price, inventory, and permissions from server-controlled truth."
+        },
+        {
+          "id": "state-change-2",
+          "type": "system_change",
+          "prompt": "A login session exists only in Server A's memory. The next request lands on Server B and appears logged out. Move the session where both servers can read it.",
+          "actionLabel": "Use a shared session store",
+          "choices": [
+            "Enable sticky sessions",
+            "Add two more stateless servers",
+            "Move sessions to a shared store"
+          ],
+          "answer": 2,
+          "choiceFeedback": [
+            "Stickiness can hide the problem during normal routing, but losing Server A still loses its in-memory sessions.",
+            "More servers create more places where the session is absent.",
+            "A shared store makes the session available to every application server."
+          ],
+          "beforeStatus": "REQUEST ON SERVER B · session missing",
+          "afterStatus": "REQUEST ON SERVER B · session loaded · user remains signed in",
+          "result": "The session stopped depending on one server's memory",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "session here",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "session missing",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "s",
+                "label": "Session store",
+                "sub": "shared",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "s",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Shared session storage lets any application server load the same session. Signed client tokens are another option when their contents and revocation model fit the security requirements."
+        },
+        {
+          "id": "where-state-lives-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A login session exists only in Server A's memory. The next request lands on Server B and appears logged out. Move the session where both servers can read it. Place Server B, Session store. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "s",
+                "sub": "shared",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Server B",
+            "Session store",
+            "Your app",
+            "Markdown renderer"
+          ],
+          "answer": {
+            "b": "Server B",
+            "s": "Session store"
+          },
+          "why": "The completed diagram contains these directed flows: User → Server B; Server B → Session store. That topology is the evidence for the answer: Shared session storage lets any application server load the same session. Signed client tokens are another option when their contents and revocation model fit the security requirements."
         },
         {
           "id": "state-2-1",
@@ -218,7 +514,7 @@
             "Neither survives"
           ],
           "answer": 1,
-          "why": "RAM is volatile — a restart wipes it instantly — while disk is durable, so the database still has the data. This is the very first question to ask about any state: does it need to survive a crash? Durability is a spectrum you pay for: RAM is fastest and dies on restart; local disk survives a process crash but not a dead machine; replicated disk survives a machine; cross-region replication survives a whole datacenter. Every rung costs you."
+          "why": "Server RAM is volatile and loses its contents when the process or machine restarts. A database on durable storage records committed data beyond process lifetime, although surviving a machine or site failure additionally requires replication."
         },
         {
           "id": "state-2-2",
@@ -227,7 +523,7 @@
           "pairs": [
             {
               "left": "Client (cookie/token)",
-              "right": "Travels with the user, can't be trusted"
+              "right": "Controlled by the client; integrity must be verified before trust"
             },
             {
               "left": "Server RAM",
@@ -235,14 +531,14 @@
             },
             {
               "left": "Shared cache (Redis)",
-              "right": "Fast, shared by all servers, usually volatile"
+              "right": "Low-latency shared state, commonly treated as disposable"
             },
             {
               "left": "Database (disk)",
-              "right": "Durable source of truth, slowest"
+              "right": "Durable shared records with query and constraint support"
             }
           ],
-          "why": "Four places, four personalities — and the whole design skill is matching the state to the place whose tradeoffs you can live with. Notice the ladder running through it: speed, durability, shared-ness, trust, and no option gives you all four. There is no place that is fast, durable, shared, and free, so choosing means giving something up on purpose."
+          "why": "Client state travels with the caller but is caller-controlled, server RAM is fast and volatile, a shared cache gives low-latency cross-server access with limited durability, and a database prioritizes durable authoritative storage. Placement follows the required trust, sharing, latency, and survival properties."
         },
         {
           "id": "state-2-3",
@@ -255,7 +551,7 @@
             "There's no danger; it saves a database call"
           ],
           "answer": 1,
-          "why": "Anything living on the client is under the user's control — they can open dev tools and change it — so client state is never trustworthy for anything involving money, permissions, or security. The rule: client-held state is a convenience or a cache, never the source of truth for anything that matters. If you must put something sensitive there, sign it so tampering is detectable, which is precisely what a JWT's signature is for: the client carries the data but can't forge it."
+          "why": "The user controls cookie contents and can modify an unsigned total before sending it back. The server must calculate or verify prices from trusted data; a signature can detect tampering but does not make arbitrary client-provided values authoritative."
         },
         {
           "id": "state-2-4",
@@ -272,7 +568,7 @@
             1,
             3
           ],
-          "why": "Redis is fast and shared — excellent reasons — but it's typically volatile, so it is emphatically not the place for the only copy of data you can't afford to lose. Caches should hold derived state, rebuildable from the source of truth: the moment data exists ONLY in your cache, you've turned your cache into a database without any of a database's durability guarantees, and teams discover this during the first unplanned Redis restart."
+          "why": "An in-memory shared cache gives all app servers low-latency access and can absorb repeated reads that would reach the database. Because cache entries may be evicted or lost, critical data still needs a durable source from which the cache can be rebuilt."
         },
         {
           "id": "state-2-5",
@@ -285,7 +581,7 @@
             "Only if it's been there over a minute"
           ],
           "answer": 1,
-          "why": "Work-in-progress is state: if the queue loses that message, the work simply vanishes — an order never ships, an email never sends, and nothing errors. This is exactly why real queues persist messages to disk and wait for an explicit acknowledgement before deleting them. At-least-once delivery exists because in-flight state is state, and it's why consumers must be idempotent, the property you met in unit 2."
+          "why": "The queued message represents work the system has accepted but not completed, so losing it changes the outcome. Durable queues retain the message until a consumer acknowledges successful processing; redelivery then requires idempotent handling."
         },
         {
           "id": "state-2-6",
@@ -298,7 +594,7 @@
             "Is it JSON or binary?"
           ],
           "answer": 1,
-          "why": "Those two questions — what's lost, and who must read it — decide durability and sharing, and those two decide the place; everything else is detail. Run it on examples: a rebuildable computed value nobody else needs? Local memory is perfect. A payment record? Durable, replicated, shared. Same question, opposite answers, and you got there without a single technology name."
+          "why": "The consequence of loss determines durability requirements, and the set of readers determines whether storage must be shared. Those constraints eliminate unsuitable placements before language, encoding, or implementation details matter."
         }
       ]
     },
@@ -309,43 +605,123 @@
         {
           "id": "state-3-0",
           "type": "concept",
-          "title": "Every copy is a copy of something allowed to change without telling it",
+          "title": "A source of truth is authoritative; derived copies require synchronization",
           "viz": {
             "nodes": [
               {
-                "id": "a",
-                "label": "App",
+                "id": "w",
+                "label": "Accepted write",
                 "col": 0,
                 "kind": "client"
               },
               {
-                "id": "c",
-                "label": "Cache",
-                "sub": "may be stale",
-                "col": 1,
-                "kind": "cache"
-              },
-              {
                 "id": "d",
                 "label": "Database",
-                "sub": "the truth",
+                "sub": "authority",
                 "col": 1,
                 "kind": "db"
+              },
+              {
+                "id": "p",
+                "label": "Refresh / invalidate",
+                "sub": "can be delayed or lost",
+                "col": 2,
+                "kind": "queue"
+              },
+              {
+                "id": "c",
+                "label": "Derived copies",
+                "sub": "cache · replica · index",
+                "col": 3,
+                "kind": "cache"
               }
             ],
             "edges": [
               {
-                "from": "a",
-                "to": "c"
+                "from": "w",
+                "to": "d",
+                "kind": "data"
               },
               {
-                "from": "a",
-                "to": "d"
+                "from": "d",
+                "to": "p",
+                "kind": "event"
+              },
+              {
+                "from": "p",
+                "to": "c",
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
-          "body": "Give one piece of data two homes and they stop being the same thing. One is the *source of truth* — the copy that wins any argument, by definition. Everything else is derived: a cache, a replica, a search index. Derived copies exist to be fast, and they can be rebuilt from the truth. What they can't do is notice, unaided, that the truth moved on.",
-          "note": "In a design review the sharpest question you can ask is 'which of these is the source of truth?' Surprisingly often nobody knows — and that ambiguity is precisely where the worst bugs live."
+          "body": "The source of truth is the system whose accepted value resolves disagreement. Caches, replicas, and search indexes hold derived copies for faster or specialized reads. When the authoritative value changes, an update, invalidation, or refresh process must bring each derived copy forward.",
+          "note": "A lost invalidation or delayed update serves stale data until another refresh path runs. Time-to-live limits the stale window but does not prevent it."
+        },
+        {
+          "id": "where-state-lives-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: A source of truth is authoritative; derived copies require synchronization",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Accepted write",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "sub": "authority",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "sub": "can be delayed or lost",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "c",
+                "sub": "cache · replica · index",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "d",
+                "to": "p",
+                "kind": "request"
+              },
+              {
+                "from": "p",
+                "to": "c",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Database",
+            "Refresh / invalidate",
+            "Derived copies",
+            "Your app",
+            "Markdown renderer"
+          ],
+          "answer": {
+            "d": "Database",
+            "p": "Refresh / invalidate",
+            "c": "Derived copies"
+          },
+          "why": "The source of truth is the system whose accepted value resolves disagreement. Caches, replicas, and search indexes hold derived copies for faster or specialized reads. When the authoritative value changes, an update, invalidation, or refresh process must bring each derived copy forward. A lost invalidation or delayed update serves stale data until another refresh path runs. Time-to-live limits the stale window but does not prevent it."
         },
         {
           "id": "state-3-1",
@@ -358,20 +734,71 @@
             "Only extra latency"
           ],
           "answer": 1,
-          "why": "One copy can't disagree with itself; two copies can drift apart, and now you must decide what happens when they do and who wins. Generalize it: every performance optimization built on copies — caches, read replicas, CDNs, denormalization — buys speed with consistency. There is no copy without a consistency question attached, so when someone proposes a cache, they're proposing a consistency policy whether they've noticed or not."
+          "why": "After a value exists in the source and a cache, a write can update one copy before the other. The system therefore needs a freshness policy—such as expiration, invalidation, or versioning—and behavior for reads during disagreement."
         },
         {
           "id": "state-3-2",
-          "type": "fill_blank",
-          "prompt": "The one authoritative copy of a piece of data is called the source of ______.",
-          "choices": [
-            "truth",
-            "record",
-            "data",
-            "origin"
+          "type": "build_diagram",
+          "prompt": "Build the price-update path. A write must reach the authority first; two derived copies are then refreshed or invalidated from that accepted value.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "write",
+                "label": "Price Write",
+                "sub": "set price to 900",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "sub": "accepts the write",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "fast price reads",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "searchable catalog",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "write",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Product Database (authority)",
+            "Cache (derived copy)",
+            "Search Index (derived copy)",
+            "Client Cookie",
+            "Second Pricing Authority"
           ],
-          "answer": 0,
-          "why": "The source of truth is the copy that wins any argument: if two places disagree, it's right by definition and everything else is derived from it."
+          "answer": {
+            "h1": "Product Database (authority)",
+            "h2": "Cache (derived copy)",
+            "h3": "Search Index (derived copy)"
+          },
+          "why": "The product database accepts the authoritative price, then refresh or invalidation paths bring the cache and search index forward from that value. If either propagation path is delayed or lost, reads through that derived copy can still serve an older price until retry, repair, or expiry runs."
         },
         {
           "id": "state-3-3",
@@ -380,7 +807,7 @@
           "pairs": [
             {
               "left": "Source of truth",
-              "right": "The authoritative copy — if in doubt, ask it"
+              "right": "The authoritative system or history that resolves disagreement"
             },
             {
               "left": "Cache",
@@ -395,7 +822,7 @@
               "right": "A copy that no longer matches the truth"
             }
           ],
-          "why": "Each copy has a job and a failure mode, and being explicit about which is which keeps a design honest. In a design discussion, the sharpest question you can ask is 'which of these is the source of truth?' — surprisingly often nobody knows, and that ambiguity is where the worst bugs live."
+          "why": "The source of truth is authoritative, a cache is a fast copy that may age, a replica is synchronized for read capacity or recovery, and a stale copy no longer reflects the authoritative value. Naming each role makes disagreement and recovery policies explicit."
         },
         {
           "id": "state-3-4",
@@ -408,7 +835,7 @@
             "It isn't hard — it's just a joke"
           ],
           "answer": 1,
-          "why": "The cache has no idea the truth changed — someone has to tell it, or it has to guess, and both are imperfect while the knowledge of 'what invalidates this?' is scattered across every write path in your system. The two strategies: TTL (expire after N seconds — dead simple, but you knowingly serve stale data for up to N seconds) or explicit invalidation (delete the key when the data changes — precise, but you must find every write path forever, including the one a teammate adds next year without knowing your cache exists). Most real systems use both, because both are inadequate alone."
+          "why": "A cached value becomes invalid when any relevant source data changes, so every write path must either update or evict affected keys. Time-to-live expiration bounds staleness without precise coordination; explicit invalidation can be fresher but fails when a write path omits it."
         },
         {
           "id": "state-3-5",
@@ -421,7 +848,7 @@
             "Only if it was more than 1GB"
           ],
           "answer": 1,
-          "why": "The question for any copy is: can I rebuild this? Derived state can be recomputed from the truth; if the cache was the only home, there's nothing to rebuild from. Be religious about this distinction — a wiped cache of derived state is a bad afternoon (every request stampedes the database at once until it refills, the *thundering herd*), while a wiped source of truth is a company-ending event. You should always know, without thinking, which one each store is."
+          "why": "A derived cache can repopulate from the source of truth, although a cold-cache surge may overload that source during recovery. If the cache held the only copy, no authoritative data remains to rebuild, turning eviction or loss into permanent data loss."
         },
         {
           "id": "state-3-6",
@@ -433,7 +860,7 @@
             0,
             35
           ],
-          "why": "Showing someone the wrong balance is unacceptable — it's the one number they came to see, and being stale here looks like a bug or a theft, so pay the latency and read the truth. The governing question is always *what does staleness cost?* For a like count, essentially nothing — cache it hard. For a balance, or inventory during checkout, staleness is a real defect: you just oversold an item. Same technique, opposite decision, decided entirely by the cost of being wrong."
+          "why": "An account balance has a high cost of staleness, so reading authoritative or strongly validated data is the safer default. Aggressive caching lowers read latency and source load but creates a window in which the displayed balance can lag committed transactions."
         }
       ]
     },
@@ -444,9 +871,9 @@
         {
           "id": "state-4-0",
           "type": "concept",
-          "title": "Where state lives is decided by what you promised, not by what's fastest",
-          "body": "Two questions settle nearly every placement. *If we lost this right now, what breaks?* — that sets how durable it has to be. *Who else needs to read it?* — that sets how shared it has to be. Answer both and the place picks itself. Notice that neither question is technical: they're about the promise you made, and the technology is just what keeps it.",
-          "note": "The two answers are the design; everything after them — which database, which cache — is shopping. Get them wrong in the cheap direction and you don't find out from a test. You find out from a user, mid-incident."
+          "title": "Durability and access scope define the required state store",
+          "body": "For each value, specify the tolerated loss window and the readers that need a consistent view. A disposable rate-limit estimate may use local memory; a durable key shared by all service instances needs an external store whose replication and failure behavior meet that contract.",
+          "note": "Non-rebuildable state kept only on one instance is lost on restart and may require sticky routing. Request-local data and rebuildable local caches do not prevent replacement."
         },
         {
           "id": "state-4-1",
@@ -459,7 +886,7 @@
             "In the load balancer"
           ],
           "answer": 1,
-          "why": "The answer flows from the product promise rather than from technology: cart on every device means a database keyed to the account, because nothing else can deliver that guarantee. Notice the decisive question wasn't technical at all — it was *what did we promise?* Where state lives is chosen by the guarantee you need first, and the performance you can afford second; reversing that order is how teams end up with fast systems that break their own promises."
+          "why": "A cart promised across phone and laptop must be stored under the user’s account in shared durable storage. Server RAM or a device cookie cannot independently provide cross-device visibility and survival across server replacement."
         },
         {
           "id": "state-4-2",
@@ -488,11 +915,13 @@
             "edges": [
               {
                 "from": "a1",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
                 "from": "a2",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               }
             ]
           },
@@ -504,7 +933,7 @@
           "answer": {
             "h": "Object storage (S3)"
           },
-          "why": "Files on local disk are state trapped inside one server: peers can't serve them, and the machine can't be safely replaced — move them to shared object storage and your app servers become disposable again. This is one of the most common real-world migrations there is: 'it works on one server' quietly means state is hiding in the filesystem, and the day you add a second server, uploads mysteriously 404 half the time because the load balancer sent the read to the machine that doesn't have the file."
+          "why": "Shared object storage makes each photo accessible to every app server and preserves it independently of any server lifecycle. Local disk would bind reads and durability to one machine, causing missing files after load balancing or replacement."
         },
         {
           "id": "state-4-3",
@@ -520,7 +949,7 @@
             0,
             1
           ],
-          "why": "Local files and local sessions die with the server and can't be served by peers — lost data and broken users. Logs to stdout are shipped away, and a rebuildable local cache costs only a recompute if lost. The test isn't 'is there anything in memory?' — plenty of state in memory is fine. It's 'if this server vanished right now, would anything be LOST or become unavailable?' A local cache fails safe; a local session fails the user."
+          "why": "Uploaded files and sessions in local storage are unique required state, so an instance failure loses data or breaks active users. Externally collected logs already leave the instance, and a reconstructable local cache can be discarded safely."
         },
         {
           "id": "state-4-4",
@@ -533,7 +962,7 @@
             "A queue"
           ],
           "answer": 1,
-          "why": "Idempotency isn't free — it's implemented WITH state: that key store must be durable (survive a crash mid-payment), shared (any server might receive the retry), and garbage-collected, or it grows forever. It's a lovely illustration of a general truth: 'make it reliable' almost always means 'add state, in exactly the right place'. Nothing is free — you're always moving the difficulty somewhere, and the skill is choosing somewhere that can handle it."
+          "why": "The idempotency record is new state that maps an operation key to its completed or in-progress outcome. It must be shared across payment servers, durable across ambiguous failures, and expired only after the retry window closes."
         },
         {
           "id": "state-4-5",
@@ -545,7 +974,7 @@
             55,
             100
           ],
-          "why": "With per-server counters and 10 servers, a user can get roughly 10× the intended limit — each server only counts what it personally saw. That's tolerable for crude abuse protection and unacceptable when the limit is a billing boundary. Real systems often do both: a fast local pre-filter that sheds obvious abuse without a network hop, plus a shared store for exact accounting. Note what just happened — 'where does this counter live?' turned into a correctness-vs-latency decision, which is this unit's lens."
+          "why": "A local counter enforces a limit only against traffic seen by one server, so requests distributed across servers can exceed the paid global allowance. A shared counter adds a network dependency but coordinates one authoritative total across the fleet."
         },
         {
           "id": "state-4-6",
@@ -558,7 +987,7 @@
             "Server RAM"
           ],
           "answer": 2,
-          "why": "Watch that word *serving*. A database on disk in that datacenter does not lose your data when the power dies — it replays its write-ahead log and every committed row is still there, exactly as the durability lesson promised. What it loses is *availability*, for as long as the building is dark; and it loses everything only if the building is destroyed rather than merely unplugged. Being intact and being reachable are different properties, and conflating them is how people mis-scope disaster recovery. Only a copy in another region is both. You pay for it: an acknowledged cross-region write can put that ~150ms from the latency unit inside your write path. This is where 'where does state live' collides with physics, and it's the road that leads to CAP."
+          "why": "Only the database replica in another region remains reachable when the entire local datacenter is dark. Local disk may preserve bytes for later recovery, but it cannot provide service while power and networking at that site are unavailable."
         },
         {
           "id": "state-4-7",
@@ -571,7 +1000,21 @@
             "Which library are we using?"
           ],
           "answer": 1,
-          "why": "Those two halves — what's lost, and who must read it — determine every state placement decision in this unit: local memory is perfect for rebuildable private data and catastrophic for durable shared data, from the same sentence. And the lens scales further than you'd think: replication is 'who else needs to read it?' at scale, sharding is 'it no longer fits in one place', and CAP is 'what happens when the copies can't talk?' Every hard thing ahead of you is this one question, asked louder."
+          "why": "The loss consequence determines whether volatile local memory is acceptable, and the reader set determines whether one server can own the value. Rebuildable instance-private data fits memory; durable or cross-server data requires an appropriate shared store."
+        },
+        {
+          "id": "xfer-state",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A shopping cart exists only in one API server's memory. A load balancer sends the next request to another server. What breaks?",
+          "choices": [
+            "The second server cannot reconstruct the cart",
+            "DNS resolution becomes slower",
+            "HTTP changes from TCP to UDP",
+            "The database gains an index"
+          ],
+          "answer": 0,
+          "why": "The cart is retained request-to-request state, but only one interchangeable instance owns it. Externalizing or consistently routing that state is required before arbitrary servers can handle later requests."
         }
       ]
     }

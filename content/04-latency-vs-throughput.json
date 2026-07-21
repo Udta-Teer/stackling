@@ -2,7 +2,7 @@
   "unitId": "latency-vs-throughput",
   "tier": 0,
   "title": "Latency vs Throughput",
-  "subtitle": "Two different speeds — and the numbers that let you reject a bad design in 30 seconds",
+  "subtitle": "Measure response time and capacity without confusing them",
   "objectives": [
     "Tell latency and throughput apart, and know which fix applies to which",
     "Recall the order-of-magnitude latency numbers and do back-of-envelope math",
@@ -17,22 +17,120 @@
         {
           "id": "lat-1-0",
           "type": "concept",
-          "title": "Two different speeds hide inside the word 'fast'",
-          "body": "*Latency* is how long one request takes — a duration, in milliseconds. *Throughput* is how many requests finish per second — a rate. Picture a pipe: latency is how long one drop takes to travel it end to end; throughput is how much water pours out of the end each second. They are separate axes, and you can move one without touching the other.",
-          "note": "They can even point opposite ways. A nightly job chewing through a billion rows has huge throughput and dreadful latency; a tiny service answering in 2ms may handle almost no traffic. Neither number implies the other."
+          "title": "Latency measures duration; throughput measures completion rate",
+          "body": "Latency is elapsed time from a request's start to its response, usually measured in milliseconds. Throughput is completed work per unit time, such as requests per second. A service can add workers and complete more concurrent requests while each request still follows the same execution path.",
+          "note": "Replicas leave each request's network and processing work unchanged. When existing workers are saturated, added capacity can shorten the queue and reduce total latency."
+        },
+        {
+          "id": "lat-change-1",
+          "type": "system_change",
+          "prompt": "Users in London call a service hosted in Virginia. Move an identical service instance closer to those users.",
+          "actionLabel": "Route users to London",
+          "beforeStatus": "NETWORK ROUND TRIP · approximately 80ms to Virginia",
+          "afterStatus": "NETWORK ROUND TRIP · approximately 10ms within London",
+          "result": "Distance removed about 195ms of network delay",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "London users",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "v",
+                "label": "Virginia",
+                "sub": "~80ms RTT",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "v",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "London users",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "m",
+                "label": "London",
+                "sub": "~25ms RTT",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "m",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Geographic routing shortens propagation distance, so it can reduce network latency for each request. It does not optimize slow application code or database work that still runs after the request arrives."
+        },
+        {
+          "id": "latency-vs-throughput-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Users in London call a service hosted in Virginia. Move an identical service instance closer to those users. Place London users, London. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "m",
+                "sub": "~25ms RTT",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "m",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "London users",
+            "London",
+            "Virginia",
+            "CPU"
+          ],
+          "answer": {
+            "u": "London users",
+            "m": "London"
+          },
+          "why": "The completed diagram contains these directed flows: London users → London. That topology is the evidence for the answer: Geographic routing shortens propagation distance, so it can reduce network latency for each request. It does not optimize slow application code or database work that still runs after the request arrives.",
+          "connectEdges": true
         },
         {
           "id": "lat-1-1",
           "type": "multiple_choice",
-          "prompt": "Think of a pipe carrying water. Latency is how long one drop takes to travel it; throughput is how much water flows per second. Which change raises throughput but does NOT improve latency?",
+          "prompt": "One worker completes a fixed, independent job in 100ms. The queue is empty. Which change raises maximum throughput without reducing one job's 100ms processing latency?",
           "choices": [
-            "Making the pipe shorter",
-            "Making the pipe wider",
-            "Both do both",
-            "Neither changes anything"
+            "Make the same worker finish each job in 50ms",
+            "Run a second identical worker in parallel",
+            "Add 100 waiting jobs",
+            "Make each job twice as large"
           ],
           "answer": 1,
-          "why": "A wider pipe carries more water per second (throughput), but a single drop still takes exactly as long to travel end to end (latency) — only shortening the pipe cuts that. This is the whole unit in one image, and it's why 'we added more servers but my page is still slow' is such a common surprise: more servers widened the pipe, they didn't shorten it."
+          "why": "With enough independent work, two workers can each complete ten 100ms jobs per second, giving about 20 jobs per second together. With an empty queue and unchanged work per job, each job still spends 100ms processing. Parallel capacity increases throughput while service time stays fixed."
         },
         {
           "id": "lat-1-2",
@@ -45,7 +143,7 @@
             "Concurrency"
           ],
           "answer": 0,
-          "why": "Latency = time per operation. Throughput = operations per unit time. They're different axes, and improving one can even hurt the other."
+          "why": "Latency measures elapsed time for one operation, commonly in milliseconds. Throughput measures completed operations per unit time, so a system can change one metric without changing the other."
         },
         {
           "id": "lat-1-3",
@@ -69,7 +167,7 @@
               "right": "There and back again"
             }
           ],
-          "why": "Latency is per-request time, throughput is completed work per second, bandwidth is the ceiling the physical link imposes, and RTT is the there-and-back time that dominates network latency. Bandwidth and throughput get confused constantly: bandwidth is the pipe's capacity, throughput is what you actually achieve through it — you can have a fat pipe and terrible throughput if something else is the bottleneck."
+          "why": "Latency measures one request’s duration, throughput measures completed work per second, bandwidth caps data transfer per second, and round-trip time covers travel to a destination and back. A different bottleneck can keep achieved throughput below available bandwidth."
         },
         {
           "id": "lat-1-4",
@@ -86,7 +184,7 @@
             2,
             3
           ],
-          "why": "Latency falls when you shorten the work or the distance: cache it, move closer, make the query faster. Adding servers adds capacity to run more requests at once — it doesn't make any single request's work finish sooner. That depends on the condition in the prompt, though: if the servers *were* saturated and requests were queueing, adding capacity would cut latency outright, because then you'd be removing waiting rather than work. Internalize this split and you'll diagnose faster than most engineers: latency problems are solved by doing less work or travelling less distance, throughput problems by adding parallel capacity, and reaching for the wrong lever is the classic wasted quarter."
+          "why": "Caching removes repeated work, geographic proximity shortens propagation distance, and query optimization reduces processing time. With no queueing, extra servers increase parallel capacity but do not shorten the path of one request."
         },
         {
           "id": "lat-1-5",
@@ -99,7 +197,7 @@
             "DNS is caching the old servers"
           ],
           "answer": 1,
-          "why": "Scaling out lets you handle MORE simultaneous requests; it does nothing to shorten the work inside any one request, so each user still waits 2 seconds. There's one exception that proves the rule: if servers were overloaded and queueing, adding capacity removes the waiting — which is exactly what this unit's boss lesson is about."
+          "why": "Doubling server count increases the number of requests that can run concurrently. When requests were not waiting for capacity, their network and processing path remains two seconds; extra servers reduce latency only when they remove queueing."
         },
         {
           "id": "lat-1-6",
@@ -112,25 +210,18 @@
             "50 requests"
           ],
           "answer": 1,
-          "why": "Throughput is the rate of completed work: 10,000 requests/second. The 200ms is the latency of one request. Notice these two numbers coexist happily — a system can be high-throughput AND high-latency at once (a huge batch pipeline), or low-throughput and low-latency (a tiny, snappy service)."
+          "why": "The completed-work rate is 10,000 requests per second, so that value is throughput. The 200ms value measures how long an individual request takes and is therefore latency."
         }
       ]
     },
     {
       "id": "lat-2",
       "title": "The numbers worth memorizing",
-      "fieldTask": {
-        "where": "Terminal",
-        "seconds": 30,
-        "do": "ping google.com   then   ping www.aeroflot.ru",
-        "alt": "Ctrl+C to stop each one. Any far-away site works — pick one on another continent.",
-        "notice": "Compare the two `time=` numbers. The gap isn't slow servers — it's distance, at the speed of light through fibre. You're measuring physics from your kitchen, and no engineering removes it."
-      },
       "exercises": [
         {
           "id": "lat-2-0",
           "type": "concept",
-          "title": "The gaps between fast and slow aren't percentages — they're orders of magnitude",
+          "title": "Storage and network operations differ by orders of magnitude",
           "viz": {
             "nodes": [
               {
@@ -155,16 +246,115 @@
             "edges": [
               {
                 "from": "cpu",
-                "to": "l1"
+                "to": "l1",
+                "kind": "data"
               },
               {
                 "from": "l1",
-                "to": "ram"
+                "to": "ram",
+                "kind": "data"
               }
             ]
           },
-          "body": "Your CPU's L1 cache answers in roughly 1 nanosecond. Main memory — RAM, the thing we all call fast — takes roughly 100. Put those two numbers side by side and count the zeros: that isn't 'a bit slower', it's a different scale. And the ladder keeps descending: SSD, then the network, then another continent. Each step down is a cliff rather than a slope.",
-          "note": "Treat these as orders of magnitude, not measurements — hardware moves, the ratios barely do. Nobody cares whether RAM is 80ns or 120ns. Everybody should care how many L1 hits it's worth."
+          "body": "Representative latency scales are about 1 nanosecond for an L1 cache hit, 10² nanoseconds for main memory, and 10²–10³ microseconds for a same-datacenter network round trip. Convert units before comparing: 1 microsecond is 1,000 nanoseconds.",
+          "note": "These are capacity-planning estimates, because hardware and topology change exact values. The exponent is usually more useful than a precise benchmark from another system."
+        },
+        {
+          "id": "lat-change-2",
+          "type": "system_change",
+          "prompt": "A checkout performs four independent 100ms service calls one after another. Run them concurrently without changing the work each service performs.",
+          "actionLabel": "Parallelize the calls",
+          "beforeStatus": "DEPENDENCY TIME · 400ms · four sequential waits",
+          "afterStatus": "DEPENDENCY TIME · about 100ms · one parallel wait",
+          "result": "Elapsed latency fell while total downstream work stayed the same",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Checkout",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "4 dependencies",
+                "sub": "one after another",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Checkout",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "4 dependencies",
+                "sub": "concurrent",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Independent calls can overlap, making elapsed time approach the slowest call instead of their sum. Parallel fan-out increases concurrent load and failure exposure, so cap concurrency and assign deadlines."
+        },
+        {
+          "id": "latency-vs-throughput-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A checkout performs four independent 100ms service calls one after another. Run them concurrently without changing the work each service performs. Place Checkout, 4 dependencies. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "concurrent",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Checkout",
+            "4 dependencies",
+            "London users",
+            "Virginia"
+          ],
+          "answer": {
+            "c": "Checkout",
+            "d": "4 dependencies"
+          },
+          "why": "The completed diagram contains these directed flows: Checkout → 4 dependencies. That topology is the evidence for the answer: Independent calls can overlap, making elapsed time approach the slowest call instead of their sum. Parallel fan-out increases concurrent load and failure exposure, so cap concurrency and assign deadlines."
         },
         {
           "id": "lat-2-1",
@@ -177,7 +367,7 @@
             "They're the same speed"
           ],
           "answer": 2,
-          "why": "L1 cache is roughly 1 nanosecond; RAM is roughly 100 nanoseconds — about 100×, and RAM is the thing we usually call 'fast'. The memory hierarchy is a ladder of ~100× cliffs: cache → RAM → SSD → network → cross-continent. Knowing roughly where each rung sits is what lets you reason about performance without measuring."
+          "why": "An L1 cache access is roughly 1 nanosecond and a main-memory access is roughly 100 nanoseconds, giving an order-of-magnitude ratio near 100. Exact timings vary by processor and access pattern, but the hierarchy remains operationally significant."
         },
         {
           "id": "lat-2-2",
@@ -186,7 +376,7 @@
           "answer": 100,
           "tolerance": 90,
           "unit": "ns",
-          "why": "A main-memory reference is on the order of 100 nanoseconds. These figures are order-of-magnitude rather than precise — the point is the scale, not the digits. Compare L1 cache at ~1ns: even a RAM hit, which feels instant, is ~100 cache misses' worth of time, which is why cache-friendly data layouts can make code several times faster without changing the algorithm."
+          "why": "A main-memory access is on the order of 100 nanoseconds. This estimate supports scale comparisons: cache-friendly access can avoid memory stalls whose cost is many processor cycles, although exact latency depends on hardware and locality."
         },
         {
           "id": "lat-2-3",
@@ -195,7 +385,7 @@
           "answer": 500,
           "tolerance": 400,
           "unit": "µs",
-          "why": "A same-datacenter round trip is on the order of 500 microseconds — about half a millisecond. Fast by human standards, enormously slow by CPU standards: it's already ~5,000× slower than a RAM read, and you haven't even left the building. Going California-to-Europe costs another ~300×, landing around 150ms."
+          "why": "A same-datacenter network round trip is commonly on the order of 500 microseconds. Serialization, network-stack processing, switching, and queuing make this much slower than a local memory access even within one facility."
         },
         {
           "id": "lat-2-4",
@@ -219,20 +409,20 @@
               "right": "~150 milliseconds"
             }
           ],
-          "why": "The ladder: 1 ns → 100 ns → 100 µs → 150 ms. From an L1 hit to a California-Europe hop is roughly 100 million times slower. Note the ladder needs a *named route*, not a vague 'far away': New York to London is also intercontinental and only ~70ms, because it's barely half the distance. Worth noticing: an SSD read (~100 µs) is FASTER than a same-datacenter network round trip (~500 µs) — reading from your own disk can beat asking a neighbouring server, which inverts a lot of people's intuitions about 'just put it in another service'."
+          "why": "The matched values establish a latency hierarchy: L1 cache near 1ns, RAM near 100ns, a random solid-state drive read near 100µs, and an intercontinental round trip near 150ms. Moving work across each boundary can dominate the computation itself."
         },
         {
           "id": "lat-2-5",
           "type": "multiple_choice",
-          "prompt": "A RAM read is ~100ns. A same-datacenter network call is ~0.5ms. Roughly how many RAM reads fit inside ONE network call?",
+          "prompt": "One same-datacenter network call takes roughly as long as 5,000 RAM reads. What system-design risk does this reveal?",
           "choices": [
-            "About 5",
-            "About 500",
-            "About 5,000",
-            "About 5,000,000"
+            "RAM should be replaced with network storage",
+            "Many serial service calls can dominate request latency",
+            "Network calls are effectively free inside one datacenter",
+            "Every service call requires exactly 5,000 reads"
           ],
-          "answer": 2,
-          "why": "0.5ms = 500,000ns, divided by 100ns per RAM read = about 5,000. One 'cheap' internal network hop costs roughly five thousand memory reads. This is the number that should haunt every microservice design: adding one service hop to a request path isn't a rounding error, it's thousands of times more expensive than doing the work locally — and chatty service meshes die of exactly this, one innocent-looking call at a time."
+          "answer": 1,
+          "why": "One same-datacenter call consumes a time budget comparable to about 5,000 RAM reads. A design that replaces local access with many serial service calls can therefore add substantial latency even when every remote service is healthy."
         },
         {
           "id": "lat-2-6",
@@ -245,7 +435,7 @@
             "They're only useful for embedded programming"
           ],
           "answer": 1,
-          "why": "Rough numbers let you kill a bad design with arithmetic instead of a three-month build: 'that's 10,000 serial network calls at 0.5ms — five seconds. No.' That takes 30 seconds and saves a quarter. It's the single most transferable skill in system design, and the reason estimation questions appear in every interview — you're not being tested on digits, but on whether you can reason about scale before committing to it."
+          "why": "Order-of-magnitude values expose infeasible designs before implementation. For example, 10,000 serial calls at 0.5ms each contribute about five seconds of network wait, so the request path must reduce or parallelize those calls."
         }
       ]
     },
@@ -256,9 +446,9 @@
         {
           "id": "lat-3-0",
           "type": "concept",
-          "title": "An average is a number that describes nobody",
-          "body": "An average answers 'what happened overall'. Nobody experiences overall. If most requests are quick and a few are dreadful, the arithmetic quietly buries the dreadful ones — divide one horrible request across thousands of fast ones and it vanishes. So measure *percentiles* instead: p50 is the middle request, p99 is the one slower than 99% of the rest.",
-          "note": "And the tail isn't random. Your p99 usually belongs to your heaviest users — most data, longest history, most friends — so the worst of your system lands on the people most invested in it."
+          "title": "Latency percentiles expose slow requests hidden by the mean",
+          "body": "Mean latency divides total elapsed time by request count, so a small slow tail can have little effect on the result. A percentile sorts request latencies: p50 is the median, while p99 is a threshold that 99% of measured requests complete at or below.",
+          "note": "A page that fans out to many dependencies has more chances to encounter at least one tail event, so end-to-end p99 can be much worse than each dependency's p99."
         },
         {
           "id": "lat-3-1",
@@ -271,7 +461,7 @@
             "Averages can't be wrong"
           ],
           "answer": 1,
-          "why": "Averages smear outliers away. Make it concrete: 99% of requests at 50ms and 1% at 5 seconds averages to 99.5ms — precisely the 'healthy' 100ms on the dashboard — while one user in a hundred sits and waits five seconds. Average latency is arguably the most misleading metric in all of systems — nobody experiences the average, everybody experiences one specific request, and the unhappy ones are living in your tail."
+          "why": "A small slow tail can coexist with a healthy average because the average collapses the full distribution into one value. For example, many 50ms requests can numerically mask a small set taking several seconds, even though those users experience the slow requests directly."
         },
         {
           "id": "lat-3-2",
@@ -280,22 +470,22 @@
           "pairs": [
             {
               "left": "p50 (median)",
-              "right": "Half of requests are faster than this"
+              "right": "50% complete at or below this threshold"
             },
             {
               "left": "p95",
-              "right": "95% are faster; the slowest 5% are worse"
+              "right": "95% complete at or below this threshold"
             },
             {
               "left": "p99",
-              "right": "The worst 1% — your unhappiest users"
+              "right": "99% complete at or below this threshold"
             },
             {
               "left": "Average",
               "right": "Easily skewed by outliers"
             }
           ],
-          "why": "Percentiles describe the distribution instead of collapsing it: p50 is the typical experience, p99 is the bad one you promised not to inflict. Teams often watch p50 and feel great — but your most valuable users, the ones with the most data and the longest histories, usually live in the p99. The tail isn't random; it's often systematically your heaviest users."
+          "why": "p50, p95, and p99 are latency thresholds at or below which 50%, 95%, and 99% of measured requests complete. Roughly 1% are slower than the p99 value; p99 is a boundary value, not the set of slowest requests. The average combines every latency and is sensitive to extreme outliers."
         },
         {
           "id": "lat-3-3",
@@ -308,7 +498,7 @@
             "The average is 2 seconds"
           ],
           "answer": 1,
-          "why": "p99 is the value 99% of requests come in under — the remaining 1% are slower, and 2s is the floor of their pain rather than the ceiling. 1% sounds negligible until you multiply: at 10,000 requests/second that's 100 bad experiences every second, roughly 8.6 million a day. 'Rare' at scale is a full-time disaster."
+          "why": "A p99 of two seconds means 99% of observed requests completed within two seconds and the slowest 1% took at least that long. At high request rates, that percentile can still represent many slow requests."
         },
         {
           "id": "lat-3-4",
@@ -317,12 +507,12 @@
           "answer": 100,
           "tolerance": 10,
           "unit": "req/sec",
-          "why": "1% of 10,000 = 100 requests every second hitting your worst-case latency. Percentages feel small; rates feel real. Always convert percentages into absolute rates before deciding something is acceptable — '99.9% success' at 10k rps is still 10 failures per second, or 864,000 a day."
+          "why": "One percent of 10,000 requests per second is 100 requests per second. Converting a tail percentile into an absolute rate reveals how many slow experiences the system produces under its actual traffic."
         },
         {
           "id": "lat-3-5",
           "type": "multiple_choice",
-          "prompt": "A page makes 100 parallel calls to internal services. Each has p99 = 100ms (so each has a 1% chance of being slow). Roughly what fraction of page loads hit AT LEAST ONE slow call?",
+          "prompt": "A page fans out to 100 independent calls. The chance that all 100 are fast is about 37%. Roughly what fraction of page loads contain at least one slow call?",
           "choices": [
             "About 1%",
             "About 10%",
@@ -330,7 +520,7 @@
             "100%"
           ],
           "answer": 2,
-          "why": "Each call is fast 99% of the time, so all 100 being fast = 0.99^100 ≈ 37% — meaning about 63% of page loads hit at least one slow call. A 1-in-100 event becomes the majority experience. This is Google's famous *tail at scale*: when you fan out, your dependencies' p99 becomes your page's p50, and it's the mathematical reason microservice architectures feel mysteriously slow while nobody's service is broken."
+          "why": "The prompt supplies that all 100 calls are fast for about 37% of page loads. The complementary 63% therefore contain at least one slow call, showing how independent tail risks accumulate across large fan-out."
         },
         {
           "id": "lat-3-6",
@@ -347,7 +537,7 @@
             1,
             2
           ],
-          "why": "Hedging routes around a straggler, timeouts stop one slow dependency holding the page hostage, and less fan-out means fewer chances to draw a slow call — while 100% utilization is a tail-latency generator. Hedged requests feel wasteful since you're deliberately duplicating work, but a few percent extra load can cut p99 dramatically: trading a little throughput for a lot of tail is often a superb deal."
+          "why": "Hedging can complete from a faster duplicate, timeouts cap dependency wait, and reduced fan-out lowers the number of opportunities for a straggler. Running at 100% utilization increases queueing and can worsen the slow tail."
         },
         {
           "id": "lat-3-7",
@@ -360,7 +550,7 @@
             "The maximum — the absolute worst case"
           ],
           "answer": 1,
-          "why": "An SLA is a promise about the bad case, not the typical one: percentiles bound real user pain while averages hide it. The max is usually useless — a single GC pause or network blip owns it forever — so p99 (or p99.9 at big scale) is the honest, actionable promise."
+          "why": "A high percentile such as p95 or p99 expresses a measurable bound for nearly all requests while still responding to recurring tail problems. An average can hide that tail, and a single exceptional event can make the maximum unstable as an operating target."
         }
       ]
     },
@@ -371,7 +561,7 @@
         {
           "id": "lat-4-0",
           "type": "concept",
-          "title": "A busy server doesn't work slower — you just wait longer for your turn",
+          "title": "Near saturation, queueing delay raises request latency nonlinearly",
           "viz": {
             "nodes": [
               {
@@ -399,16 +589,70 @@
             "edges": [
               {
                 "from": "r",
-                "to": "q"
+                "to": "q",
+                "kind": "event"
               },
               {
                 "from": "q",
-                "to": "s"
+                "to": "s",
+                "kind": "event"
               }
             ]
           },
-          "body": "Latency is two things added together: the time a request spends *working*, and the time it spends *waiting in line*. A supermarket till doesn't scan groceries any slower at 6pm — the queue is just longer. Servers are tills. So when a system is nearly saturated, the work per request hasn't changed at all; the extra time your users feel is queue.",
-          "note": "Which is why nobody sane runs a server at 100% utilization. That spare capacity isn't waste — it's what keeps the line short. Headroom you never use is what you buy instead of waiting."
+          "body": "Response latency includes queueing time plus service time. When arrival rate approaches a component's completion capacity, normal bursts arrive faster than work can finish, so the queue grows. Requests then wait behind earlier work even when their own processing cost is unchanged.",
+          "note": "Operating headroom absorbs bursty arrivals and variance in service time. At sustained demand above capacity, the queue grows until requests time out or load is rejected."
+        },
+        {
+          "id": "latency-vs-throughput-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Near saturation, queueing delay raises request latency nonlinearly",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Requests",
+                "sub": "arriving",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "q",
+                "sub": "wait time",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "s",
+                "sub": "work time",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "q",
+                "kind": "request"
+              },
+              {
+                "from": "q",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "The queue",
+            "Server",
+            "London users",
+            "Virginia"
+          ],
+          "answer": {
+            "q": "The queue",
+            "s": "Server"
+          },
+          "why": "Response latency includes queueing time plus service time. When arrival rate approaches a component's completion capacity, normal bursts arrive faster than work can finish, so the queue grows. Requests then wait behind earlier work even when their own processing cost is unchanged. Operating headroom absorbs bursty arrivals and variance in service time. At sustained demand above capacity, the queue grows until requests time out or load is rejected."
         },
         {
           "id": "lat-4-1",
@@ -421,7 +665,7 @@
             "It becomes zero"
           ],
           "answer": 2,
-          "why": "The work per request didn't change, but now requests WAIT — and as utilization approaches 100%, queueing delay grows non-linearly, so at 99% busy latency can be tens of times worse than at 50%. This is queueing theory, and it's the bridge between throughput and latency. Rule of thumb: keep utilization meaningfully below 100%, often around 70% — that 'wasted' headroom is what you're buying low latency with. A server at 100% utilization isn't efficient, it's one hiccup from a meltdown."
+          "why": "At 99% utilization, arrivals frequently find the server busy and wait in a queue. As utilization approaches full capacity, small bursts or service-time variation produce disproportionately large queueing delay, so latency can rise even when work per request is unchanged."
         },
         {
           "id": "lat-4-2",
@@ -434,7 +678,7 @@
             "0.4"
           ],
           "answer": 0,
-          "why": "500 requests/sec × 0.2 sec = 100 requests in flight — that's how many are being worked on simultaneously. This tiny formula tells you how many threads, connections, or workers you need, and it has teeth: if latency doubles because a dependency slowed down, in-flight requests double with zero change in traffic. That's how you exhaust a connection pool and turn one slow dependency into a full outage."
+          "why": "Little’s Law gives concurrency as throughput multiplied by latency: 500 requests/second × 0.2 seconds = 100 in-flight requests. If latency rises at constant throughput, the in-flight population and pressure on pools rise proportionally."
         },
         {
           "id": "lat-4-3",
@@ -443,12 +687,12 @@
           "answer": 100,
           "tolerance": 5,
           "unit": "requests",
-          "why": "200 × 0.5 = 100 in flight. Throughput × latency = concurrency, every time. Run it backwards to size a pool: if you want 1,000 rps at 50ms latency, you need 1,000 × 0.05 = 50 concurrent workers — capacity planning in one multiplication."
+          "why": "Little’s Law gives 200 requests/second × 0.5 seconds = 100 concurrent requests. This value estimates the worker, connection, or request capacity needed to sustain the stated rate and latency."
         },
         {
           "id": "lat-4-4",
           "type": "multiple_choice",
-          "prompt": "You batch 100 database writes together instead of writing them one at a time. What happens?",
+          "prompt": "Writes arrive slowly at 10/sec. A batcher flushes when it collects 100 writes or after a timeout. Compared with immediate writes, what tradeoff does this policy create?",
           "choices": [
             "Both latency and throughput improve",
             "Throughput goes up, but an individual write's latency goes up — it waits for the batch to fill",
@@ -456,7 +700,7 @@
             "Nothing measurable changes"
           ],
           "answer": 1,
-          "why": "Batching spreads fixed per-operation costs across many items, so total throughput rises — but each individual write now waits for the batch to assemble, so its own latency gets worse. You trade the individual's speed for the system's capacity. This tradeoff is everywhere once you see it: Kafka batching, database group commit, Nagle's algorithm in TCP. It's the purest example that latency and throughput aren't just different — they're often in direct opposition."
+          "why": "Batching amortizes fixed setup, logging, or commit cost across multiple writes, which can raise throughput. At only 10 arrivals/sec, reaching 100 takes about 10 seconds, so early writes wait for the size threshold or timeout and have higher latency. A producer-supplied full batch would not incur this fill delay."
         },
         {
           "id": "lat-4-5",
@@ -468,20 +712,63 @@
             0,
             35
           ],
-          "why": "A human is staring at the screen waiting for their message to appear, so latency wins decisively — batching would add delay to the one thing the user is watching. The question to always ask: *is a human waiting?* If yes, optimize latency. If no — logs, analytics, nightly ETL, ingestion pipelines — optimize throughput and batch hard. Same system, opposite answers, decided entirely by who's on the other end."
+          "why": "A chat sender is waiting for visible confirmation, so batching directly adds user-visible delay. Sending promptly prioritizes latency; background ingestion can accept batching delay when higher throughput is more valuable."
         },
         {
           "id": "lat-4-6",
-          "type": "multiple_choice",
-          "prompt": "Your pipeline: Load Balancer (10k rps) → App servers (2k rps) → Cache (50k rps) → Database (5k rps). What's the maximum throughput of the whole system?",
-          "choices": [
-            "50k rps",
-            "10k rps",
-            "5k rps",
-            "2k rps"
-          ],
-          "answer": 3,
-          "why": "A chain is limited by its slowest stage — the app servers at 2k rps — and everything downstream is idle capacity you're paying for and can't use. The corollary is brutal and constantly ignored: optimizing a NON-bottleneck yields exactly zero improvement, so making the cache twice as fast here changes nothing. Measure first, find the actual constraint, then fix that; anything else is theatre."
+          "type": "spot_bottleneck",
+          "prompt": "Select the bottleneck that caps this pipeline's maximum throughput: Load Balancer (10k rps) → App servers (2k rps) → Cache (50k rps) → Database (5k rps).",
+          "viz": {
+            "nodes": [
+              {
+                "id": "lb",
+                "label": "Load Balancer",
+                "sub": "10k rps",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "app",
+                "label": "App Servers",
+                "sub": "2k rps",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "cache",
+                "label": "Cache",
+                "sub": "50k rps",
+                "col": 2,
+                "kind": "cache"
+              },
+              {
+                "id": "db",
+                "label": "Database",
+                "sub": "5k rps",
+                "col": 3,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "lb",
+                "to": "app",
+                "kind": "request"
+              },
+              {
+                "from": "app",
+                "to": "cache",
+                "kind": "data"
+              },
+              {
+                "from": "cache",
+                "to": "db",
+                "kind": "data"
+              }
+            ]
+          },
+          "answer": 1,
+          "why": "Every request crosses the 2,000-rps app tier, the lowest-capacity stage, so it limits the pipeline even though later components are faster. Sustained arrivals above 2,000 rps build a queue before the app servers and eventually cause timeouts; accelerating the cache does not remove that failure."
         },
         {
           "id": "lat-4-7",
@@ -494,7 +781,21 @@
             "The users have bad wifi"
           ],
           "answer": 1,
-          "why": "95% CPU puts you deep in the queueing danger zone: the average hides it because most requests still sail through, but the ones arriving during a burst wait behind a queue — and that's your 4-second p99. The fix is headroom or less work per request, not a micro-optimization. This ties the whole unit together: latency and throughput are different, you need the numbers to reason, averages lie so you watch percentiles, and utilization is the hidden variable connecting them all."
+          "why": "At 95% CPU, bursts queue behind nearly saturated workers, producing a four-second p99 while many requests still keep the average low. Adding headroom or reducing per-request work addresses the queueing mechanism."
+        },
+        {
+          "id": "xfer-latency",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A video-call service can encode 100,000 frames/sec overall, but each frame waits 900ms before encoding. Which metric is failing the interactive product?",
+          "choices": [
+            "Aggregate throughput",
+            "Disk capacity",
+            "Daily request count",
+            "Per-frame latency"
+          ],
+          "answer": 3,
+          "why": "The fleet's total frame rate is high, but one frame waits almost a second. Interactive quality depends on end-to-end latency and its tail, not throughput alone."
         }
       ]
     }

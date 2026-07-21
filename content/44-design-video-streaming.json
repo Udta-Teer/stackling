@@ -1,0 +1,1094 @@
+{
+  "unitId": "design-video-streaming",
+  "tier": 5,
+  "title": "Design Video Streaming",
+  "subtitle": "Build ingest, transcoding, manifests, object storage, and global adaptive delivery",
+  "objectives": [
+    "Separate upload and processing from playback",
+    "Generate multiple renditions and manifests",
+    "Use adaptive bitrate delivery through CDNs",
+    "Control authorization, takedown, and analytics"
+  ],
+  "lessons": [
+    {
+      "id": "video-1",
+      "title": "Ingest and processing",
+      "exercises": [
+        {
+          "id": "video-1-0",
+          "type": "concept",
+          "title": "Video upload creates a durable source object before asynchronous processing begins",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Uploader",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "o",
+                "label": "Source object",
+                "sub": "durable",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "q",
+                "label": "Processing queue",
+                "col": 2,
+                "kind": "queue"
+              },
+              {
+                "id": "t",
+                "label": "Transcoders",
+                "sub": "renditions",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "o",
+                "kind": "data"
+              },
+              {
+                "from": "o",
+                "to": "q",
+                "kind": "event"
+              },
+              {
+                "from": "q",
+                "to": "t",
+                "kind": "event"
+              }
+            ]
+          },
+          "body": "Upload the original video directly to durable object storage, then publish a processing job. Transcoders create segmented renditions at several resolutions and bitrates; metadata tracks job state and publishes playback only after required outputs are complete.",
+          "note": "Processing is retryable because the immutable source remains available and outputs use deterministic job and rendition identities."
+        },
+        {
+          "id": "video-change-1",
+          "type": "system_change",
+          "prompt": "A 40-minute upload synchronously waits for every rendition to finish and times out after 30 minutes. Separate durable ingest from transcoding.",
+          "actionLabel": "Queue processing after upload",
+          "choices": [
+            "Increase the upload timeout to six hours",
+            "Commit the source object, enqueue a job, and report processing state",
+            "Transcode only inside the user's browser"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A longer request couples upload success to variable processing time.",
+            "Durable ingest lets the user finish uploading while workers process asynchronously and retry safely.",
+            "Client-only processing is unreliable across devices and cannot produce controlled platform renditions."
+          ],
+          "beforeStatus": "UPLOAD · waits for transcode · timeout loses visible progress",
+          "afterStatus": "UPLOAD · source committed · processing continues asynchronously",
+          "result": "Ingest and compute now have independent failure and scaling paths",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Upload request",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "t",
+                "label": "Transcoder",
+                "sub": "synchronous",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "t",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Uploader",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "o",
+                "label": "Source storage",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "q",
+                "label": "Job queue",
+                "col": 2,
+                "kind": "queue"
+              },
+              {
+                "id": "t",
+                "label": "Transcoders",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "o",
+                "kind": "data"
+              },
+              {
+                "from": "o",
+                "to": "q",
+                "kind": "event"
+              },
+              {
+                "from": "q",
+                "to": "t",
+                "kind": "event"
+              }
+            ]
+          },
+          "why": "The source object is the durable handoff. A job references its immutable key, workers write deterministic rendition outputs, and job state lets clients observe progress without holding one request open."
+        },
+        {
+          "id": "design-video-streaming-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: A 40-minute upload synchronously waits for every rendition to finish and times out after 30 minutes. Separate durable ingest from transcoding. Place Source storage, Job queue, Transcoders. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Uploader",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "o",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "q",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "t",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "o",
+                "kind": "request"
+              },
+              {
+                "from": "o",
+                "to": "q",
+                "kind": "request"
+              },
+              {
+                "from": "q",
+                "to": "t",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Source storage",
+            "Job queue",
+            "Transcoders",
+            "Source object",
+            "Processing queue"
+          ],
+          "answer": {
+            "o": "Source storage",
+            "q": "Job queue",
+            "t": "Transcoders"
+          },
+          "why": "The completed diagram contains these directed flows: Uploader → Source storage; Source storage → Job queue; Job queue → Transcoders. That topology is the evidence for the answer: The source object is the durable handoff. A job references its immutable key, workers write deterministic rendition outputs, and job state lets clients observe progress without holding one request open.",
+          "connectEdges": true
+        },
+        {
+          "id": "video-1-1",
+          "type": "order_steps",
+          "prompt": "Build the publish pipeline.",
+          "steps": [
+            "Complete and verify the source upload",
+            "Create a processing job with a stable video ID",
+            "Generate segmented bitrate and resolution renditions",
+            "Write the playback manifest referencing completed segments",
+            "Mark the video playable and invalidate stale metadata"
+          ],
+          "why": "Durable source completion precedes processing, manifests reference verified outputs, and publication occurs only when the minimum playable set is available."
+        }
+      ]
+    },
+    {
+      "id": "video-2",
+      "title": "Adaptive playback at the edge",
+      "exercises": [
+        {
+          "id": "video-2-0",
+          "type": "concept",
+          "title": "Adaptive bitrate streaming lets the player choose among short encoded segments",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Player",
+                "sub": "measure buffer + bandwidth",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "m",
+                "label": "Manifest",
+                "sub": "available renditions",
+                "col": 1,
+                "kind": "cdn"
+              },
+              {
+                "id": "s",
+                "label": "CDN segments",
+                "sub": "low · medium · high",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "m",
+                "kind": "request"
+              },
+              {
+                "from": "p",
+                "to": "s",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "A manifest lists time-aligned renditions. Before each short segment, the player selects a bitrate from observed throughput, buffer occupancy, and device constraints. Segments are immutable cacheable objects served through a CDN.",
+          "note": "Higher bitrate improves quality but increases download time and rebuffer risk; the player continuously revises the choice."
+        },
+        {
+          "id": "video-change-2",
+          "type": "system_change",
+          "prompt": "Every viewer receives one 4K stream. Mobile users on 8 Mbps links repeatedly rebuffer because the stream requires 20 Mbps.",
+          "actionLabel": "Add adaptive renditions",
+          "choices": [
+            "Increase player timeout",
+            "Publish aligned renditions and let the player select each segment",
+            "Send the same 4K bytes through two CDNs"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Waiting longer does not make sustained bandwidth exceed stream bitrate.",
+            "Adaptive segments let the player choose a sustainable bitrate and change as conditions vary.",
+            "A second CDN can improve reach but does not reduce the bytes required by the fixed 4K stream."
+          ],
+          "beforeStatus": "PLAYBACK · 20 Mbps required · 8 Mbps available · rebuffering",
+          "afterStatus": "PLAYBACK · player selects 6 Mbps rendition · buffer grows",
+          "result": "Playback quality now adapts to current delivery capacity",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Mobile player",
+                "sub": "8 Mbps",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "v",
+                "label": "4K only",
+                "sub": "20 Mbps",
+                "col": 1,
+                "kind": "cdn"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "v",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Player",
+                "sub": "select 6 Mbps",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "m",
+                "label": "Manifest",
+                "col": 1,
+                "kind": "cdn"
+              },
+              {
+                "id": "r",
+                "label": "Multiple renditions",
+                "sub": "2 · 6 · 12 · 20 Mbps",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "m",
+                "kind": "request"
+              },
+              {
+                "from": "m",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Time-aligned renditions let the player switch at segment boundaries. The selection algorithm balances visual quality against measured bandwidth and buffer risk rather than assuming one network capacity."
+        },
+        {
+          "id": "design-video-streaming-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Every viewer receives one 4K stream. Mobile users on 8 Mbps links repeatedly rebuffer because the stream requires 20 Mbps. Place Manifest, Multiple renditions. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Player",
+                "sub": "select 6 Mbps",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "m",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "r",
+                "sub": "2 · 6 · 12 · 20 Mbps",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "m",
+                "kind": "request"
+              },
+              {
+                "from": "m",
+                "to": "r",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Manifest",
+            "Multiple renditions",
+            "Uploader",
+            "Source object"
+          ],
+          "answer": {
+            "m": "Manifest",
+            "r": "Multiple renditions"
+          },
+          "why": "The completed diagram contains these directed flows: Player → Manifest; Manifest → Multiple renditions. That topology is the evidence for the answer: Time-aligned renditions let the player switch at segment boundaries. The selection algorithm balances visual quality against measured bandwidth and buffer risk rather than assuming one network capacity."
+        },
+        {
+          "id": "video-2-1",
+          "type": "multi_select",
+          "prompt": "Which objects are strong CDN candidates? Select all.",
+          "choices": [
+            "Immutable video segments",
+            "Versioned manifests when policy permits caching",
+            "Public thumbnails",
+            "A private unkeyed entitlement response shared across users"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Immutable segments, versioned manifests, and public thumbnails have stable cache identities. Private entitlement responses require identity-aware policy and must not be reused across users under a shared key."
+        }
+      ]
+    },
+    {
+      "id": "video-3",
+      "title": "Authorization, takedown, and evidence",
+      "exercises": [
+        {
+          "id": "video-3-0",
+          "type": "concept",
+          "title": "Playback authorization is short-lived while media objects remain cacheable",
+          "body": "The playback API verifies subscription, geography, device, and content policy before issuing a short-lived signed manifest or cookie. Takedown updates authoritative metadata and prevents new authorization; bounded credential and cache lifetimes limit continued access.",
+          "note": "Previously downloaded bytes cannot be recalled; digital-rights controls reduce unauthorized access but do not create absolute prevention."
+        },
+        {
+          "id": "video-3-1",
+          "type": "build_diagram",
+          "prompt": "Build the protected playback request path: obtain bounded authorization, then present it to the CDN without proxying segment bytes through the application API.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Player",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "s",
+                "label": "CDN · cached segments",
+                "sub": "validates authorization",
+                "col": 3,
+                "kind": "cdn"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Playback API · entitlement check",
+            "Short-lived signed authorization",
+            "Database row per segment download",
+            "Shared administrator cookie"
+          ],
+          "answer": {
+            "h1": "Playback API · entitlement check",
+            "h2": "Short-lived signed authorization"
+          },
+          "why": "The player obtains bounded authorization from the API and presents it on segment requests that the CDN validates. The player then exchanges segment bytes directly with the CDN; the arrows show request authorization and do not mean the application API proxies the media response."
+        },
+        {
+          "id": "video-3-2",
+          "type": "multi_select",
+          "prompt": "Which signals reveal playback quality? Select all.",
+          "choices": [
+            "Startup delay",
+            "Rebuffer ratio",
+            "Bitrate switches",
+            "Only HTTP 200 rate"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Startup delay, rebuffering, and bitrate adaptation describe the viewer experience. Successful HTTP responses can coexist with slow startup or repeated buffering and are insufficient alone."
+        }
+      ]
+    },
+    {
+      "id": "video-backlog-sim",
+      "title": "Transcoding is a queue with a completion clock",
+      "exercises": [
+        {
+          "id": "video-backlog-sim-card",
+          "type": "concept",
+          "title": "A video waits for its required renditions",
+          "body": "Each upload fans out into encoding jobs for multiple resolutions and bitrates. When jobs arrive faster than transcoders finish them, publication delay grows. Matching rates stops new delay; spare capacity drains bursts and retries failures.",
+          "note": "A minimal rendition ladder can publish before expensive optional renditions."
+        },
+        {
+          "id": "video-backlog-sim-0",
+          "type": "simulate",
+          "prompt": "Uploads create 240 rendition jobs/minute. Each transcoder completes 30/minute. Over ten minutes, choose the *fewest* transcoders that prevent processing delay from growing.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "jobs",
+                "label": "Rendition jobs",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "workers",
+                "label": "Transcoders",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "backlog",
+                "label": "Unprocessed renditions",
+                "col": 2,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "jobs",
+                "to": "workers",
+                "kind": "event"
+              },
+              {
+                "from": "workers",
+                "to": "backlog",
+                "kind": "event"
+              }
+            ]
+          },
+          "sim": {
+            "input": 240,
+            "inputLabel": "Jobs/min",
+            "chain": [
+              "workers",
+              "backlog"
+            ],
+            "capacity": {
+              "backlog": 0
+            },
+            "watch": "backlog",
+            "watchLabel": "Jobs added after 10 min",
+            "absorb": {
+              "node": "workers",
+              "label": "Transcoders",
+              "min": 1,
+              "max": 12,
+              "start": 1,
+              "unit": " workers"
+            },
+            "model": {
+              "kind": "queue",
+              "duration": 10,
+              "servicePerUnit": 30
+            }
+          },
+          "answerRange": [
+            8,
+            8
+          ],
+          "why": "Seven transcoders finish 210 jobs/minute and add 300 waiting renditions in ten minutes. Eight match arrivals. More than eight is required to drain an existing queue or survive a failed worker."
+        }
+      ]
+    },
+    {
+      "id": "video-pool-sim",
+      "title": "Encoding capacity determines publication throughput",
+      "exercises": [
+        {
+          "id": "video-pool-sim-card",
+          "type": "concept",
+          "title": "One upload expands into several independently scheduled encodes",
+          "body": "A rendition job consumes transcoder time for one codec, resolution, and bitrate. Publication throughput depends on completed jobs per minute, while priority and spare workers determine how quickly urgent or retried jobs finish.",
+          "note": "The mathematical minimum stops growth; it does not drain an existing queue."
+        },
+        {
+          "id": "video-pool-sim-0",
+          "type": "simulate",
+          "prompt": "The pipeline receives 360 rendition jobs/minute. One transcoder completes 30/minute. Choose the *fewest* transcoders that keep up.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "jobs",
+                "label": "Rendition jobs",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "sched",
+                "label": "Transcode scheduler",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "workers",
+                "label": "Transcoder pool",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "jobs",
+                "to": "sched",
+                "kind": "event"
+              },
+              {
+                "from": "sched",
+                "to": "workers",
+                "kind": "request"
+              }
+            ]
+          },
+          "sim": {
+            "input": 360,
+            "inputLabel": "Jobs/min",
+            "chain": [
+              "sched",
+              "workers"
+            ],
+            "capacity": {},
+            "watch": "workers",
+            "watchLabel": "Jobs / pool capacity",
+            "absorb": {
+              "node": "sched",
+              "label": "Transcoders",
+              "min": 1,
+              "max": 16,
+              "start": 1,
+              "unit": " workers"
+            },
+            "model": {
+              "kind": "pool",
+              "servicePerUnit": 30
+            }
+          },
+          "answerRange": [
+            12,
+            12
+          ],
+          "why": "Eleven transcoders complete 330 jobs/minute; twelve complete 360. Real publication targets need spare capacity to drain bursts and survive worker loss."
+        }
+      ]
+    },
+    {
+      "id": "video-x",
+      "title": "Adaptive bitrate and live latency",
+      "exercises": [
+        {
+          "id": "video-x-0",
+          "type": "concept",
+          "title": "The player chooses a rendition; the CDN does not choose for it",
+          "body": "A manifest lists segments encoded at several bitrates and resolutions. The player estimates throughput and buffer health, requests one rendition for the next segment, and may switch later. Shorter segments allow faster adaptation but increase request and packaging overhead.",
+          "note": "A successful high-bitrate download can still be a bad choice if it drains the playback buffer before the next segment arrives."
+        },
+        {
+          "id": "video-x-1",
+          "type": "multiple_choice",
+          "prompt": "A player's buffer falls from 12 seconds to 3 seconds while recent segment downloads take longer than segment duration. What is the immediate adaptive-bitrate response?",
+          "choices": [
+            "Request a lower-bitrate next segment",
+            "Increase the source video's resolution",
+            "Purge every CDN edge",
+            "Wait for the buffer to reach zero"
+          ],
+          "answer": 0,
+          "why": "Downloads slower than playback consume the buffer. A lower bitrate reduces bytes per segment and raises the chance that the next segment arrives before playback catches up."
+        },
+        {
+          "id": "video-x-2",
+          "type": "multi_select",
+          "prompt": "Which changes can reduce glass-to-glass latency for a live stream? Select all.",
+          "choices": [
+            "Produce shorter segments or chunks",
+            "Reduce encoder and packaging delay",
+            "Keep the player closer to the live edge with a smaller buffer target",
+            "Increase on-demand archive retention"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Live latency accumulates during capture, encoding, packaging, distribution, and player buffering. Archive retention changes storage duration, not the current live path."
+        },
+        {
+          "id": "video-x-3",
+          "type": "build_diagram",
+          "prompt": "Build adaptive playback: the player obtains a manifest, chooses a rendition using throughput and buffer state, then requests that segment from the CDN.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Player",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "h4",
+                "col": 4,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "h4",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Manifest + rendition list",
+            "Throughput/buffer estimate",
+            "Next rendition decision",
+            "CDN segment request",
+            "Origin database transaction",
+            "Global purge"
+          ],
+          "answer": {
+            "h1": "Manifest + rendition list",
+            "h2": "Throughput/buffer estimate",
+            "h3": "Next rendition decision",
+            "h4": "CDN segment request"
+          },
+          "why": "The manifest exposes available encodings, local measurements inform the player's choice, and the selected URL identifies the next segment at one bitrate. The player can choose differently for the following segment."
+        }
+      ]
+    },
+    {
+      "id": "video-4",
+      "title": "Review the complete streaming system",
+      "exercises": [
+        {
+          "id": "video-4-0",
+          "type": "concept",
+          "title": "Upload, processing, publication, and playback are separate state machines",
+          "viz": {
+            "nodes": [
+              {
+                "id": "s",
+                "label": "Source object",
+                "sub": "verified",
+                "col": 0,
+                "kind": "storage"
+              },
+              {
+                "id": "t",
+                "label": "Transcode jobs",
+                "sub": "retryable renditions",
+                "col": 1,
+                "kind": "queue"
+              },
+              {
+                "id": "m",
+                "label": "Versioned manifest",
+                "sub": "publish boundary",
+                "col": 2,
+                "kind": "cdn"
+              },
+              {
+                "id": "p",
+                "label": "Players",
+                "sub": "adaptive segments",
+                "col": 3,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "s",
+                "to": "t",
+                "kind": "event"
+              },
+              {
+                "from": "t",
+                "to": "m",
+                "kind": "event"
+              },
+              {
+                "from": "m",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "body": "A verified source starts deterministic processing jobs. Each rendition writes immutable segments, and publication creates a versioned manifest only after the minimum playable set is complete. Players fetch the manifest, choose segment bitrate from current buffer and throughput, and retrieve bytes from the CDN.",
+          "note": "Retrying a transcoder is safe when output keys include video, rendition, segment, and processing version; a retry replaces no unrelated published object."
+        },
+        {
+          "id": "video-review-change",
+          "type": "system_change",
+          "prompt": "A manifest is overwritten in place while CDN edges still cache the old file. Some edges reference deleted segments and playback fails halfway through.",
+          "actionLabel": "Version manifests and retain referenced segments",
+          "choices": [
+            "Purge every edge at exactly the same instant",
+            "Publish a new immutable manifest URL and retain old segments through its cache lifetime",
+            "Disable CDN caching"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A global simultaneous purge is not an available atomic operation.",
+            "Versioned publication gives each manifest a stable segment set while old readers drain safely.",
+            "Removing caching sends global segment traffic to origin and avoids rather than solves publication consistency."
+          ],
+          "beforeStatus": "MANIFEST /master.m3u8 · mutable · references missing segment",
+          "afterStatus": "MANIFEST /v42/master.m3u8 · immutable segment set retained",
+          "result": "Every cached manifest continues to describe playable objects",
+          "viz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Mutable manifest",
+                "sub": "edge copies disagree",
+                "col": 0,
+                "kind": "cdn"
+              },
+              {
+                "id": "s",
+                "label": "Deleted segments",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "s",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Manifest v42",
+                "sub": "immutable URL",
+                "col": 0,
+                "kind": "cdn"
+              },
+              {
+                "id": "s",
+                "label": "Segments v42",
+                "sub": "retained",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "s",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "A manifest and its segments form one published version even though they are separate objects. Versioned URLs and retention make that relationship stable without requiring atomic invalidation across hundreds of independent CDN caches."
+        },
+        {
+          "id": "design-video-streaming-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A manifest is overwritten in place while CDN edges still cache the old file. Some edges reference deleted segments and playback fails halfway through. Place Manifest v42, Segments v42. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "m",
+                "sub": "immutable URL",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "s",
+                "sub": "retained",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Manifest v42",
+            "Segments v42",
+            "Uploader",
+            "Source object"
+          ],
+          "answer": {
+            "m": "Manifest v42",
+            "s": "Segments v42"
+          },
+          "why": "The completed diagram contains these directed flows: Manifest v42 → Segments v42. That topology is the evidence for the answer: A manifest and its segments form one published version even though they are separate objects. Versioned URLs and retention make that relationship stable without requiring atomic invalidation across hundreds of independent CDN caches."
+        },
+        {
+          "id": "video-4-1",
+          "type": "match_pairs",
+          "prompt": "Match each record or object to its role in the system.",
+          "pairs": [
+            {
+              "left": "Video metadata row",
+              "right": "Owns title, policy, processing state, and current manifest version"
+            },
+            {
+              "left": "Source object",
+              "right": "Durable input from which renditions can be regenerated"
+            },
+            {
+              "left": "Rendition manifest",
+              "right": "Lists time-aligned segment URLs and bitrate information"
+            },
+            {
+              "left": "Playback session event",
+              "right": "Reports startup, buffering, bitrate, and errors for one viewer session"
+            }
+          ],
+          "why": "Metadata controls publication and policy, source bytes support retry and reprocessing, manifests describe immutable delivery objects, and session events measure actual viewer experience. Combining them into one mutable record couples unrelated write rates and lifecycles."
+        },
+        {
+          "id": "video-4-2",
+          "type": "build_diagram",
+          "prompt": "Build the complete playback control and data paths.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Player",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "c",
+                "label": "CDN segments",
+                "col": 3,
+                "kind": "cdn"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "p",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Playback API · entitlement",
+            "Signed versioned manifest",
+            "Transcoder worker",
+            "Shared database password"
+          ],
+          "answer": {
+            "h1": "Playback API · entitlement",
+            "h2": "Signed versioned manifest"
+          },
+          "why": "The control path authorizes playback and returns a bounded, versioned manifest. The data path then runs directly from player to CDN for segment bytes, so application capacity does not scale with video bitrate."
+        },
+        {
+          "id": "video-4-3",
+          "type": "multi_select",
+          "prompt": "A design review finds synchronous upload-to-transcode requests, one 4K rendition, mutable segment URLs, and only server-side HTTP success metrics. Which failures are hidden or likely? Select all.",
+          "choices": [
+            "Long processing time can fail the upload request",
+            "Slow links repeatedly rebuffer",
+            "Cached manifests can reference changed bytes",
+            "The service can report green while viewers experience poor startup and buffering"
+          ],
+          "answer": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "why": "Each finding violates a separate path: synchronous processing couples variable compute to upload, one bitrate ignores link capacity, mutable delivery identities undermine caches, and HTTP success omits the player-side quality signals users experience."
+        },
+        {
+          "id": "xfer-video",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A lecture player downloads each high-bitrate segment more slowly than the segment's playback duration, and its buffer is shrinking. What should it do next?",
+          "choices": [
+            "Increase archive retention",
+            "Purge the CDN globally",
+            "Wait until playback stops",
+            "Request a lower-bitrate rendition for the next segment"
+          ],
+          "answer": 3,
+          "why": "When download time exceeds media duration, playback consumes buffer faster than it is replenished. A lower bitrate reduces segment bytes and helps the next download arrive before the buffer empties."
+        }
+      ]
+    }
+  ]
+}

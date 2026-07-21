@@ -2,7 +2,7 @@
   "unitId": "apis",
   "tier": 0,
   "title": "APIs",
-  "subtitle": "The contract programs use to talk — and how it survives strangers",
+  "subtitle": "Design stable service contracts, resource models, pagination, and failure responses",
   "objectives": [
     "Explain what an API is and why a boundary beats direct database access",
     "Design RESTful resource URLs and know why nouns beat verbs",
@@ -17,7 +17,7 @@
         {
           "id": "api-1-0",
           "type": "concept",
-          "title": "Your app doesn't own the weather — it borrows it, one request at a time",
+          "title": "An API defines how one program requests work from another",
           "viz": {
             "nodes": [
               {
@@ -44,16 +44,216 @@
             "edges": [
               {
                 "from": "a",
-                "to": "api"
+                "to": "api",
+                "kind": "request"
               },
               {
                 "from": "api",
-                "to": "db"
+                "to": "db",
+                "kind": "data"
               }
             ]
           },
-          "body": "A weather app owns no satellites. A checkout page doesn't run a bank. They work by asking someone else's server, over the network, in a format that server has agreed to accept. That agreement is the API — Application Programming Interface: a published list of what you may ask, how to ask it, and what comes back. A contract between two programs.",
-          "note": "The contract is the part they can't take back. Once strangers build on it, it stops being yours to edit — an API you published in 2015 is an API you are still honouring today, bug for bug."
+          "body": "An Application Programming Interface (API) specifies allowed operations, required inputs, returned data, and errors. A weather app sends an HTTP request to a forecast API; the provider validates it, reads its own systems, and returns a structured response such as JSON.",
+          "note": "Changing a published field's meaning or type can break deployed clients. Providers usually add compatible fields, deprecate gradually, or introduce a new version."
+        },
+        {
+          "id": "api-change-1",
+          "type": "system_change",
+          "prompt": "A mobile screen calls three backend services serially. Add a backend-for-frontend that calls them in parallel.",
+          "actionLabel": "Add a backend-for-frontend",
+          "beforeStatus": "SCREEN DATA · 3 serial mobile round trips × 80ms = at least 240ms",
+          "afterStatus": "SCREEN DATA · 1 mobile round trip; backend fan-out finishes near the slowest call",
+          "result": "The serial mobile round trips collapsed into one",
+          "viz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Mobile app",
+                "sub": "3 serial calls",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Profile",
+                "sub": "80ms",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Orders",
+                "sub": "80ms",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "Offers",
+                "sub": "80ms",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Mobile app",
+                "sub": "1 call",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g",
+                "label": "Mobile BFF",
+                "sub": "parallel fan-out",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "a",
+                "label": "Profile",
+                "sub": "80ms",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Orders",
+                "sub": "80ms",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "Offers",
+                "sub": "80ms",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "g",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "A backend-for-frontend can replace several high-latency mobile round trips with one request and parallel server-side fan-out. Its latency still includes the slowest dependency and its own processing overhead."
+        },
+        {
+          "id": "apis-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: A mobile screen calls three backend services serially. Add a backend-for-frontend that calls them in parallel. Place Mobile BFF, Profile, Orders. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Mobile app",
+                "sub": "1 call",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g",
+                "sub": "parallel fan-out",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "sub": "80ms",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "80ms",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "c",
+                "label": "Offers",
+                "sub": "80ms",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "g",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Mobile BFF",
+            "Profile",
+            "Orders",
+            "Your app",
+            "Weather API"
+          ],
+          "answer": {
+            "g": "Mobile BFF",
+            "a": "Profile",
+            "b": "Orders"
+          },
+          "why": "The completed diagram contains these directed flows: Mobile app → Mobile BFF; Mobile BFF → Profile; Mobile BFF → Orders; Mobile BFF → Offers. That topology is the evidence for the answer: A backend-for-frontend can replace several high-latency mobile round trips with one request and parallel server-side fan-out. Its latency still includes the slowest dependency and its own processing overhead.",
+          "connectEdges": true
         },
         {
           "id": "api-1-1",
@@ -66,7 +266,7 @@
             "It reads the weather company's database directly"
           ],
           "answer": 1,
-          "why": "An API (Application Programming Interface) is a defined way for one program to ask another for data or actions — the weather app asks, a weather service answers. You use dozens of APIs a day without noticing: every app showing a map, taking a payment, or offering 'Sign in with Google' is calling someone else's API behind the scenes."
+          "why": "An Application Programming Interface (API) gives the weather app a defined request it can send to a weather service and a defined response it can consume. The provider can collect and manage forecast data while exposing only the supported operations."
         },
         {
           "id": "api-1-2",
@@ -79,7 +279,7 @@
             "password"
           ],
           "answer": 0,
-          "why": "An API is a contract: it defines what you can ask, how to ask it, and what you'll get back. The contract IS the product — the moment other people build on it, changing it breaks them, which is why API design decisions haunt you for years."
+          "why": "An API contract specifies valid operations, inputs, authentication, response shapes, and errors. Clients code against those guarantees, so incompatible contract changes can break deployed integrations."
         },
         {
           "id": "api-1-3",
@@ -92,7 +292,7 @@
             "There's no real reason — it's just tradition"
           ],
           "answer": 1,
-          "why": "The API is a boundary: it exposes what you may do and hides how it's done, and that freedom to change internals without breaking callers is the entire point. It's encapsulation at system scale — if clients touched the database directly, the provider could never change their schema, add authentication, or throttle abuse. The API is both the contract and the control point where you enforce auth, limits, and validation."
+          "why": "The API exposes controlled operations while hiding the provider’s schema and storage implementation. This boundary lets the provider validate input, authorize callers, enforce limits, and change internal databases without granting clients direct storage access."
         },
         {
           "id": "api-1-4",
@@ -109,27 +309,27 @@
             },
             {
               "left": "API key",
-              "right": "Proves who is calling"
+              "right": "Identifies or authenticates the client presenting it"
             },
             {
               "left": "Documentation",
               "right": "The contract, written down"
             }
           ],
-          "why": "An endpoint is where you ask, JSON is the shape of the answer, the key says who you are, and the docs are the contract made readable. Undocumented APIs get used wrong and then can never be changed, because nobody knows who depends on what — docs aren't a nicety, they're how the contract stays enforceable."
+          "why": "The endpoint identifies an operation address, JSON defines the exchanged data representation, an API key identifies or authenticates the client presenting that bearer credential, and documentation records the contract. A copied key proves possession, not a human identity, and authorization still decides what that client may do."
         },
         {
           "id": "api-1-5",
           "type": "order_steps",
           "prompt": "Order what happens in one API call.",
           "steps": [
-            "App calls `GET /v1/weather?city=Pune`",
+            "App calls `GET /v1/weather?city=Paris`",
             "Server checks the API key and validates the request",
             "Server fetches the data it needs",
             "Server returns JSON",
             "App renders the forecast"
           ],
-          "why": "Ask at an endpoint → get authenticated and validated → the work happens → JSON comes back → the screen updates. Notice auth and validation happen *before* any real work: rejecting a bad or unauthorized request cheaply, before it touches your database, is a load-shedding tactic you'll reuse constantly."
+          "why": "The server authenticates and validates the request before doing expensive or privileged work. It then obtains the forecast and serializes it as JSON, which the app parses before rendering the result."
         },
         {
           "id": "api-1-6",
@@ -142,7 +342,7 @@
             "It's much older and more established"
           ],
           "answer": 1,
-          "why": "JSON is readable by humans and parses straight into objects, dicts, or maps in nearly every language — low friction beat XML's ceremony. But JSON is text, so it's easy rather than efficient: high-performance internal APIs often use binary formats like Protocol Buffers, which are far smaller and faster to parse at the cost of being unreadable to humans."
+          "why": "JSON maps directly to common language structures such as objects, arrays, strings, and numbers, and its text form is easy to inspect. Binary formats can reduce payload size and parsing cost when internal services prioritize efficiency over human readability."
         }
       ]
     },
@@ -153,9 +353,144 @@
         {
           "id": "api-2-0",
           "type": "concept",
-          "title": "In REST the URL is a noun, because the verb is already in the method",
-          "body": "`GET /invoices/7`. The method says what you're doing; the path says what you're doing it to. That split is the whole idea of REST: give every *resource* an address, then let the HTTP verbs act on it. Put the action back into the path and you've said it twice — the method already carried the verb, and now the URL names nothing.",
-          "note": "A small fixed set of verbs, unlimited nouns. That's why a good REST API is guessable: see one resource addressed properly and you can work out the rest of them without opening the docs."
+          "title": "Resource-oriented HTTP APIs separate identity from operation",
+          "body": "A resource path identifies data: `/users/42` names one user and `/users/42/orders` names that user's order collection. The HTTP method supplies standard operation semantics: `GET` retrieves, `POST` submits, `PUT` replaces, and `DELETE` removes.",
+          "note": "Standard method semantics let clients, gateways, and caches handle requests correctly. For example, `GET` is defined as safe and idempotent."
+        },
+        {
+          "id": "api-change-2",
+          "type": "system_change",
+          "prompt": "A mobile home screen makes six sequential API calls at 80ms each. Add a screen-specific endpoint that fetches the same independent data in parallel.",
+          "actionLabel": "Add a home-screen BFF",
+          "choices": [
+            "Increase the mobile timeout",
+            "Add a BFF that calls dependencies in parallel",
+            "Cache every user's home screen for one hour"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A larger timeout tolerates the 480ms chain but does not remove its sequential waits.",
+            "The BFF collapses client round trips and overlaps independent dependency waits.",
+            "A long shared cache policy risks serving personalized data to the wrong user and does not fit frequently changing screens."
+          ],
+          "beforeStatus": "DATA WAIT · 6 × 80ms sequential · 480ms",
+          "afterStatus": "DATA WAIT · 6 parallel calls · about 80ms plus overhead",
+          "result": "The client crossed the network once and backend fan-out ran concurrently",
+          "viz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Mobile app",
+                "sub": "6 round trips",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "APIs",
+                "sub": "sequential",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Mobile app",
+                "sub": "1 round trip",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Home BFF",
+                "sub": "parallel fan-out",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "a",
+                "label": "6 APIs",
+                "sub": "concurrent",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "A backend-for-frontend can aggregate data for one client screen and issue independent downstream requests concurrently. The slowest dependency now sets the fan-out latency, so timeouts and partial-failure behavior must be explicit."
+        },
+        {
+          "id": "apis-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A mobile home screen makes six sequential API calls at 80ms each. Add a screen-specific endpoint that fetches the same independent data in parallel. Place Home BFF, 6 APIs. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Mobile app",
+                "sub": "1 round trip",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "sub": "parallel fan-out",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "sub": "concurrent",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Home BFF",
+            "6 APIs",
+            "Your app",
+            "Weather API"
+          ],
+          "answer": {
+            "b": "Home BFF",
+            "a": "6 APIs"
+          },
+          "why": "The completed diagram contains these directed flows: Mobile app → Home BFF; Home BFF → 6 APIs. That topology is the evidence for the answer: A backend-for-frontend can aggregate data for one client screen and issue independent downstream requests concurrently. The slowest dependency now sets the fan-out latency, so timeouts and partial-failure behavior must be explicit."
         },
         {
           "id": "api-2-1",
@@ -168,7 +503,7 @@
             "`/user/get/42`"
           ],
           "answer": 1,
-          "why": "REST models nouns (resources), not verbs — the HTTP method already says what you're doing, so `GET /users/42` reads it and putting 'get' in the URL duplicates what `GET` already told us. The rule of thumb: URLs are nouns, methods are verbs. If your URL contains a verb, you're probably reinventing HTTP."
+          "why": "`/users/42` names user 42 as a resource, while the `GET` method already expresses retrieval. Keeping actions in HTTP methods produces a consistent resource model across create, read, replace, and delete operations."
         },
         {
           "id": "api-2-2",
@@ -192,7 +527,7 @@
               "right": "Delete that user"
             }
           ],
-          "why": "One resource, four operations, separated purely by the HTTP method — that's REST in a nutshell. It's why REST scales as a mental model: a small fixed set of verbs applied to unlimited nouns, so learn the pattern once and you can guess any well-designed REST API."
+          "why": "The collection path `/users` supports listing with `GET` and creation with `POST`. The member path `/users/42` identifies one user for retrieval or deletion, so the method changes while the resource address stays stable."
         },
         {
           "id": "api-2-3",
@@ -205,7 +540,7 @@
             "`/fetchOrders?u=42`"
           ],
           "answer": 1,
-          "why": "Nesting expresses the relationship — the orders that belong to user 42 — and it reads like the data model. But don't over-nest: `/users/42/orders/7/items/3/reviews` is a maintenance nightmare that couples your URLs to a rigid hierarchy. Two levels is a good ceiling; past that, expose the resource at its own top-level path and link by id."
+          "why": "`/users/42/orders` represents the orders subordinate to user 42, so the path encodes the ownership relation and the method can encode the operation. Deeply nested paths should be limited when resources also need independent identities."
         },
         {
           "id": "api-2-4",
@@ -222,7 +557,7 @@
             2,
             3
           ],
-          "why": "Plural nouns, methods-as-verbs, and honest status codes are the core conventions; verbs in URLs are the anti-pattern because they duplicate the method. Conventions matter more than cleverness here — a predictable API is one a stranger can guess without reading docs, and guessability is a real feature."
+          "why": "Plural resource names, HTTP methods for actions, and accurate status codes form a predictable interface. An action such as creation belongs in `POST` semantics, so `/createUser` duplicates intent in the path."
         },
         {
           "id": "api-2-5",
@@ -230,12 +565,12 @@
           "prompt": "REST APIs are stateless. What does that demand of every single request?",
           "choices": [
             "Nothing in particular",
-            "Each request must carry everything needed to serve it — the server remembers nothing from prior calls",
+            "Each request carries the context needed to interpret it; the server does not rely on conversational context from earlier requests",
             "Every request must be a `GET`",
             "Requests must stay under 1KB"
           ],
           "answer": 1,
-          "why": "Statelessness means each request stands alone: it carries its own auth and parameters, and the server holds no memory of your last call. It's the same property from unit 2, and it's why you can drop a REST API behind a load balancer with 500 interchangeable servers — statelessness isn't a REST nicety, it's what makes REST scale."
+          "why": "REST statelessness forbids server-held conversational client context that the next request needs for interpretation. The service may still persist users, orders, and shared session records as resource state; the next request supplies its credentials, target, and inputs so any compatible server can handle it."
         },
         {
           "id": "api-2-6",
@@ -248,7 +583,7 @@
             "errors"
           ],
           "answer": 0,
-          "why": "Resources (nouns) live at URLs; methods (verbs) act on them. Separating the two is the whole design."
+          "why": "A REST URL identifies a resource such as `/users/42`, and the HTTP method states the requested operation on it. This separation lets one stable address support several standard operations."
         }
       ]
     },
@@ -259,9 +594,9 @@
         {
           "id": "api-3-0",
           "type": "concept",
-          "title": "An endpoint that returns 'all of them' is fine right up until there are a lot of them",
-          "body": "`GET /users` looks harmless. It's one line, it takes no parameters, and it sails through review. What it actually promises is: *however many users exist, I will return all of them.* None of the code changes as your table grows. Only the size of the data does — and that's the shape of most scale bugs.",
-          "note": "Which is exactly why it ships. Your dev database has 100 rows and production has 50 million, so the endpoint passes every test it will ever face before it meets the data that kills it."
+          "title": "Pagination bounds the work and payload of a collection request",
+          "body": "Pagination bounds response work. Offset pages can shift under inserts. A cursor should encode a stable total order, such as `(created_at, id)`: the unique `id` breaks timestamp ties, so the next query can continue strictly after one exact row.",
+          "note": "A cursor stabilizes page boundaries, not the whole dataset. Without snapshot semantics, later updates or deletes can still change what appears across the traversal. Enforce a server-side page maximum."
         },
         {
           "id": "api-3-1",
@@ -274,20 +609,20 @@
             "Only DNS"
           ],
           "answer": 1,
-          "why": "Unbounded collections are a production landmine — the query is slow, the payload enormous, the request times out, and both server and client can run out of memory. This is a classic incident shape: the endpoint was fine with 100 rows in dev and fell over at 10M in production. Rule: never expose an endpoint whose response size grows with your data."
+          "why": "Returning all 50 million rows creates unbounded database work, response memory, transfer time, and client parsing cost. As the collection grows, one request can exhaust limits or time out, so the endpoint needs a bounded result size."
         },
         {
           "id": "api-3-2",
           "type": "multiple_choice",
-          "prompt": "So how do you return a large list safely?",
+          "prompt": "Each user row is about 2KB, the endpoint has a 1MB response budget, and latency degrades above 200 rows. What continuation contract should the server enforce?",
           "choices": [
-            "Return it all but compress it",
-            "Paginate: return a bounded page plus a way to ask for the next one",
-            "Ask clients to be patient",
-            "Only allow admins to call it"
+            "Honor any client `limit` because callers know their needs",
+            "Cap pages at 200 rows and return an opaque cursor for the next page",
+            "Return 500 rows because their raw size is exactly 1MB",
+            "Use compression and remove the page limit"
           ],
           "answer": 1,
-          "why": "Pagination bounds the work per request: a fixed-size page plus a pointer to get the next one, so cost per call stays predictable no matter how big the dataset grows. Always enforce a maximum page size on the server — if a client can send `?limit=1000000`, you haven't actually bounded anything, you've just asked nicely."
+          "why": "A 200-row cap stays below both the measured latency limit and the 1MB raw-payload ceiling, leaving room for envelope and encoding overhead. An opaque cursor continues the traversal without exposing storage details, and the server-side cap prevents a caller from creating unbounded query and serialization work."
         },
         {
           "id": "api-3-3",
@@ -300,7 +635,7 @@
             "There are no problems — offset is the standard"
           ],
           "answer": 1,
-          "why": "`OFFSET` isn't free: to skip 1,000,000 rows the database generally has to traverse them, so deep pages get progressively slower — and if rows are inserted while you're paging, everything shifts and you re-see items or skip them entirely. The fix is cursor (keyset) pagination: instead of 'skip a million', you say 'give me 20 items after `id=X`'. The database jumps straight there using an index, so page 50,000 costs the same as page 1 — which is why every large feed hands you an opaque cursor instead of a page number."
+          "why": "A deep `OFFSET` may scan and discard many preceding rows, while inserts can shift positions between requests. A cursor over an indexed total order such as `(created_at, id)` continues after one exact row; a timestamp alone is unsafe when several rows share it. Without a snapshot, later changes can still affect later pages."
         },
         {
           "id": "api-3-4",
@@ -313,7 +648,7 @@
             "Change it, but email everyone first"
           ],
           "answer": 1,
-          "why": "Once strangers depend on your contract, mutating it breaks their software with no warning — so you add alongside (a new field or version) and migrate people over time. The governing rule: you can add, you can't take away. Additive changes are safe because old clients ignore what they don't know about, and that asymmetry drives almost every real API evolution strategy."
+          "why": "Changing an existing field’s meaning violates the contract already implemented by third-party clients. A new field or version preserves old behavior while clients migrate, allowing incompatible semantics to coexist during the transition."
         },
         {
           "id": "api-3-5",
@@ -330,7 +665,7 @@
             2,
             3
           ],
-          "why": "Adding an optional field is safe — old clients simply ignore it — while removing, renaming, or retyping breaks anyone parsing it, instantly and silently. This is why the *expand, migrate, contract* pattern exists: first ADD the new field, then move clients over, and only remove the old one much later once nobody reads it. The contract step is the one teams forget to ever finish."
+          "why": "Removing, renaming, or changing the type of a field invalidates code that expects the old response schema. A new optional field is generally compatible because tolerant clients can ignore an unknown member."
         },
         {
           "id": "api-3-6",
@@ -343,7 +678,7 @@
             "It's slower to parse"
           ],
           "answer": 1,
-          "why": "The status code is the machine-readable verdict: saying `200` means success, so caches may store it, dashboards show healthy, and clients take the success path — while the request actually failed. Do both: return the honest status (`404`) AND a consistent error body like `{code, message}`. Consistency matters as much as correctness, because if every endpoint shapes errors differently, clients must write custom handling for each one."
+          "why": "`200 OK` tells clients, caches, and monitoring that the request succeeded, so embedding an error only in the body produces contradictory machine signals. `404 Not Found` plus a consistent error object makes both transport status and application detail accurate."
         }
       ]
     },
@@ -354,7 +689,7 @@
         {
           "id": "api-4-0",
           "type": "concept",
-          "title": "A list is one call — then the screen needs one more for every row in it",
+          "title": "The N+1 problem turns one list read into one request per item",
           "viz": {
             "nodes": [
               {
@@ -379,16 +714,69 @@
             "edges": [
               {
                 "from": "m",
-                "to": "p"
+                "to": "p",
+                "kind": "request"
               },
               {
                 "from": "m",
-                "to": "u"
+                "to": "u",
+                "kind": "request"
               }
             ]
           },
-          "body": "A REST endpoint has a fixed shape, and a screen rarely wants exactly that shape. `GET /posts` returns posts — not the author names you need to draw beside them. So the app fetches the list, then fetches each author separately: 1 call becomes 1 + N. It has a name, the *N+1 problem*, and it's why a simple-looking mobile screen can feel slow.",
-          "note": "Every one of those calls can be fast and the screen still crawls. The cost isn't the work, it's the trips — so the fix usually starts with making fewer round trips, not quicker ones."
+          "body": "An N+1 request pattern fetches a list with one call, then issues N related calls to render its N items. For a post list, the client may fetch posts once and request each author separately. The total is `1 + N` network requests for one screen.",
+          "note": "If the related calls run sequentially, latency grows with N. If they run concurrently, connection usage and downstream load rise with N instead."
+        },
+        {
+          "id": "apis-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: The N+1 problem turns one list read into one request per item",
+          "viz": {
+            "nodes": [
+              {
+                "id": "m",
+                "label": "Mobile app",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "p",
+                "sub": "1 · the list",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "u",
+                "sub": "2 · once per row",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "m",
+                "to": "p",
+                "kind": "request"
+              },
+              {
+                "from": "m",
+                "to": "u",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "`GET /posts`",
+            "`GET /users/{id}`",
+            "Your app",
+            "Weather API"
+          ],
+          "answer": {
+            "p": "`GET /posts`",
+            "u": "`GET /users/{id}`"
+          },
+          "why": "An N+1 request pattern fetches a list with one call, then issues N related calls to render its N items. For a post list, the client may fetch posts once and request each author separately. The total is `1 + N` network requests for one screen. If the related calls run sequentially, latency grows with N. If they run concurrently, connection usage and downstream load rise with N instead."
         },
         {
           "id": "api-4-1",
@@ -401,7 +789,7 @@
             "20"
           ],
           "answer": 2,
-          "why": "One request for the list, plus one per post = 21. This is the N+1 problem. Fire those 20 author calls one after another on a mobile network with ~100ms round trips and you wait over two seconds before anything renders. Fire them in parallel — which any decent client does — and you escape most of the waiting, but you still pay 20× the requests, 20× the server work, and the slowest one sets what the user feels. Chattiness is the number one killer of mobile API performance, and the fix is to let the server do the joining and return posts *with* their authors in one response."
+          "why": "The client performs one request for posts and 20 requests for their authors, producing 21 requests. This N+1 pattern multiplies network and server overhead; returning posts with the required author fields can collapse the screen load into one client round trip."
         },
         {
           "id": "api-4-2",
@@ -414,39 +802,36 @@
             "Sharding"
           ],
           "answer": 1,
-          "why": "Over-fetching means the response carries far more than the caller needs — on mobile that's wasted bandwidth, slower parsing, and real battery cost. REST endpoints have fixed shapes, so the same endpoint is simultaneously too big for one screen and too small for another (forcing extra calls — under-fetching). That exact tension is precisely why GraphQL was invented."
+          "why": "Over-fetching sends 40 fields when the screen consumes only two, increasing transfer, parsing, and memory costs. A field-selectable API or a tailored endpoint can return the representation required by that client."
         },
         {
           "id": "api-4-3",
-          "type": "match_pairs",
-          "prompt": "Match each API style to what it's best at.",
-          "pairs": [
-            {
-              "left": "REST",
-              "right": "Simple, cacheable, fixed response shapes"
-            },
-            {
-              "left": "GraphQL",
-              "right": "Client asks for exactly the fields it needs"
-            },
-            {
-              "left": "gRPC",
-              "right": "Fast binary protocol for service-to-service calls"
-            }
+          "type": "multi_select",
+          "prompt": "A company controls web, iOS, and Android clients. Each screen needs a different nested slice of the same graph, and the team wants one typed schema. Which requirements genuinely favor GraphQL? Select all.",
+          "choices": [
+            "Clients need to select different field sets and nested relationships",
+            "One typed schema should drive validation and client tooling",
+            "Every response must use ordinary shared HTTP cache keys with no extra cache machinery",
+            "Untrusted callers must be allowed unlimited query depth and cost"
           ],
-          "why": "REST is the simple, cacheable default; GraphQL solves over/under-fetching by letting clients specify the shape; gRPC trades human-readability for speed between your own services. None is 'best' — they're answers to different questions: REST for public APIs, GraphQL when different clients need wildly different slices of data, gRPC for internal hops where nobody's reading the payload and latency is the whole game."
+          "answer": [
+            0,
+            1
+          ],
+          "why": "GraphQL lets controlled clients select fields and traverse relationships through one typed schema, which fits diverse first-party screens. Because many queries share an endpoint, shared HTTP caching needs an explicit keying strategy. Production servers also bound depth, complexity, and resolver fan-out to control execution cost."
         },
         {
           "id": "api-4-4",
-          "type": "tradeoff_slider",
-          "prompt": "You're designing a PUBLIC API for third-party developers you've never met. Slide toward the style you'd default to.",
-          "leftLabel": "REST (simple, cacheable)",
-          "rightLabel": "GraphQL (flexible queries)",
-          "answerRange": [
-            0,
-            40
+          "type": "multiple_choice",
+          "prompt": "A public product API exposes stable resources to unknown third parties. It needs ordinary HTTP caching, simple per-endpoint cost limits, and no caller-defined nested queries. Which interface best fits those stated constraints?",
+          "choices": [
+            "A resource-oriented REST API",
+            "GraphQL with unrestricted query depth",
+            "Browser clients calling internal gRPC services directly",
+            "Direct database access for partners"
           ],
-          "why": "For a public API consumed by strangers, REST usually wins: trivial to learn, works with HTTP caching and CDNs, and easy to rate-limit per endpoint. GraphQL's flexibility becomes a liability — arbitrary nested queries are hard to cache, hard to rate-limit, and easy to weaponize into an expensive query. GitHub famously offers both, and the split is instructive: GraphQL shines for FIRST-party clients you control, where flexibility pays for itself."
+          "answer": 0,
+          "why": "Resource-oriented REST fits these requirements because methods, paths, and response metadata integrate with standard HTTP caching and endpoint-level controls. GraphQL can also be public, but its flexibility is unnecessary here and would require query-cost controls and a deliberate caching strategy."
         },
         {
           "id": "api-4-5",
@@ -463,7 +848,7 @@
             1,
             2
           ],
-          "why": "Limits, bounded pages, and a versioned contract are your seatbelts; unlimited nested queries are the opposite — they hand callers a way to make you do unbounded work. An API is a promise made to strangers, and every unbounded thing you expose will eventually be abused, usually by accident via someone's runaway retry loop long before any malice shows up."
+          "why": "Rate limits bound work per client, pagination bounds work per collection request, and versioning preserves existing contracts during evolution. Unlimited nested queries leave computation and response size controlled by callers, creating an unbounded-cost path."
         },
         {
           "id": "api-4-6",
@@ -498,15 +883,18 @@
             "edges": [
               {
                 "from": "m",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
                 "from": "h",
-                "to": "p"
+                "to": "p",
+                "kind": "request"
               },
               {
                 "from": "h",
-                "to": "u"
+                "to": "u",
+                "kind": "request"
               }
             ]
           },
@@ -518,20 +906,84 @@
           "answer": {
             "h": "API Gateway / BFF"
           },
-          "why": "A gateway (or Backend-for-Frontend) sits in front, makes the many internal calls server-side, and returns one response shaped for that screen — turning 21 phone round trips into 1. The internal calls still happen, but over a fast datacenter network instead of a phone's 100ms hops. That's the BFF pattern: a thin server-side layer shaped for one specific client, giving you GraphQL-like tailoring while keeping plain REST services underneath."
+          "why": "A Backend-for-Frontend (BFF) aggregates the posts and users service calls inside the datacenter and returns one mobile-specific response. The phone pays one wide-area round trip while the BFF owns internal fan-out and response shaping."
         },
         {
           "id": "api-4-7",
-          "type": "multiple_choice",
-          "prompt": "Your public REST API is slow for mobile and partners complain payloads are huge — but you cannot break the thousands of existing integrations. What's the best move?",
-          "choices": [
-            "Change the response shape to be leaner — clients will adapt",
-            "Add a new tailored endpoint (new version, or a BFF for mobile) while leaving the existing contract untouched",
-            "Remove the unused fields to slim it down",
-            "Migrate every client to GraphQL immediately"
+          "type": "build_diagram",
+          "prompt": "Build the mobile request path that replaces 21 wide-area calls with one. The middle component fans out inside the datacenter and shapes one mobile response.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "mobile",
+                "label": "Mobile App",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "sub": "one mobile call",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "fetch posts",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "fetch authors",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "mobile",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Mobile BFF",
+            "Posts Service",
+            "Users Service",
+            "Public REST v1",
+            "DNS Resolver"
           ],
-          "answer": 1,
-          "why": "You can't mutate a contract that strangers depend on — slimming fields or reshaping responses is a breaking change no matter how much better the new shape is. You add alongside: a versioned endpoint or a BFF tailored for mobile, and migrate gradually. This is the whole unit in one decision: an API is a contract, the contract outlives your opinions about it, and evolving it without breaking anyone is the actual senior skill."
+          "answer": {
+            "h1": "Mobile BFF",
+            "h2": "Posts Service",
+            "h3": "Users Service"
+          },
+          "why": "The phone makes one wide-area call to a Backend-for-Frontend (BFF), which fetches posts and user data over internal links and returns only the fields the screen needs. This preserves the existing public contract; if the BFF fails or waits serially on slow dependencies, it becomes the screen's shared failure and latency point."
+        },
+        {
+          "id": "xfer-api",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A music API pages through a playlist while new songs are inserted near the beginning. Which pagination contract best avoids shifting offsets and duplicated rows?",
+          "choices": [
+            "Return the entire playlist every time",
+            "Randomly skip inserted songs",
+            "An opaque cursor tied to a stable ordering key",
+            "Page number multiplied by 20"
+          ],
+          "answer": 2,
+          "why": "A cursor based on the last stable ordering key continues after a known item. Offset pages can shift when earlier rows are inserted, causing duplicates or omissions across requests."
         }
       ]
     }

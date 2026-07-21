@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Stackling — World-Class Product Plan</title>
+  <style>
+    :root{
+      --bg:#071522;--card:#0d2438;--card2:#12314b;--ink:#eaf1f8;--muted:#9db4cc;
+      --line:rgba(76,176,255,.18);--blue:#4cb0ff;--blue2:#1e5aa8;
+      --amber:#ffb020;--green:#35d0a5;--red:#ff5c7a;
+      --display:ui-rounded,"Avenir Next",Inter,system-ui,sans-serif;
+      --body:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.55;
+      background-image:linear-gradient(rgba(76,176,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(76,176,255,.045) 1px,transparent 1px);background-size:28px 28px}
+    a{color:var(--blue)} code{font-family:var(--mono);font-size:.88em;color:var(--blue);background:var(--card2);border:1px solid var(--line);border-radius:5px;padding:.1em .35em}
+    .wrap{max-width:1120px;margin:auto;padding:32px 22px 80px}
+    .hero{padding:34px;border:1px solid var(--line);border-radius:24px;background:linear-gradient(135deg,rgba(30,90,168,.32),rgba(13,36,56,.92));box-shadow:0 24px 80px rgba(0,0,0,.22)}
+    .brand{display:flex;align-items:center;gap:12px;color:var(--amber);font-family:var(--display);font-weight:800;letter-spacing:.02em}.mark{font-size:28px}
+    h1,h2,h3{font-family:var(--display);line-height:1.15}h1{font-size:clamp(34px,6vw,66px);margin:20px 0 14px;letter-spacing:-.035em}h2{font-size:30px;margin:58px 0 18px}h3{font-size:20px;margin:0 0 9px}
+    .lede{max-width:820px;font-size:18px;color:var(--muted);margin:0}.rule{margin-top:24px;padding:15px 18px;border-left:3px solid var(--amber);background:rgba(255,176,32,.08);border-radius:0 12px 12px 0;font-weight:700}
+    .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}.pill{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:99px;padding:6px 10px;color:var(--muted);background:var(--card)}
+    .toc{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:10px;margin-top:18px}.toc a{text-decoration:none;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--card);font-weight:700}.toc a:hover{border-color:var(--blue)}
+    .score{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.score>div{padding:18px;border:1px solid var(--line);background:var(--card);border-radius:14px}.score b{display:block;color:var(--amber);font-size:25px;font-family:var(--display)}.score span{color:var(--muted);font-size:13px}
+    .phase{margin-top:30px;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:rgba(13,36,56,.82)}
+    .phase-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:22px;background:linear-gradient(90deg,rgba(76,176,255,.12),transparent)}
+    .phase-num{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--blue)}
+    .phase-head p{margin:6px 0 0;color:var(--muted);max-width:760px}.status{flex:none;font-family:var(--mono);font-size:11px;text-transform:uppercase;border:1px solid rgba(255,176,32,.4);color:var(--amber);padding:5px 9px;border-radius:99px}
+    .fix{padding:22px;border-top:1px solid var(--line);display:grid;grid-template-columns:55px minmax(0,1fr);gap:14px;scroll-margin-top:18px}.fix:first-of-type{border-top:0}.n{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-family:var(--mono);font-weight:800;background:var(--blue2);color:#fff}.fix p{margin:5px 0 12px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.box{border:1px solid var(--line);border-radius:12px;padding:14px;background:rgba(7,21,34,.45)}.box strong{display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--green);margin-bottom:7px}.box.risk strong{color:var(--red)}
+    ul{margin:6px 0 0;padding-left:19px}li+li{margin-top:5px}.accept{margin-top:14px;border-left:3px solid var(--green);padding:10px 13px;background:rgba(53,208,165,.07);border-radius:0 10px 10px 0}.accept b{color:var(--green)}
+    table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--blue)}tr:last-child td{border-bottom:0}.p0{color:var(--red);font-weight:800}.p1{color:var(--amber);font-weight:800}.p2{color:var(--green);font-weight:800}
+    .gate{padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--card);margin-top:14px}.gate h3{color:var(--amber)}
+    footer{margin-top:64px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:22px}
+    @media(max-width:700px){.wrap{padding:18px 14px 60px}.hero{padding:23px}.grid{grid-template-columns:1fr}.fix{grid-template-columns:1fr}.phase-head{flex-direction:column}.status{align-self:flex-start}th:nth-child(3),td:nth-child(3){display:none}}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <div class="brand"><span class="mark">▰</span> STACKLING</div>
+    <h1>World-Class Product Plan</h1>
+    <p class="lede">The execution plan for moving Stackling from an accurate interactive course to a system-design learning platform that can produce, measure, and defend real capability.</p>
+    <div class="rule">One fix at a time. You are the primary learner and acceptance test. A fix is complete when it helps you understand, retain, or apply system design and passes its automated checks—not when the interface merely exists.</div>
+    <div class="meta"><span class="pill">Version 1.2</span><span class="pill">Created 17 Jul 2026</span><span class="pill">Aha-first</span><span class="pill">HTML-first</span><span class="pill">Expo after learning validation</span><span class="pill">Status: execution-ready</span></div>
+  </header>
+
+  <h2>North-star outcome</h2>
+  <div class="score">
+    <div><b>Produce</b><span>Create a design from an ambiguous prompt.</span></div>
+    <div><b>Defend</b><span>Explain why each major decision fits the requirements.</span></div>
+    <div><b>Revise</b><span>Adapt the design when scale or failure conditions change.</span></div>
+    <div><b>Retain</b><span>Recall mechanisms after days and weeks, not one lesson later.</span></div>
+  </div>
+
+  <h2>Product-building strategy</h2>
+  <div class="phase">
+    <div class="phase-head"><div><div class="phase-num">Hard sequencing decision</div><h3 style="margin:5px 0 0">Prove the teaching system before building the mobile shell</h3><p>Stackling remains HTML-first through Fix 06. The HTML prototypes are the learning laboratory: they let us improve explanations, exercises, diagrams, guided design, feedback, retention, and transfer without spending the majority of our attention on application polish.</p></div><span class="status">Locked</span></div>
+    <div class="fix"><div class="n">A</div><div><h3>Before Expo</h3><div class="grid"><div class="box"><strong>Build and validate</strong><ul><li>Beginner teaching before assessment</li><li>Three substantial guided designs</li><li>Concept-level diagnostics</li><li>A basic adaptive review loop</li><li>Causal simulations and failure scenarios</li><li>Guidance that fades toward independent work</li></ul></div><div class="box"><strong>Your evidence</strong><ul><li>You can explain the mechanism without rereading</li><li>You can solve a transfer question in a new context</li><li>You can build a small design without revealed slots</li><li>Your mistakes produce useful, specific feedback</li><li>You can return later without restarting the course</li></ul></div></div></div></div>
+    <div class="fix"><div class="n">B</div><div><h3>Expo stage gate</h3><p>Expo starts after Gate 2 passes. The mobile app becomes a faithful renderer of proven content and interactions; it does not become a second place to invent the learning model.</p><div class="accept"><b>Acceptance:</b> at least 10 polished foundational units, 3 guided designs, adaptive review, and several causal simulations work for you before mobile implementation begins. Recruiting an early cohort is not a prerequisite.</div></div></div>
+    <div class="fix"><div class="n">C</div><div><h3>Gamification policy</h3><p>Add progress paths, milestones, mascot reactions, forgiving streaks, and daily review goals only when they support practice and return behavior. XP measures activity, never competence.</p><div class="box risk"><strong>Deferred until evidence supports them</strong><ul><li>Leagues and social ranking</li><li>Virtual currency and shops</li><li>Aggressive notifications</li><li>Punitive hearts or streak loss</li><li>Reward systems that compete with understanding</li></ul></div></div></div>
+  </div>
+
+  <h2>Execution order</h2>
+  <nav class="toc">
+    <a href="#fix-00">00 · First-Session Aha</a>
+    <a href="#fix-01">01 · Guided Design Studio</a><a href="#fix-02">02 · Evaluation Rubric</a>
+    <a href="#fix-03">03 · Mastery Model</a><a href="#fix-04">04 · Adaptive Review</a>
+    <a href="#fix-05">05 · Guidance Fading</a><a href="#fix-06">06 · Requirement Changes</a>
+    <a href="#fix-07">07 · Capstone Expansion</a><a href="#fix-08">08 · Simulations &amp; Labs</a>
+    <a href="#fix-09">09 · Contextual Tutor</a><a href="#fix-10">10 · Mock Interviews</a>
+    <a href="#fix-11">11 · Readiness Dashboard</a><a href="#fix-12">12 · Launch &amp; Pricing</a>
+  </nav>
+
+  <section class="phase">
+    <div class="phase-head"><div><div class="phase-num">Phase 0 · Activation</div><h2 style="margin:5px 0 0">Earn belief in the first session</h2><p>The learner must experience useful system-design reasoning before we ask for memory, patience, or money.</p></div><span class="status" style="color:var(--green);border-color:rgba(53,208,165,.4)">Complete</span></div>
+
+    <article class="fix" id="fix-00"><div class="n" style="background:#176952">✓</div><div><h3>First-Session Aha Experience</h3><p><a href="prototype/first-session.html">Open the accepted prototype →</a> One familiar problem, one architecture decision, and one immediate measured success on a phone.</p><div class="grid"><div class="box"><strong>Accepted flow</strong><ul><li>90 req/s enters the system</li><li>Two servers each have 60 req/s capacity</li><li>Direct routing overloads Server A while Server B is idle</li><li>The learner adds one load balancer</li><li>Traffic becomes 45/45 and the queue falls to zero</li><li>The explanation distinguishes routing from creating capacity</li></ul></div><div class="box risk"><strong>Activation rule</strong><ul><li>One mechanism per first-touch experience</li><li>One meaningful learner action</li><li>Inputs and capacity stated before action</li><li>Numerical before/after result</li><li>No trivia, punishment, or subscription interruption</li><li>No second experiment disguised as continuation</li></ul></div></div><div class="accept"><b>Accepted 18 Jul 2026:</b> the owner approved the radically simplified phone-first version. It passes 21 focused browser checks. The earlier multi-step version remains documented as a rejected direction.</div></div></article>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head"><div><div class="phase-num">Phase A · Core capability</div><h2 style="margin:5px 0 0">From guided success to independent design</h2><p>After the first win creates confidence, this phase develops the ability to produce and defend a complete design.</p></div><span class="status">Next</span></div>
+
+    <article class="fix" id="fix-01"><div class="n">01</div><div><h3>Guided Design Studio</h3><p>Create a free-form but structured workspace where the learner owns one complete design.</p><div class="grid"><div class="box"><strong>Build</strong><ul><li>Ambiguous prompt and clarification stage</li><li>Functional/non-functional requirements</li><li>Traffic and storage estimates</li><li>API and data-model notes</li><li>Free-position architecture canvas</li><li>Failure analysis and tradeoff defense</li><li>Autosave and resume</li></ul></div><div class="box risk"><strong>Do not fake</strong><ul><li>No component slots revealing the topology</li><li>No single hidden “correct diagram”</li><li>No keyword score presented as intelligence</li><li>No AI dependency in the first offline prototype</li></ul></div></div><div class="accept"><b>Acceptance:</b> a learner can complete URL Shortener from an empty canvas, save it, revise it, and compare it against an explicit rubric without seeing the reference design first.</div></div></article>
+
+    <article class="fix" id="fix-02"><div class="n">02</div><div><h3>Evidence-Based Evaluation Rubric</h3><p>Score observable design evidence, not whether the diagram matches one reference picture.</p><div class="grid"><div class="box"><strong>Rubric dimensions</strong><ul><li>Requirement coverage</li><li>Estimation and assumptions</li><li>API/data model coherence</li><li>Scale path and bottlenecks</li><li>Consistency and failure handling</li><li>Security, cost, and operations</li><li>Tradeoff communication</li></ul></div><div class="box"><strong>Feedback model</strong><ul><li>Evidence cited from the learner’s work</li><li>Missing requirement identified</li><li>Consequence of each risky choice</li><li>One next action, not a solution dump</li><li>Human-reviewed exemplar scores</li></ul></div></div><div class="accept"><b>Acceptance:</b> two materially different valid designs can both pass, while a design with an unhandled single point of failure receives a specific, reproducible deduction.</div></div></article>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head"><div><div class="phase-num">Phase B · Learning engine</div><h2 style="margin:5px 0 0">Measure durable mastery</h2><p>Replace static completion with a learner model that remembers strengths, misconceptions, and forgetting.</p></div><span class="status">Planned</span></div>
+    <article class="fix" id="fix-03"><div class="n">03</div><div><h3>Concept-Level Mastery Model</h3><p>Tag every exercise with the concepts and reasoning skills it provides evidence about.</p><div class="grid"><div class="box"><strong>Track</strong><ul><li>Correctness, attempts, latency, hints</li><li>Specific wrong choice or wrong placement</li><li>Confidence and answer changes</li><li>Last successful retrieval</li><li>Performance across novel contexts</li></ul></div><div class="box"><strong>Model separately</strong><ul><li>Recall of definitions</li><li>Mechanism understanding</li><li>Application</li><li>Diagnosis</li><li>Open-ended design</li></ul></div></div><div class="accept"><b>Acceptance:</b> “Caching 82%” cannot be earned solely through definition questions; application and failure-mode evidence are required.</div></div></article>
+    <article class="fix" id="fix-04"><div class="n">04</div><div><h3>Adaptive Spaced Review</h3><p>Generate review sessions from learner evidence instead of replaying fixed checkpoint files.</p><div class="grid"><div class="box"><strong>Review rules</strong><ul><li>Requeue misses quickly</li><li>Increase intervals after successful retrieval</li><li>Mix related and confusable concepts</li><li>Prefer transfer questions over duplicates</li><li>Resurface prerequisites behind later errors</li></ul></div><div class="box"><strong>Review experience</strong><ul><li>Daily 5-minute weak-skill session</li><li>Why an item is being reviewed</li><li>Overdue concept count</li><li>Offline scheduling</li><li>No punishment for returning late</li></ul></div></div><div class="accept"><b>Acceptance:</b> two learners completing the same unit receive different review queues based on their errors and elapsed time.</div></div></article>
+    <article class="fix" id="fix-05"><div class="n">05</div><div><h3>Guidance Fading</h3><p>Move learners from worked examples to independent architecture without abandoning beginners.</p><div class="accept"><b>Acceptance:</b> each capstone supports five levels: worked design → partial completion → palette build → empty canvas → timed independent design. Experienced learners can test out of early levels.</div></div></article>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head"><div><div class="phase-num">Phase C · Real design pressure</div><h2 style="margin:5px 0 0">Make designs survive change</h2><p>System design begins where the original happy-path architecture stops working.</p></div><span class="status">Planned</span></div>
+    <article class="fix" id="fix-06"><div class="n">06</div><div><h3>Requirement Changes &amp; Failure Injection</h3><p>Apply new constraints to the learner’s existing design: traffic spikes, region loss, deletion deadlines, celebrity fan-out, cost cuts, abuse, and stale replicas.</p><div class="accept"><b>Acceptance:</b> every capstone contains at least three requirement changes and two failures that force a meaningful revision.</div></div></article>
+    <article class="fix" id="fix-07"><div class="n">07</div><div><h3>Expand to 15–20 Deep Capstones</h3><p>Add File Storage, Video Streaming, Search Autocomplete, Notifications, Payments, Metrics, Web Crawler, Scheduler, Email, Collaborative Editing, Ticket Booking, and Object Storage.</p><div class="accept"><b>Acceptance:</b> each capstone follows requirements → estimates → APIs/data → architecture → deep dive → failures → operations → revision; no capstone is a renamed multiple-choice unit.</div></div></article>
+    <article class="fix" id="fix-08"><div class="n">08</div><div><h3>Simulations and Executable Labs</h3><p>Let learners manipulate cache hit rate, queue backlog, replication lag, retry storms, partitions, query plans, and connection pools.</p><div class="accept"><b>Acceptance reached:</b> the curriculum contains 30 causal simulations across flow/offload, time-based backlog, retry amplification, and dynamic worker/pool-capacity models. Six broader executable labs remain a separate interaction milestone.</div></div></article>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head"><div><div class="phase-num">Phase D · Coaching and proof</div><h2 style="margin:5px 0 0">Personal feedback and interview readiness</h2><p>Add intelligence only after the product has structured evidence and defensible rubrics.</p></div><span class="status">Planned</span></div>
+    <article class="fix" id="fix-09"><div class="n">09</div><div><h3>Contextual Tutor</h3><p>A tutor that sees the current lesson, the learner’s design, previous mistakes, and rubric. It asks guiding questions and cites the evidence behind feedback.</p><div class="accept"><b>Acceptance:</b> tutor feedback distinguishes two different wrong architectures and never reveals a complete solution before the learner requests it.</div></div></article>
+    <article class="fix" id="fix-10"><div class="n">10</div><div><h3>Timed Mock Interviews and Verbal Defense</h3><p>Simulate requirement clarification, interviewer follow-ups, architecture narration, and tradeoff defense. Add voice after text mocks are reliable.</p><div class="accept"><b>Acceptance:</b> a 45-minute mock produces an evidence-linked report across the same rubric used by guided practice.</div></div></article>
+    <article class="fix" id="fix-11"><div class="n">11</div><div><h3>Readiness Dashboard and Portfolio</h3><p>Replace XP-as-ability with skill evidence, trend lines, completed independent designs, weak areas, and readiness by interview level.</p><div class="accept"><b>Acceptance:</b> every score links to attempts that support it; completing lessons alone cannot produce an “interview ready” status.</div></div></article>
+  </section>
+
+  <section class="phase">
+    <div class="phase-head"><div><div class="phase-num">Phase E · Ship</div><h2 style="margin:5px 0 0">Turn the product that taught you into the product we sell</h2><p>Use your completed learning journey as the primary proof. Before public release, run only the minimum outside sanity checks needed to catch onboarding and reliability failures.</p></div><span class="status">Planned</span></div>
+    <article class="fix" id="fix-12"><div class="n">12</div><div><h3>Launch Readiness, Content Operations, and Pricing</h3><div class="grid"><div class="box"><strong>Owner acceptance</strong><ul><li>You completed the beginner path yourself</li><li>You retained the important mechanisms</li><li>You produced independent designs</li><li>Your weak areas resurfaced automatically</li><li>Broken or confusing content is recorded and repaired</li></ul></div><div class="box"><strong>Public-launch sanity check</strong><ul><li>Invite a small number of outsiders only when the product is ready to ship</li><li>Confirm onboarding works without your explanation</li><li>Fix severe confusion and technical failures</li><li>Do not turn feedback into committee governance</li></ul></div></div><div class="grid" style="margin-top:16px"><div class="box"><strong>Working price</strong><ul><li>$9.99 per month</li><li>$79.99 per year</li><li>Seven-day free trial</li><li>Free introductory units and one guided design</li></ul></div><div class="box"><strong>Paid value</strong><ul><li>Complete curriculum</li><li>Adaptive review</li><li>All simulations and diagram practice</li><li>Guided capstones and saved designs</li></ul></div></div><div class="accept"><b>Acceptance:</b> ship when the product reliably teaches you and passes the launch checks. Test $9.99/month and $79.99/year after launch; do not delay building for market-research ceremonies.</div></div></article>
+  </section>
+
+  <h2>Priority and dependency table</h2>
+  <table><thead><tr><th>Fix</th><th>Priority</th><th>Depends on</th><th>Why now</th></tr></thead><tbody>
+    <tr><td>00 · First-Session Aha</td><td class="p0">P0</td><td>None</td><td>Creates confidence and demonstrates value before subscription consideration.</td></tr>
+    <tr><td>01 · Guided Design Studio</td><td class="p0">P0</td><td>00</td><td>Turns the guided win into independent-design capability.</td></tr>
+    <tr><td>02 · Evaluation Rubric</td><td class="p0">P0</td><td>01</td><td>Prevents the studio becoming an ungraded drawing tool.</td></tr>
+    <tr><td>03 · Mastery Model</td><td class="p0">P0</td><td>Content tags</td><td>Makes progress meaningful.</td></tr>
+    <tr><td>04 · Adaptive Review</td><td class="p0">P0</td><td>03</td><td>Creates retention rather than completion.</td></tr>
+    <tr><td>05–06 · Fading and pressure</td><td class="p1">P1</td><td>01–02</td><td>Turns guided work into transfer.</td></tr>
+    <tr><td>07–08 · Breadth and labs</td><td class="p1">P1</td><td>01–06</td><td>Scales proven lesson patterns.</td></tr>
+    <tr><td>09–10 · Tutor and mocks</td><td class="p1">P1</td><td>02–03</td><td>Needs structured context and evaluation first.</td></tr>
+    <tr><td>11–12 · Proof and pricing</td><td class="p2">P2</td><td>All above</td><td>Packages evidence after capability exists.</td></tr>
+  </tbody></table>
+
+  <h2>Release gates</h2>
+  <div class="gate"><h3>Gate 0 · Activation works</h3><p>Fix 00 complete. The first session produces a visible system-design win within five minutes, requires no hidden prior knowledge, and ends with a concrete artifact and an accurate explanation.</p></div>
+  <div class="gate"><h3>Gate 1 · Useful prototype</h3><p>Fixes 01–02 complete. A learner can independently design one system and receive reproducible rubric feedback.</p></div>
+  <div class="gate"><h3>Gate 2 · Learning product and permission to build Expo</h3><p>Fixes 03–06 complete in HTML. At least 10 polished foundational units, 3 guided designs, adaptive review, and causal simulations help you learn and apply the material. Expo work begins after this gate; no recruited cohort is required.</p></div>
+  <div class="gate"><h3>Gate 3 · Paid mobile launch</h3><p>The proven learning system runs reliably in Expo with offline progress, accessibility, saved designs, diagnostic onboarding, and a restrained learning-first reward loop. Test $9.99/month and $79.99/year.</p></div>
+  <div class="gate"><h3>Gate 4 · Expanded product</h3><p>At least 10 deep capstones and 8 simulations/labs, plus reliable contextual evaluation, timed mocks, and evidence-linked readiness reporting. Expert review is a useful late sanity check, never a building dependency.</p></div>
+
+  <footer><b>Working rule:</b> update this document after each completed fix. Preserve failed experiments and measurement results. Do not silently change an acceptance criterion to match what was built.</footer>
+</main>
+</body>
+</html>

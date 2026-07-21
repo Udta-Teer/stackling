@@ -2,7 +2,7 @@
   "unitId": "client-server-http",
   "tier": 0,
   "title": "Client–Server & HTTP",
-  "subtitle": "How your app talks to a server — and why it scales",
+  "subtitle": "Request-response semantics, methods, status codes, and stateless scaling",
   "objectives": [
     "Explain the request/response model and what's inside an HTTP request",
     "Choose the right HTTP method and reason about safe retries with idempotency",
@@ -17,7 +17,7 @@
         {
           "id": "csh-1-0",
           "type": "concept",
-          "title": "Your phone owns almost none of the app — it just knows how to ask",
+          "title": "A client asks for work; a server performs it and responds",
           "viz": {
             "nodes": [
               {
@@ -49,20 +49,127 @@
             "edges": [
               {
                 "from": "p1",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               },
               {
                 "from": "p2",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               },
               {
                 "from": "p3",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               }
             ]
           },
-          "body": "The app on your phone is mostly a way of asking. It holds the buttons and the layout; the posts, the likes and the follower counts live on someone else's machine. Open the app and it sends a *request* across the network; a server sends back a *response* carrying the data. The machine that asks is the client. The machine that answers is the server.",
-          "note": "Client and server are roles, not machines. Your own server becomes a client the second it calls a payments service — the roles nest, all the way down."
+          "body": "When a social app opens, your phone sends a *request* for the feed. A server reads data, applies the application's rules, and sends a *response*. In this conversation the phone is the client because it asks; the other machine is the server because it answers.",
+          "note": "Client and server describe roles, not permanent machine types. An API server becomes a client when it asks a payment service to charge a card."
+        },
+        {
+          "id": "csh-change-1",
+          "type": "system_change",
+          "prompt": "A page needs four resources from one origin. Reuse one HTTP/2 connection instead of opening four separate connections.",
+          "actionLabel": "Reuse one HTTP/2 connection",
+          "beforeStatus": "CONNECTION SETUP · 4 TCP/TLS setups for 4 resources",
+          "afterStatus": "CONNECTION REUSED · 1 TCP/TLS setup carries all 4 resource streams",
+          "result": "Three connection setups disappeared",
+          "viz": {
+            "nodes": [
+              {
+                "id": "b",
+                "label": "Browser",
+                "sub": "4 connections",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Origin",
+                "sub": "4 handshakes",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "s",
+                "kind": "request",
+                "count": 4,
+                "label": "4 connections"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "b",
+                "label": "Browser",
+                "sub": "1 connection",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Origin",
+                "sub": "4 streams",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "s",
+                "kind": "request",
+                "label": "4 streams · 1 connection"
+              }
+            ]
+          },
+          "why": "HTTP/2 multiplexes multiple request streams over one connection to the same origin. Connection reuse removes repeated TCP and TLS setup; it does not remove each resource's request, response, or server work."
+        },
+        {
+          "id": "client-server-http-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A page needs four resources from one origin. Reuse one HTTP/2 connection instead of opening four separate connections. Place Browser, Origin. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "b",
+                "sub": "1 connection",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "s",
+                "sub": "4 streams",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Browser",
+            "Origin",
+            "Your phone",
+            "A laptop"
+          ],
+          "answer": {
+            "b": "Browser",
+            "s": "Origin"
+          },
+          "why": "The completed diagram contains these directed flows: Browser → Origin. That topology is the evidence for the answer: HTTP/2 multiplexes multiple request streams over one connection to the same origin. Connection reuse removes repeated TCP and TLS setup; it does not remove each resource's request, response, or server work.",
+          "connectEdges": true
         },
         {
           "id": "csh-1-1",
@@ -75,7 +182,7 @@
             "The app store pushed it"
           ],
           "answer": 1,
-          "why": "This is the client–server model: your phone (the client) sends a request, and a server sends back a response. Your phone stores almost none of the data — it just knows how to ask. One server answers millions of clients, and that asymmetry — few servers, many clients — is the shape of almost every system you'll design."
+          "why": "The phone acts as an HTTP client: it requests feed data from a server, which retrieves or computes the result and returns a response. This request/response boundary lets centrally managed services supply current data to many clients."
         },
         {
           "id": "csh-1-2",
@@ -88,7 +195,14 @@
             "proxy"
           ],
           "answer": 0,
-          "why": "Client = asks, server = answers. They're roles rather than fixed machines: a 'server' is itself a 'client' of another server whenever it calls one, so your API server calling a payments API is a client in that conversation. The roles nest."
+          "why": "Client and server name roles in one interaction. The client initiates the request and the server answers it; the same process can become a client when it calls another service."
+        },
+        {
+          "id": "csh-1-7",
+          "type": "concept",
+          "title": "An HTTP request has a method, target, headers, and optional body",
+          "body": "In `POST /users HTTP/1.1`, `POST` is the method and `/users` is the target path. Header lines such as `Content-Type: application/json` carry metadata. A blank line separates them from an optional body containing the new user's fields.",
+          "note": "The method supplies operation semantics, the path selects a resource, headers describe the message, and the body carries a representation when needed."
         },
         {
           "id": "csh-1-3",
@@ -112,7 +226,7 @@
               "right": "The data you're sending"
             }
           ],
-          "why": "Every request is: a method (the verb), a path (the noun), headers (context), and an optional body (the payload). A `GET` usually has no body — it just names what it wants — while a `POST` carries its data in the body. HTTP/1.1 is plain text under the hood, so you could type a request by hand; HTTP/2 and HTTP/3 pack those same four parts into binary frames instead, which you couldn't. The anatomy doesn't change — only the encoding does."
+          "why": "The method states the operation, the path identifies the target resource, headers carry request metadata, and the optional body carries representation data. Together these fields give the server enough information to interpret an HTTP request."
         },
         {
           "id": "csh-1-4",
@@ -125,7 +239,7 @@
             "Server builds a response",
             "Client receives and renders it"
           ],
-          "why": "Ask, travel, process, answer, render — the loop behind every screen you've ever loaded. The 'travel' step includes the network round trips from unit 1, and on HTTPS a TLS handshake happens first to encrypt everything."
+          "why": "The client must construct and send a request before the server can process it. The server then constructs a response, and the client can render only after that response arrives."
         },
         {
           "id": "csh-1-5",
@@ -138,7 +252,7 @@
             "Only if they're within one second"
           ],
           "answer": 1,
-          "why": "HTTP is stateless: by default each request stands entirely on its own, and the server doesn't inherently remember the last one. So how does staying logged in work? The client re-sends proof — a cookie or token — on every single request. State lives with the client or in a shared store, *not* in one server's memory, and that fact is this unit's boss lesson."
+          "why": "HTTP is stateless at the protocol level: one request does not implicitly provide memory of an earlier request. Applications preserve login state by sending a cookie or token with later requests and, when needed, resolving it against shared server-side state."
         },
         {
           "id": "csh-1-6",
@@ -151,7 +265,7 @@
             "A type of physical cable"
           ],
           "answer": 1,
-          "why": "HTTP is the agreed language of the web: a stateless protocol where clients make requests and servers return responses."
+          "why": "HTTP defines stateless request and response messages between clients and servers. It specifies message semantics and transport behavior for application communication; it is neither a database nor a programming language."
         }
       ]
     },
@@ -162,9 +276,156 @@
         {
           "id": "csh-2-0",
           "type": "concept",
-          "title": "Every request says what it wants done in one word, before it says to what",
-          "body": "An HTTP request opens with a verb, and only then says what it's for: `GET /users/42`, `POST /users`, `PUT /users/42`, `DELETE /users/42`. The path names the thing; the method declares your intent toward it. That verb isn't decoration — browsers, caches and crawlers all decide how to treat a request by reading it alone.",
-          "note": "`GET` is meant to be *safe* — read-only — so the web fires them at you unasked: crawlers, prefetchers, link previews. Hide a delete behind a `GET` and something will eventually crawl your data away."
+          "title": "An HTTP method describes what the request intends to do",
+          "body": "In `GET /users/42`, `GET` means read and `/users/42` identifies the resource. `POST` commonly creates, `PUT` replaces, and `DELETE` removes. The method and path together make the request's intent understandable to the server and to web infrastructure.",
+          "note": "`GET` is safe when the client requests no application-state change, although the server may log or meter it. Destructive actions must not use `GET`, because browsers and crawlers may issue it automatically."
+        },
+        {
+          "id": "csh-change-2",
+          "type": "system_change",
+          "prompt": "A mobile client retries `POST /charges` after a timeout. The first request already succeeded, so the retry creates a second charge. Give both attempts one operation identity.",
+          "actionLabel": "Send an idempotency key",
+          "choices": [
+            "Retry with the same idempotency key",
+            "Increase the client timeout",
+            "Change the retry to `GET /charges`"
+          ],
+          "answer": 0,
+          "choiceFeedback": [
+            "One operation identity lets the server recognize the duplicate attempt.",
+            "A longer timeout reduces some retries but cannot prove whether a timed-out charge succeeded.",
+            "A GET request cannot safely replace the command that creates the charge."
+          ],
+          "beforeStatus": "ONE TAP · 2 charges created",
+          "afterStatus": "ONE TAP · 1 charge · retry returns stored result",
+          "result": "The server recognized both requests as the same intended operation",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "retry",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Charge API",
+                "sub": "creates twice",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Payments",
+                "sub": "2 charges",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "s",
+                "kind": "request"
+              },
+              {
+                "from": "s",
+                "to": "p",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "same key",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "Charge API",
+                "sub": "key lookup",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Payments",
+                "sub": "1 charge",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "s",
+                "kind": "request"
+              },
+              {
+                "from": "s",
+                "to": "p",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "The client reuses one idempotency key for every retry of the same charge. The server atomically reserves that key before performing work and returns the recorded result to later duplicates."
+        },
+        {
+          "id": "client-server-http-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A mobile client retries `POST /charges` after a timeout. The first request already succeeded, so the retry creates a second charge. Give both attempts one operation identity. Place Charge API, Payments. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "same key",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "sub": "key lookup",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "sub": "1 charge",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "s",
+                "kind": "request"
+              },
+              {
+                "from": "s",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Charge API",
+            "Payments",
+            "Your phone",
+            "A laptop"
+          ],
+          "answer": {
+            "s": "Charge API",
+            "p": "Payments"
+          },
+          "why": "The completed diagram contains these directed flows: Client → Charge API; Charge API → Payments. That topology is the evidence for the answer: The client reuses one idempotency key for every retry of the same charge. The server atomically reserves that key before performing work and returns the recorded result to later duplicates."
         },
         {
           "id": "csh-2-1",
@@ -177,7 +438,7 @@
             "`PUT`"
           ],
           "answer": 0,
-          "why": "`GET` reads data and shouldn't change anything on the server — it's the default 'just show me' verb. Because `GET` is *safe*, crawlers and browser prefetchers fire them freely, which is why you must never hide a state-changing action (like `/delete?id=42`) behind a `GET`. A crawler following links could wipe your data, and this has genuinely happened to real companies."
+          "why": "`GET` expresses retrieval with safe semantics, meaning the requested operation should not change server state. Caches, crawlers, and prefetchers rely on that contract, so state-changing handlers should use a method whose semantics permit mutation."
         },
         {
           "id": "csh-2-2",
@@ -201,7 +462,7 @@
               "right": "Remove a resource"
             }
           ],
-          "why": "`GET` reads, `POST` creates, `PUT` replaces, `DELETE` removes — the method tells the server your intent. `PUT` replaces the whole resource while `PATCH` updates just part of it, and choosing precisely is what makes an API predictable."
+          "why": "`GET` retrieves a representation, `POST` submits data to create or process a subordinate resource, `PUT` replaces the resource at a known URI, and `DELETE` removes it. These method semantics make client intent explicit."
         },
         {
           "id": "csh-2-3",
@@ -218,7 +479,7 @@
             2,
             3
           ],
-          "why": "`POST`, `PUT`, and `DELETE` modify server state, while `GET` (and `HEAD`, `OPTIONS`) are *safe* — they only read. Because `GET` is safe, it's cacheable and retryable with zero risk, and that single property is why the web can cache so aggressively."
+          "why": "`POST`, `PUT`, and `DELETE` can create, replace, or remove server state. `GET` is defined as safe and should perform retrieval without a requested state change."
         },
         {
           "id": "csh-2-4",
@@ -231,20 +492,71 @@
             "Only if you switch to `GET` first"
           ],
           "answer": 0,
-          "why": "`DELETE` is *idempotent*: `DELETE /users/42` twice still leaves user 42 gone, so the end state is the same and retrying is safe. Idempotent means doing it again lands you in the same state — `GET`, `PUT`, and `DELETE` qualify; `POST` doesn't. This is the backbone of reliable distributed systems, because networks fail mid-request constantly and retries are unavoidable."
+          "why": "`DELETE /users/42` is idempotent because repeating the same request leaves the target resource absent, the same intended state produced by one successful deletion. The server should still return an appropriate status when the resource is already gone."
         },
         {
           "id": "csh-2-5",
-          "type": "multiple_choice",
-          "prompt": "A `POST /payments` request times out. You don't know if the charge went through. Retrying blindly risks charging the customer twice. What's the fix?",
-          "choices": [
-            "Just retry — it's probably fine",
-            "Send an idempotency key so the server recognizes the retry and doesn't repeat the charge",
-            "Never retry payments, ever",
-            "Change it to a `GET` request"
+          "type": "build_diagram",
+          "prompt": "Build a retry-safe payment path. The API claims the idempotency key first; only the winning request may call the payment processor.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "client",
+                "label": "Client",
+                "sub": "same key on every retry",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "atomic claim / stored result",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "called by API after claim wins",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "client",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Payment API",
+            "Idempotency Store",
+            "Payment Processor",
+            "Response Cache",
+            "DNS Resolver"
           ],
-          "answer": 1,
-          "why": "An idempotency key is a unique id the client attaches to the request: if the server sees the same key twice, it returns the original result instead of charging again — making an unsafe `POST` safe to retry. This is exactly how Stripe works, via an `Idempotency-Key` header, and any system with money or side effects needs the pattern."
+          "answer": {
+            "h1": "Payment API",
+            "h2": "Idempotency Store",
+            "h3": "Payment Processor"
+          },
+          "why": "The client repeats the same key. The Payment API atomically claims or reads that key in shared storage; only the request that wins the claim calls the Payment Processor, while later retries return the stored outcome. The store returns a decision to the API—it does not forward the charge itself. If reservation is not atomic across API servers, two retries can both charge the customer."
         },
         {
           "id": "csh-2-6",
@@ -257,7 +569,89 @@
             "encrypted"
           ],
           "answer": 0,
-          "why": "Idempotent operations are safe to retry — critical, because in a distributed system retries are not optional."
+          "why": "An idempotent operation has the same intended effect after one execution or repeated executions. That property permits retries after ambiguous network failures without duplicating the state change."
+        }
+      ]
+    },
+    {
+      "id": "csh-retry-sim",
+      "title": "Timeout retries can amplify an outage",
+      "exercises": [
+        {
+          "id": "csh-retry-sim-card",
+          "type": "concept",
+          "title": "A timeout often creates another request",
+          "body": "If 8,000 original requests/sec produce retries for 75%, the server sees 14,000 attempts/sec. Extra work increases queueing and timeouts, which can trigger still more retries. Backoff spreads retries; a retry budget limits their total rate.",
+          "note": "The server still needs idempotency because the first attempt and retry may both arrive."
+        },
+        {
+          "id": "csh-retry-sim-0",
+          "type": "simulate",
+          "prompt": "Clients send 8,000 req/s. During slowness, 75% would retry once, but the service handles 10,000 attempts/sec. Drag the *smallest* share of retries prevented by budgets/backoff that keeps it alive.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "clients",
+                "label": "Original requests",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "retry",
+                "label": "Retry policy",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "api",
+                "label": "API attempts",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "clients",
+                "to": "retry",
+                "kind": "request"
+              },
+              {
+                "from": "retry",
+                "to": "api",
+                "kind": "request"
+              }
+            ]
+          },
+          "sim": {
+            "input": 8000,
+            "inputLabel": "Original req/s",
+            "chain": [
+              "retry",
+              "api"
+            ],
+            "capacity": {
+              "api": 10000
+            },
+            "watch": "api",
+            "watchLabel": "Total attempts/sec",
+            "absorb": {
+              "node": "retry",
+              "label": "Potential retries prevented",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            },
+            "model": {
+              "kind": "retry",
+              "retryFraction": 0.75
+            }
+          },
+          "answerRange": [
+            67,
+            67
+          ],
+          "why": "With no suppression, retries raise load to 14,000 attempts/sec. Preventing 67% leaves about 9,980. Backoff spreads attempts in time; a retry budget caps how much extra work callers may create."
         }
       ]
     },
@@ -269,15 +663,15 @@
         "seconds": 30,
         "do": "Right-click any page → Inspect → Network tab → reload",
         "alt": "Click any row to see its status code, method, and headers",
-        "notice": "You're watching real requests: dozens per page, each with a method and a status code. Look for a `200`, then hunt for a `304` — that's the browser being told 'you already have this', which is why the reload felt instant."
+        "notice": "Inspect what actually appears after reload: `200` means a response body was returned; `304` means a cached copy was validated; 'memory cache' means no network body was needed; and a service worker may supply the response. DevTools can disable caching, so no one outcome is guaranteed."
       },
       "exercises": [
         {
           "id": "csh-3-0",
           "type": "concept",
-          "title": "The first digit of a status code tells you whose fault it is",
-          "body": "Every HTTP response opens with a three-digit verdict, and you read the first digit rather than memorize the rest. `2xx`: it worked. `3xx`: go look somewhere else. `4xx`: your request was wrong. `5xx`: the server broke trying. Learn those four classes and you can read a code you've never seen before — the last two digits only narrow down the reason.",
-          "note": "That first digit is a blame line, and monitoring lives on it: a spike in `5xx` wakes an engineer at 3am, while a spike in `4xx` means your callers are confused, misconfigured — or attacking you."
+          "title": "The first digit groups HTTP responses by outcome",
+          "body": "Read a status code by class first: `2xx` reports success; `3xx` covers redirection and related outcomes such as `304 Not Modified`; `4xx` means the request could not be fulfilled as sent; and `5xx` means the server failed while handling a valid request.",
+          "note": "The classes guide behavior. Clients may correct a `4xx`; operators investigate rising `5xx`. They are not perfect blame labels—a valid request can still receive `404` or `429`."
         },
         {
           "id": "csh-3-1",
@@ -290,7 +684,7 @@
             "The latency in ms"
           ],
           "answer": 1,
-          "why": "Status codes are the server's one-glance verdict on your request: `200` = OK, it worked. The first digit is everything — `2xx` success, `3xx` redirect, `4xx` you (the client) messed up, `5xx` I (the server) messed up. Learn the classes and you can read any code you've never seen."
+          "why": "`200 OK` is an HTTP status code in the `2xx` success class, so it reports that the request succeeded. The first digit identifies the broad outcome class, while the remaining digits specify a particular result."
         },
         {
           "id": "csh-3-2",
@@ -314,12 +708,12 @@
               "right": "The server broke"
             }
           ],
-          "why": "One code from each class: `2xx` worked, `3xx` go elsewhere, `4xx` your request was wrong, `5xx` the server failed. Two more you'll use constantly: `201 Created` (a `POST` made something new) and `204 No Content` (success, nothing to return — perfect for a `DELETE`)."
+          "why": "`200` reports success, `301` directs the client to a permanently moved resource, `404` reports an absent resource, and `500` reports an unexpected server failure. Accurate codes let clients and intermediaries handle each outcome correctly."
         },
         {
           "id": "csh-3-3",
           "type": "multi_select",
-          "prompt": "Which of these are CLIENT errors (the caller's fault)? Select all.",
+          "prompt": "Which of these belong to the `4xx` client-error class? Select all.",
           "choices": [
             "`400 Bad Request`",
             "`401 Unauthorized`",
@@ -331,7 +725,7 @@
             1,
             2
           ],
-          "why": "`4xx` codes blame the request; `5xx` codes blame the server, and `503` is a server-side 'I can't handle this right now'. Don't confuse `401` and `403`: `401 Unauthorized` really means *I don't know who you are* (not authenticated), while `403 Forbidden` means *I know who you are, and you're not allowed*."
+          "why": "`400`, `401`, and `404` all begin with 4 and therefore belong to the `4xx` request-error class. `503 Service Unavailable` belongs to `5xx` because the server is temporarily unable to serve the request."
         },
         {
           "id": "csh-3-4",
@@ -344,7 +738,7 @@
             "`301 Moved Permanently`"
           ],
           "answer": 1,
-          "why": "`429 Too Many Requests` is the rate-limiting signal, and well-behaved clients back off when they see it — often honouring a `Retry-After` header you send. Pair it with exponential backoff on the client (wait 1s, then 2s, then 4s), because without backoff clients retry instantly in unison and create a thundering herd that keeps the service down."
+          "why": "`429 Too Many Requests` tells the client that a rate limit rejected the request. A `Retry-After` header or documented backoff policy can delay retries so clients do not immediately recreate the overload."
         },
         {
           "id": "csh-3-5",
@@ -357,7 +751,7 @@
             "In the users' wifi"
           ],
           "answer": 1,
-          "why": "`502 Bad Gateway` means the load balancer got a broken response from the app behind it; `504 Gateway Timeout` means the app didn't respond in time. Both point downstream — the app or database, not the balancer or the client. This is why status codes are gold during an incident: `502`/`504` → look at the app tier, `503` → the service is shedding load, `500` → an unhandled crash in your code."
+          "why": "A gateway returns `502` when an upstream sends an invalid response and `504` when an upstream does not respond before the deadline. Both codes direct investigation toward the downstream application or its dependencies."
         },
         {
           "id": "csh-3-6",
@@ -370,7 +764,7 @@
             "`403 Forbidden`"
           ],
           "answer": 1,
-          "why": "The resource genuinely doesn't exist and the client's request was well-formed — a textbook `404`. Returning `200` for a missing resource lies to the client and breaks caching and error handling. The honest code matters because monitoring, retries, and caches all make decisions from it: a `500` here would page an engineer for a non-bug, and a `200` would hide a real 'not found'."
+          "why": "`404 Not Found` accurately reports that the requested order resource does not exist. Returning `200` would send clients down a success path, while `500` would incorrectly classify an expected lookup result as a server fault."
         }
       ]
     },
@@ -381,7 +775,7 @@
         {
           "id": "csh-4-0",
           "type": "concept",
-          "title": "HTTP forgets you between every single request",
+          "title": "Stateless servers keep request context out of one server's memory",
           "viz": {
             "nodes": [
               {
@@ -418,24 +812,100 @@
             "edges": [
               {
                 "from": "c",
-                "to": "lb"
+                "to": "lb",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "s1"
+                "to": "s1",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "s2"
+                "to": "s2",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "s3"
+                "to": "s3",
+                "kind": "request"
               }
             ]
           },
-          "body": "Each HTTP request arrives as a complete stranger. The server reads it, answers it, and keeps no memory of the conversation — everything it needed to answer was inside the request itself. That's what *stateless* means. It sounds like a limitation. It's the opposite: it's the property that decides how far a system can grow.",
-          "note": "Which raises the obvious question: if the server forgets you the instant it replies, how are you still logged in? Something has to re-prove who you are on *every* request — and it can't be the server's memory."
+          "body": "A request must carry what any server needs to handle it, such as an authentication token or session ID. The application can still store users and orders in a database; *stateless* means one web server does not depend on private memory of the previous request.",
+          "note": "Because any server can handle the next request, a load balancer can spread traffic freely and replace failed servers. Shared state still needs a database or cache."
+        },
+        {
+          "id": "client-server-http-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Stateless servers keep request context out of one server's memory",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "You",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "s1",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "s2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "s3",
+                "label": "App Server 3",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "lb",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "s1",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "s2",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "s3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Load balancer",
+            "App Server 1",
+            "App Server 2",
+            "Your phone",
+            "A laptop"
+          ],
+          "answer": {
+            "lb": "Load balancer",
+            "s1": "App Server 1",
+            "s2": "App Server 2"
+          },
+          "why": "A request must carry what any server needs to handle it, such as an authentication token or session ID. The application can still store users and orders in a database; *stateless* means one web server does not depend on private memory of the previous request. Because any server can handle the next request, a load balancer can spread traffic freely and replace failed servers. Shared state still needs a database or cache."
         },
         {
           "id": "csh-4-1",
@@ -448,7 +918,7 @@
             "The load balancer copies your data to every server"
           ],
           "answer": 1,
-          "why": "Because each request carries everything needed to serve it (like an auth token), any interchangeable server can handle it — statelessness is what makes horizontal scaling possible. The moment a server stores your session in its own local memory, servers stop being interchangeable: now the load balancer must pin you to that one machine, and if it dies, your session dies with it."
+          "why": "Each request carries the authentication and input needed to process it, so the load balancer can send it to any interchangeable server. Local session memory would create instance affinity and would lose the session when that instance failed."
         },
         {
           "id": "csh-4-2",
@@ -461,7 +931,7 @@
             "In DNS"
           ],
           "answer": 1,
-          "why": "State moves out of the server: either the client carries it (a token sent on every request) or it lives in a shared store all servers can read — never in one server's local RAM. The two common patterns are a self-contained token (JWT) the client carries, or a session id the client carries that servers look up in a shared cache. Both keep the servers stateless and interchangeable."
+          "why": "A client can carry a self-contained token, or it can carry a session identifier that every server resolves in a shared store. Both arrangements keep per-user session state out of individual app-server memory."
         },
         {
           "id": "csh-4-3",
@@ -490,11 +960,13 @@
             "edges": [
               {
                 "from": "a1",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
                 "from": "a2",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               }
             ]
           },
@@ -506,7 +978,14 @@
           "answer": {
             "h": "Shared Cache (Redis)"
           },
-          "why": "A shared store that every app server reads from keeps sessions out of local memory, so the servers stay stateless and interchangeable. This is the standard fix for 'randomly logged out' bugs: move session state to a shared cache and it stops mattering which server you land on."
+          "why": "A shared Redis cache makes the same session record available to both app servers. Because neither server depends on private session memory, either can handle the next request and either can be replaced independently."
+        },
+        {
+          "id": "csh-4-8",
+          "type": "concept",
+          "title": "Connection reuse amortizes setup across many HTTP requests",
+          "body": "A fresh HTTPS connection can require transport and encryption handshakes before the first request. Keep-alive reuses that connection. HTTP/2 multiplexes concurrent streams over one TCP connection; HTTP/3 multiplexes QUIC streams over UDP.",
+          "note": "With HTTP/2, one lost TCP packet can delay all streams waiting behind that byte gap. QUIC recovers loss per stream, avoiding that transport-level cross-stream block."
         },
         {
           "id": "csh-4-4",
@@ -523,7 +1002,14 @@
             1,
             3
           ],
-          "why": "Reusing connections (keep-alive) and multiplexing (HTTP/2, HTTP/3) amortize the handshake cost across many requests; opening a fresh connection each time is the problem, not a fix. In practice HTTP/1.1 handles one request at a time per connection — the spec does define pipelining, but responses still have to come back in order, so browsers disable it — and a slow response blocked everything queued behind it (head-of-line blocking). HTTP/2 multiplexes many over one connection, and HTTP/3 moves to QUIC over UDP to fix blocking that still happened at the TCP layer."
+          "why": "Keep-alive amortizes connection setup across requests, and multiplexing carries concurrent request streams on one connection. HTTP/3 uses independent QUIC streams, so loss on one stream does not impose TCP-level head-of-line blocking on the others."
+        },
+        {
+          "id": "csh-4-9",
+          "type": "concept",
+          "title": "Conditional requests validate a cached representation before resending it",
+          "body": "A server can attach an entity tag (`ETag`) to a response. On a later request, the client sends that tag in `If-None-Match`. If the representation is unchanged, the server returns `304 Not Modified` without the response body; otherwise it returns the new body and tag.",
+          "note": "`Cache-Control` decides when reuse or revalidation is allowed. An `ETag` identifies a representation version; it does not choose the caching policy by itself."
         },
         {
           "id": "csh-4-5",
@@ -536,19 +1022,20 @@
             "Serve it over `POST`"
           ],
           "answer": 1,
-          "why": "With an `ETag` (a fingerprint of the content), the client sends 'I have version X — changed?' and the server can answer `304 Not Modified` with an empty body, so the same bytes are never re-sent. Those `304` responses are a huge part of why repeat page loads feel instant — the browser revalidates cheaply and skips the download entirely."
+          "why": "An `ETag` identifies a specific representation version. The client sends it in a conditional request, and the server returns `304 Not Modified` without the avatar body when that version is still current, saving transfer bytes while retaining validation."
         },
         {
           "id": "csh-4-6",
-          "type": "tradeoff_slider",
-          "prompt": "Auth for a high-security banking app. Self-contained JWTs let any server validate locally (great for scale) but are hard to revoke before they expire. Redis-backed sessions are instantly revocable but every request hits the store. Slide toward your default here.",
-          "leftLabel": "JWT (scales, hard to revoke)",
-          "rightLabel": "Redis sessions (revocable, central)",
-          "answerRange": [
-            55,
-            100
+          "type": "multiple_choice",
+          "prompt": "A bank must revoke a stolen device within 5 seconds. Authentication must fail closed if revocation state is unavailable, and the service handles 20,000 authenticated requests/sec. Which design meets the requirement?",
+          "choices": [
+            "A self-contained token valid for 24 hours, with no server-side revocation check",
+            "An opaque session ID checked against a replicated shared store on each request, with capacity for 20,000 checks/sec",
+            "A self-contained token valid for 1 hour, checked only when it expires",
+            "A cookie stored only in one app server's memory"
           ],
-          "why": "For high-security, instant revocation usually wins — if a token is stolen you must be able to kill it NOW, and a central session store gives you that at the cost of a lookup per request. Many real systems combine both: short-lived JWTs (minutes) plus a revocation check, getting most of JWT's scale while limiting how long a stolen token stays valid."
+          "answer": 1,
+          "why": "Checking an opaque session ID against replicated shared state lets a revocation become visible within the 5-second target and lets the service reject requests when that state is unavailable. The store must be provisioned for 20,000 checks/sec. Long-lived self-contained tokens without a revocation check cannot meet the stated deadline."
         },
         {
           "id": "csh-4-7",
@@ -561,7 +1048,21 @@
             "The users' tokens expired — shorten the timeout"
           ],
           "answer": 1,
-          "why": "Under load the balancer spreads you across many servers, and whenever you land on one that doesn't hold your in-memory session you appear logged out — making the servers stateless fixes it permanently. The band-aid is sticky sessions (pin each user to one server), but that undermines load balancing and fails when a server dies. Stateless servers plus a shared session store is the scalable cure, and it's why stateless HTTP is what lets systems grow."
+          "why": "Round-robin routing sends requests to instances that lack the user’s locally stored session, causing intermittent authentication loss. Moving sessions to a shared store restores server interchangeability; sticky routing only masks the dependency and still fails when the pinned instance disappears."
+        },
+        {
+          "id": "xfer-http",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A photo client times out after sending `PUT /avatars/42` with the complete replacement image. Under an idempotent endpoint contract, what is the safest retry?",
+          "choices": [
+            "Delete the account first",
+            "Repeat the same PUT body",
+            "Change to POST and create another avatar",
+            "Assume the first request failed"
+          ],
+          "answer": 1,
+          "why": "Repeating the same complete replacement converges on the same resource state. The timeout does not reveal whether the first request succeeded, so retry safety comes from the endpoint's idempotent replacement semantics."
         }
       ]
     }

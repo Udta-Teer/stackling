@@ -1,10 +1,10 @@
 {
   "unitId": "checkpoint-hard-truths",
   "tier": 3,
-  "title": "Checkpoint: Hard Truths",
-  "subtitle": "Mixing units 18–22 — the guarantees you can't buy, and the ones you were sold",
+  "title": "Checkpoint: Distributed Systems",
+  "subtitle": "Reason across observability, overload, consistency, partitions, consensus, and recovery",
   "objectives": [
-    "Recall CAP, consistency models, consensus and idempotency without the unit label as a cue",
+    "Recall observability, resilience, consistency, CAP, consensus, and recovery without the unit label as a cue",
     "Tell the difference between a real guarantee and a plausible sentence about one",
     "Diagnose a distributed failure where the obvious fix is the bug"
   ],
@@ -13,6 +13,195 @@
       "id": "cp4-1",
       "title": "Mixed recall",
       "exercises": [
+        {
+          "id": "cp4-change-1",
+          "type": "system_change",
+          "prompt": "A retried order can publish the same fulfillment message twice. Make the consumer record the message ID atomically with its state change.",
+          "actionLabel": "Deduplicate atomically",
+          "beforeStatus": "REDELIVERY · inventory decremented twice",
+          "afterStatus": "REDELIVERY · existing message ID found · inventory unchanged",
+          "result": "At-least-once delivery produced one business effect",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Queue",
+                "sub": "same message ×2",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "w",
+                "label": "Worker",
+                "sub": "process ×2",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Inventory",
+                "sub": "-2",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "w",
+                "kind": "event"
+              },
+              {
+                "from": "w",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Queue",
+                "sub": "same message ×2",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "w",
+                "label": "Worker",
+                "sub": "check message ID",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Inventory + dedup",
+                "sub": "one transaction",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "w",
+                "kind": "event"
+              },
+              {
+                "from": "w",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "A unique message ID recorded in the same transaction as the inventory update lets redelivery detect a completed effect. A separate check-then-update sequence can race and apply the effect twice."
+        },
+        {
+          "id": "checkpoint-hard-truths-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Draw the failure path first; the disconnected or blocked part is evidence: A retried order can publish the same fulfillment message twice. Make the consumer record the message ID atomically with its state change.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Queue",
+                "sub": "same message ×2",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "w",
+                "sub": "process ×2",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "-2",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "w",
+                "kind": "event"
+              },
+              {
+                "from": "w",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Worker",
+            "Inventory",
+            "Inventory + dedup",
+            "Client Write"
+          ],
+          "answer": {
+            "w": "Worker",
+            "d": "Inventory"
+          },
+          "why": "The completed diagram contains these directed flows: Queue → Worker; Worker → Inventory. That topology is the evidence for the answer: A unique message ID recorded in the same transaction as the inventory update lets redelivery detect a completed effect. A separate check-then-update sequence can race and apply the effect twice.",
+          "connectEdges": true
+        },
+        {
+          "id": "checkpoint-hard-truths-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A retried order can publish the same fulfillment message twice. Make the consumer record the message ID atomically with its state change. Place Worker, Inventory + dedup. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Queue",
+                "sub": "same message ×2",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "w",
+                "sub": "check message ID",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "one transaction",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "w",
+                "kind": "event"
+              },
+              {
+                "from": "w",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Worker",
+            "Inventory + dedup",
+            "Inventory",
+            "Client Write"
+          ],
+          "answer": {
+            "w": "Worker",
+            "d": "Inventory + dedup"
+          },
+          "why": "The completed diagram contains these directed flows: Queue → Worker; Worker → Inventory + dedup. That topology is the evidence for the answer: A unique message ID recorded in the same transaction as the inventory update lets redelivery detect a completed effect. A separate check-then-update sequence can race and apply the effect twice."
+        },
         {
           "id": "cp4-1-1",
           "type": "multiple_choice",
@@ -24,7 +213,7 @@
             "Between latency and throughput"
           ],
           "answer": 1,
-          "why": "'Pick two' is the sentence everyone remembers and it's the wrong reading. You never *choose* partition tolerance — networks fail whether or not you consented, so P is a fact about the world. The theorem only bites during a partition, and then it offers exactly two options: refuse the write and stay correct, or take it on both sides and reconcile a mess later. The subtler point that survives past the interview: the rest of the time — which is nearly all the time — there's no partition and the real trade is latency against consistency, because a strongly consistent write still has to talk to a quorum before it can answer. That's PACELC, and it's the one that describes your p99 on a normal Tuesday.",
+          "why": "A network partition prevents the two datacenters from exchanging messages and creates the condition addressed by CAP. During that interval, preserving one consistent history requires refusing operations that need cross-partition agreement. Preserving availability permits each reachable side to accept operations and requires later conflict detection and reconciliation. The system makes this choice per affected operation while coordination is unavailable.",
           "hint": "Which of the three letters did you actually get a vote on?"
         },
         {
@@ -49,7 +238,7 @@
               "right": "You never see time go backwards"
             }
           ],
-          "why": "These aren't points on one line from bad to good — they're different promises to different observers, which is why 'strongly consistent' is a lazy requirement. Eventual is the weakest and the most honest about it: convergence, no deadline. Read-your-writes and monotonic reads are the two that users actually notice the absence of, because both failures look like the app is broken rather than slow — your edit vanishes, or a comment appears and then un-appears on refresh. Most products need those two and don't need linearizability anywhere except a couple of specific operations, which is a much cheaper system than 'make it strong'.",
+          "why": "Linearizability makes completed operations appear in one real-time order, so a read after a completed write observes that write. Eventual consistency promises convergence after writes stop without a convergence deadline. Read-your-writes ensures a client sees its own completed changes, while monotonic reads prevent that client from later observing an older version than one it has already seen. A system can select these guarantees per operation and observer.",
           "hint": "Two of these are about what *you* see; one is about everyone; one has no deadline."
         },
         {
@@ -63,7 +252,7 @@
             "Only if W = N"
           ],
           "answer": 1,
-          "why": "Overlap is necessary and nowhere near sufficient, and this is the single most common over-claim about quorums. Your read set does contain a node that saw the write — but a write that reached only 2 of the 3 replicas it needed before the client crashed is now in limbo, visible to some readers and not others, and no one is obliged to finish it. Concurrent writes leave you holding two values and needing a rule to pick — last-write-wins, and now you're trusting clock skew. Even reading the newest value tells you nothing about whether a *later* read might see an older one. Real strong consistency needs a protocol that orders operations and repairs partial writes: read repair, anti-entropy, and in practice a consensus algorithm. W+R>N buys overlap. It does not buy linearizability.",
+          "why": "Because W+R exceeds N, every successful read quorum includes at least one replica from every successful write quorum. That overlap guarantees contact with a replica that received the write, but the reader still needs a reliable version order and rules for concurrent or partially completed writes. Without a protocol that chooses one committed order and prevents later reads from returning older values, quorum overlap alone does not provide linearizability.",
           "hint": "What does the read set do with two different values it found?"
         },
         {
@@ -77,38 +266,39 @@
             "Because the old leader might come back"
           ],
           "answer": 1,
-          "why": "Counting votes gets you agreement on *who*, not on *what they know* — and a leader missing committed entries would silently erase acknowledged writes, which is the one thing consensus exists to prevent. So Raft adds the election restriction: a voter refuses any candidate whose log is less up-to-date than its own. Because a committed entry is by definition on a majority, and any winner needs a majority, the two majorities must overlap in at least one node — and that node won't vote for anyone missing the entry. That's the actual mechanism, and it's worth knowing precisely because 'majority vote' sounds complete and isn't. Quorum overlap keeps turning out to be the load-bearing idea in this tier while never being the whole answer.",
+          "why": "A candidate can obtain leadership only if it receives a majority and its log is at least as up to date as each granting voter's log, compared by last-log term and then index. Committed entries are stored on a majority, and an election majority overlaps that set. Raft's voting restriction and log-matching rules use this overlap to prevent election of a leader that would discard committed entries.",
           "hint": "Two majorities of the same set always share at least one member."
         },
         {
           "id": "cp4-1-5",
           "type": "multi_select",
-          "prompt": "Which of these are genuinely idempotent — safe to retry with the same input? Select all.",
+          "prompt": "Which statements describe a recoverable backup system rather than another live replica? Select all.",
           "choices": [
-            "`PUT /users/42` with a full user object",
-            "`POST /payments` with a client-supplied `Idempotency-Key` the provider deduplicates on",
-            "`POST /comments` with a body",
-            "`UPDATE accounts SET balance = balance - 10 WHERE id = 42`"
+            "It retains point-in-time history so yesterday's uncorrupted state remains available",
+            "Restore procedures are exercised and measured against the recovery objectives",
+            "It immediately mirrors every accidental deletion into the only remaining copy",
+            "Credentials and failure domains are separated enough that one production compromise cannot erase every recovery copy"
           ],
           "answer": [
             0,
-            1
+            1,
+            3
           ],
-          "why": "`PUT` sets a resource to a state, so doing it five times leaves the same state — idempotent by construction. The keyed `POST` is idempotent by *agreement*: the key travels to whoever performs the side effect, and they promise to do it once. The last one is the instructive trap, because it looks safe — it's a single atomic statement with no read-modify-write race, so it survives concurrency fine. It just isn't idempotent: run it twice and you've withdrawn 20. Atomic and idempotent are different properties and the same statement can have one without the other. Note also where the key has to live: dedupe in *your* database and you've rebuilt the dual-write problem, because your table and the provider's charge can't be updated atomically.",
-          "hint": "One of these is perfectly atomic and still charges you twice."
+          "why": "A backup preserves recoverable history across production mistakes and failures. Point-in-time retention, isolated control, and tested restores provide that capability. A live replica improves availability but faithfully copies corruption and deletion, so replication alone is not recovery.",
+          "hint": "Ask what happens when production correctly replicates the wrong operation."
         },
         {
           "id": "cp4-1-6",
           "type": "multiple_choice",
-          "prompt": "Your dashboards are all green. Users are reporting the site is broken. What did your observability actually miss?",
+          "prompt": "Global dashboards are green and synthetic checks confirm telemetry is arriving. Complaints cluster on Android version 12 in Brazil. What data exposes the hidden failure?",
           "choices": [
             "Nothing — the users are wrong",
-            "You're measuring what you predicted would break; this is a failure you didn't predict, so no dashboard was watching for it",
+            "High-cardinality events sliced by app version, country, endpoint, and error, then traces from affected requests",
             "The dashboards need a faster refresh",
             "You need more dashboards"
           ],
           "answer": 1,
-          "why": "A dashboard answers a question someone thought of in advance. That's monitoring, and it's good at the failures you've already had. Observability is the ability to ask a question you *didn't* anticipate — which needs high-cardinality data you can slice after the fact by user, region, version, endpoint. This is why the green dashboard is a genre of outage: your averages are fine because the failure is concentrated in one cohort — one region, one app version, one shard, customers whose IDs hash to a hot partition — and every aggregate you're watching dilutes it into invisibility. 'More dashboards' is the wrong reflex for the same reason: you'd be adding more pre-formed questions.",
+          "why": "The prompt rules out a dead telemetry pipeline and supplies a cohort hidden by global aggregation. High-cardinality structured events preserve dimensions such as version and country so operators can isolate that cohort; distributed traces then reveal which request hop fails. Green global averages alone cannot show a severe failure affecting a small segment.",
           "hint": "Who chose which questions your dashboard can answer, and when?"
         }
       ]
@@ -120,16 +310,17 @@
         {
           "id": "cp4-2-1",
           "type": "order_steps",
-          "prompt": "Order a payment flow that survives the client retrying at the worst possible moment.",
+          "prompt": "Order a disaster-recovery exercise from business requirement to proven restore.",
           "steps": [
-            "Client generates an idempotency key and sends it with the charge request",
-            "Server atomically reserves the key — insert-if-absent, so a concurrent duplicate loses the race",
-            "Server calls the payment provider, passing the same key onward",
-            "Server records the result against the key",
-            "Any retry with that key returns the stored result instead of charging again"
+            "Define the maximum tolerable data loss as the recovery point objective (RPO)",
+            "Define the maximum tolerable service restoration time as the recovery time objective (RTO)",
+            "Choose backup frequency, retention, isolation, and restore capacity that can meet both objectives",
+            "Restore into an isolated environment using documented automation",
+            "Verify integrity and application behavior against known checks",
+            "Measure achieved data loss and elapsed recovery time, then repair any gap before production depends on the claim"
           ],
-          "why": "The order is the whole lesson, and getting it wrong is a double charge. The reservation has to come *first* and it has to be atomic — an insert-if-absent, a conditional write — because 'look up the key, and if it's missing do the work' is check-then-act, exactly the race this exists to kill. Two retries arriving together would both look, both find nothing, and both charge. Note step 3 as well: the key travels to the provider. If you only dedupe locally you have two systems that must agree and no transaction spanning them — crash between charging and recording, and your table says it never happened while the customer's statement disagrees. The key is the thread stitching the two together, which is why it's generated by the client and survives every hop.",
-          "hint": "One of these steps has to be atomic, and it has to be first."
+          "why": "RPO and RTO are business constraints, not labels attached after choosing a backup product. A recovery design becomes a guarantee only after a realistic restore verifies data integrity and demonstrates that measured loss and restoration time satisfy those constraints.",
+          "hint": "A backup that has never been restored is an untested input, not a recovery capability."
         },
         {
           "id": "cp4-2-2",
@@ -142,22 +333,136 @@
             "They caused a memory leak"
           ],
           "answer": 1,
-          "why": "A dependency slows down, every caller's timeout fires, and every caller sends the request again — so a service already failing to serve X now receives 2X or 3X. That's a retry storm, and it's a genuine feedback loop: the fix amplifies the fault. Worse, retries stack multiplicatively through a call chain, so three layers each retrying three times is 27 requests at the bottom from one at the top. What makes it safe is the boring part nobody implements first: exponential backoff so you don't all come back at once, *jitter* so you don't all come back at the same instant a second later, a retry budget capping retries as a fraction of traffic, and a circuit breaker that stops calling entirely once you've established it's down. Retries without those aren't resilience, they're a load test you scheduled for your worst moment.",
+          "why": "When the dependency slows, callers time out and issue additional attempts while the original load is still present. Those attempts consume more connections, CPU, and queue capacity, creating a retry storm that can prevent recovery. Bounded attempts, exponential backoff, randomized jitter, retry budgets, and circuit breaking limit amplification; retrying a state-changing operation also requires idempotency.",
           "hint": "What does the dependency see, from every caller at once?"
         },
         {
           "id": "cp4-2-3",
-          "type": "multiple_choice",
-          "prompt": "A leader is partitioned from its followers but doesn't know it. The followers elect a new leader. The old one is still accepting writes. What is this, and what stops it?",
-          "choices": [
-            "Nothing stops it — this is unavoidable",
-            "Split brain: the old leader's writes need a quorum it no longer has, and leases/terms mean its acknowledgements aren't valid",
-            "The old leader shuts down automatically",
-            "The clients notice and switch"
+          "type": "build_diagram",
+          "prompt": "Complete the partition-safe write path: commits need a majority, and external effects must reject the stale leader.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client Write",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "sub": "highest term",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "commit authority",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "reject older token",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Current Leader",
+            "Majority Quorum",
+            "Fenced External Sink",
+            "Old Isolated Leader",
+            "One Async Follower"
           ],
-          "answer": 1,
-          "why": "Split brain is what consensus is *for*, and the defence is the same overlap argument as everywhere else in this tier. The old leader can accept requests all it likes; it cannot commit them, because committing needs acknowledgement from a majority and it's on the minority side of the partition. It also can't have been superseded in secret — the new leader carries a higher term, and any node that has seen that term rejects the old one's messages. The dangerous version is the one people build by hand: a leader that decides for itself that it's still the leader, based on its own clock, while a lease it can't see has expired. That's why real systems tie leadership to a lease shorter than the failure detector, and why 'just have the leader check if it's still leader' is a question the leader is structurally unable to answer alone.",
+          "answer": {
+            "h1": "Current Leader",
+            "h2": "Majority Quorum",
+            "h3": "Fenced External Sink"
+          },
+          "why": "The current-term leader commits only after a majority acknowledges, then presents its increasing fencing token to external systems. The isolated old leader lacks a quorum, so its database writes cannot commit; if an external sink ignores fencing tokens, that stale leader can still trigger duplicate or conflicting side effects outside the consensus log.",
           "hint": "Can the old leader actually *commit* anything?"
+        },
+        {
+          "id": "checkpoint-hard-truths-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Complete the partition-safe write path: commits need a majority, and external effects must reject the stale leader.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client Write",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "sub": "highest term",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "commit authority",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "reject older token",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Current Leader",
+            "Majority Quorum",
+            "Fenced External Sink",
+            "Queue",
+            "Worker"
+          ],
+          "answer": {
+            "h1": "Current Leader",
+            "h2": "Majority Quorum",
+            "h3": "Fenced External Sink"
+          },
+          "why": "The completed diagram contains these directed flows: Client Write → Current Leader; Current Leader → Majority Quorum; Majority Quorum → Fenced External Sink. That topology is the evidence for the answer: The current-term leader commits only after a majority acknowledges, then presents its increasing fencing token to external systems. The isolated old leader lacks a quorum, so its database writes cannot commit; if an external sink ignores fencing tokens, that stale leader can still trigger duplicate or conflicting side effects outside the consensus log."
         },
         {
           "id": "cp4-2-4",
@@ -169,7 +474,7 @@
             10,
             35
           ],
-          "why": "Lean hard eventual, and be able to say why in one sentence: nobody can tell. A like count of 14,203 shown as 14,201 for two seconds is invisible to every human who will ever see it, and the price of exactness is a coordinated write on the hottest key in your system — every like on a viral post serialised through one consensus round. That's not a small cost, it's the difference between a counter that scales and an outage. The discipline this tier is really teaching is that consistency is chosen *per operation*, not per system: the same product wants eventual for like counts, read-your-writes for your own comment appearing after you post it, and genuine linearizability for the balance on a payout. Asking 'is this system strongly consistent' is already the wrong question.",
+          "why": "A briefly stale aggregate like count usually tolerates asynchronous updates because individual likes can be merged and the display need not reflect one global order immediately. Requiring a linearizable count would coordinate writes to a highly contended item, increasing latency and reducing availability during partitions. Other operations in the same product can still require stronger guarantees, so consistency is chosen per operation.",
           "hint": "Who is harmed by a like count being two seconds stale?"
         },
         {
@@ -187,7 +492,7 @@
             1,
             3
           ],
-          "why": "The first two let you ask new questions of old data, which is the entire definition of observability — slice by dimension to find the cohort, then trace one of their requests to find the hop. The fourth is what keeps you from drowning: alert on CPU and you'll page someone for a busy machine that's serving fine, and miss the outage where CPU is low precisely *because* nothing is being served. Averages are the odd one out and the reason is now familiar: an average per service is a pre-chosen question with every useful dimension already thrown away, and it's actively misleading during exactly the partial failure you're trying to catch — one dead region among five barely moves the mean.",
+          "why": "Structured events with high-cardinality dimensions let operators isolate the affected users, versions, or regions after a novel failure appears. Distributed traces then show which hop delayed or failed a specific request. Symptom-based alerts detect user-visible impact without assuming a cause. A service-wide average discards distribution and cohort information, so it can hide tail latency or a failure confined to one region.",
           "hint": "Three of these preserve information. One of them destroys it on purpose."
         },
         {
@@ -196,13 +501,27 @@
           "prompt": "What's the honest summary of this tier?",
           "choices": [
             "Distributed systems are too hard; keep everything on one machine",
-            "Every distributed guarantee is bought with coordination, and coordination costs latency and availability — so the job is buying the fewest guarantees you can live with",
+            "Global ordering, linearizability, consensus, and mutually exclusive commitments require coordination; choose them only for operations whose invariants need them",
             "Use a database that says it's strongly consistent and stop worrying",
             "Eventual consistency is always fine"
           ],
           "answer": 1,
-          "why": "Everything in this tier reduces to one exchange rate. Strong consistency means a quorum round trip before you can answer. Consensus means a majority must agree before anything is true. Exactly-once effects mean a shared key and someone doing a durable write to dedupe on. None of that is free, and none of it is optional if you actually need the guarantee — the skill is being precise about where you need it, because it's almost never everywhere. The trap worth naming is 'just pick a database that says it's strongly consistent': one advertising that hasn't repealed anything, it has *chosen* for you, and it's paying the same coordination cost in your p99 whether or not that operation needed it. The engineering isn't picking a system that promises the most. It's knowing what each promise costs and buying only the ones your product would actually notice losing.",
-          "hint": "What does every guarantee in this tier have to pay for?"
+          "why": "Guarantees that impose one global order or one exclusive winner require coordination among failure-independent components. Linearizable writes and consensus commonly wait for quorum communication, adding latency and rejecting work without a quorum. Eventual consistency and some client-session guarantees do not require synchronous global coordination. Select each guarantee for the invariant it protects.",
+          "hint": "Which guarantees require independent machines to agree before answering?"
+        },
+        {
+          "id": "xfer-cp4",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A payment worker times out, retries, and a network partition hides the current leader. Which design preserves one charge?",
+          "choices": [
+            "Accept writes independently on both partition sides",
+            "Rely on average latency",
+            "Stable idempotency identity plus an authoritative quorum/fenced writer",
+            "A random key per retry"
+          ],
+          "answer": 2,
+          "why": "The stable key identifies one payment intent, while quorum-backed or fenced authority prevents two independent histories from accepting conflicting claims."
         }
       ]
     }

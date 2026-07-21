@@ -1,0 +1,704 @@
+{
+  "unitId": "service-discovery-configuration",
+  "tier": 5,
+  "title": "Service Discovery & Configuration",
+  "subtitle": "Locate healthy service instances and change runtime behavior without unsafe fleet-wide assumptions",
+  "objectives": [
+    "Separate logical service names from changing instance addresses",
+    "Reason about discovery freshness and health",
+    "Roll out configuration with validation and rollback",
+    "Use feature flags without creating permanent hidden branches"
+  ],
+  "lessons": [
+    {
+      "id": "disc-1",
+      "title": "Names outlive instances",
+      "exercises": [
+        {
+          "id": "disc-1-0",
+          "type": "concept",
+          "title": "Service discovery maps a stable logical name to a changing set of reachable instances",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Checkout",
+                "sub": "calls inventory",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Discovery",
+                "sub": "inventory → 3 addresses",
+                "col": 1,
+                "kind": "dns"
+              },
+              {
+                "id": "i",
+                "label": "Inventory instances",
+                "sub": "replaceable",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "control"
+              },
+              {
+                "from": "d",
+                "to": "i",
+                "kind": "control"
+              }
+            ]
+          },
+          "body": "Application code targets a logical service identity while a discovery mechanism returns current endpoints. Registration, health, and expiry remove replaced instances so deployments and failures do not require callers to embed machine addresses.",
+          "note": "DNS, a registry, or a platform control plane can provide discovery; the required freshness and routing behavior determine the mechanism."
+        },
+        {
+          "id": "disc-change-1",
+          "type": "system_change",
+          "prompt": "Checkout embeds Inventory Server A's address. A deployment replaces A with Servers B and C, and checkout keeps calling the dead address.",
+          "actionLabel": "Resolve a logical service name",
+          "choices": [
+            "Commit B's address into checkout source code",
+            "Resolve `inventory.service` through discovery",
+            "Retry Server A forever"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "The next replacement recreates the same coupling and requires another caller deployment.",
+            "The stable name resolves to the current healthy endpoint set.",
+            "Retries cannot make a retired address healthy and consume the request deadline."
+          ],
+          "beforeStatus": "DEPLOYMENT · inventory address changed · checkout unavailable",
+          "afterStatus": "DEPLOYMENT · discovery returns B and C · checkout continues",
+          "result": "Caller configuration no longer depends on one instance address",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Checkout",
+                "sub": "A address",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "retired",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Checkout",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "inventory.service",
+                "sub": "discovery",
+                "col": 1,
+                "kind": "dns"
+              },
+              {
+                "id": "i",
+                "label": "Servers B + C",
+                "sub": "healthy",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "control"
+              },
+              {
+                "from": "d",
+                "to": "i",
+                "kind": "control"
+              }
+            ]
+          },
+          "why": "A logical service name separates caller configuration from instance lifecycle. Discovery still needs bounded caching and endpoint expiry so clients do not retain removed addresses indefinitely."
+        },
+        {
+          "id": "service-discovery-configuration-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Checkout embeds Inventory Server A's address. A deployment replaces A with Servers B and C, and checkout keeps calling the dead address. Place inventory.service, Servers B + C. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Checkout",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "sub": "discovery",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "i",
+                "sub": "healthy",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "d",
+                "to": "i",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "inventory.service",
+            "Servers B + C",
+            "Discovery",
+            "Inventory instances"
+          ],
+          "answer": {
+            "d": "inventory.service",
+            "i": "Servers B + C"
+          },
+          "why": "The completed diagram contains these directed flows: Checkout → inventory.service; inventory.service → Servers B + C. That topology is the evidence for the answer: A logical service name separates caller configuration from instance lifecycle. Discovery still needs bounded caching and endpoint expiry so clients do not retain removed addresses indefinitely.",
+          "connectEdges": true
+        },
+        {
+          "id": "disc-1-1",
+          "type": "match_pairs",
+          "prompt": "Match each discovery model to where endpoint selection occurs.",
+          "pairs": [
+            {
+              "left": "Client-side discovery",
+              "right": "Caller selects an endpoint from the registry result"
+            },
+            {
+              "left": "Server-side discovery",
+              "right": "A proxy or load balancer selects the endpoint"
+            },
+            {
+              "left": "DNS discovery",
+              "right": "Name resolution returns one or more addresses"
+            }
+          ],
+          "why": "Client-side discovery puts selection logic in callers, server-side discovery centralizes it in an intermediary, and DNS uses standard name resolution with cache behavior governed by TTLs and resolvers."
+        },
+        {
+          "id": "disc-1-2",
+          "type": "multiple_choice",
+          "prompt": "Why must a discovery record expire or be actively deregistered?",
+          "choices": [
+            "To make service names shorter",
+            "A dead instance cannot reliably remove itself, so stale endpoints otherwise remain routable",
+            "To encrypt HTTP bodies",
+            "To increase database isolation"
+          ],
+          "answer": 1,
+          "why": "A crashed process cannot announce its own death. Leases, health observations, and bounded TTLs let the control plane remove endpoints that stop renewing or serving successfully."
+        }
+      ]
+    },
+    {
+      "id": "disc-2",
+      "title": "Health and freshness",
+      "exercises": [
+        {
+          "id": "disc-2-0",
+          "type": "concept",
+          "title": "Discovery health must reflect the operation a caller needs",
+          "body": "Liveness asks whether a process should be restarted; readiness asks whether it should receive traffic. A ready endpoint must have the dependencies and local state required for the advertised operation, while checks need thresholds that avoid removing instances during brief noise.",
+          "note": "One global health result can be too coarse when reads remain safe but writes require an unavailable dependency."
+        },
+        {
+          "id": "disc-change-2",
+          "type": "system_change",
+          "prompt": "A new instance registers before loading its routing table. It returns errors for 40 seconds while receiving production traffic.",
+          "actionLabel": "Gate registration on readiness",
+          "choices": [
+            "Register at process start",
+            "Register only after required state is loaded and remove readiness before shutdown",
+            "Ignore the errors during every deployment"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Process existence does not prove the instance can serve its advertised operation.",
+            "Readiness aligns endpoint visibility with the instance's ability to handle traffic.",
+            "Expected errors still consume capacity and harm users."
+          ],
+          "beforeStatus": "ROLLOUT · unready instance receives 25% traffic · errors",
+          "afterStatus": "ROLLOUT · instance joins after state load · zero warm-up traffic errors",
+          "result": "Discovery membership now follows readiness",
+          "viz": {
+            "nodes": [
+              {
+                "id": "l",
+                "label": "Load balancer",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "n",
+                "label": "New instance",
+                "sub": "table loading",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "l",
+                "to": "n",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "n",
+                "label": "New instance",
+                "sub": "load state first",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Ready",
+                "sub": "register endpoint",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "l",
+                "label": "Load balancer",
+                "sub": "traffic begins",
+                "col": 2,
+                "kind": "lb"
+              }
+            ],
+            "edges": [
+              {
+                "from": "n",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "l",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Readiness registration prevents traffic before required initialization completes. During shutdown, removing readiness and allowing in-flight requests to drain reduces connection resets and partial work."
+        },
+        {
+          "id": "service-discovery-configuration-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A new instance registers before loading its routing table. It returns errors for 40 seconds while receiving production traffic. Place Ready, Load balancer. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "n",
+                "label": "New instance",
+                "sub": "load state first",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "sub": "register endpoint",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "l",
+                "sub": "traffic begins",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "n",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "l",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Ready",
+            "Load balancer",
+            "Checkout",
+            "Discovery"
+          ],
+          "answer": {
+            "r": "Ready",
+            "l": "Load balancer"
+          },
+          "why": "The completed diagram contains these directed flows: New instance → Ready; Ready → Load balancer. That topology is the evidence for the answer: Readiness registration prevents traffic before required initialization completes. During shutdown, removing readiness and allowing in-flight requests to drain reduces connection resets and partial work."
+        },
+        {
+          "id": "disc-2-1",
+          "type": "multi_select",
+          "prompt": "Which signals can justify removing an endpoint from routing? Select all.",
+          "choices": [
+            "Its readiness checks repeatedly fail",
+            "Its lease stops renewing",
+            "The deployment intentionally begins draining it",
+            "One unrelated user mistypes a password"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Repeated readiness failure, expired registration, and intentional drain all indicate that new traffic should stop. A valid application-level rejection such as a bad password does not mean the endpoint is unhealthy."
+        },
+        {
+          "id": "disc-2-2",
+          "type": "tradeoff_slider",
+          "prompt": "Instances fail quickly, but one-second network blips are common. Choose the health-removal emphasis.",
+          "leftLabel": "Remove after one failed probe",
+          "rightLabel": "Require repeated failure with a short threshold",
+          "answerRange": [
+            60,
+            85
+          ],
+          "why": "A short repeated-failure threshold balances detection time against false eviction from transient loss. The exact count and interval follow failure cost, fleet headroom, and observed network noise."
+        }
+      ]
+    },
+    {
+      "id": "disc-sim",
+      "title": "Drain traffic as an instance degrades",
+      "exercises": [
+        {
+          "id": "disc-sim-0",
+          "type": "concept",
+          "title": "Health changes routing before they change membership",
+          "body": "An instance may still answer probes while its safe capacity falls. Outlier detection or readiness can drain new traffic gradually, leaving only a bounded share while connections finish. Immediate deletion and continued full routing are not the only choices.",
+          "note": "The registry advertises candidates; the client or load balancer still applies health and freshness policy."
+        },
+        {
+          "id": "disc-sim-1",
+          "type": "simulate",
+          "prompt": "An instance now safely handles only 1,000 of the fleet's 10,000 req/s. Drag the *smallest* share drained to healthy instances that keeps the degraded instance alive.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "d",
+                "label": "Discovery client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "route",
+                "label": "Health-aware router",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "bad",
+                "label": "Degraded instance",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "good",
+                "label": "Healthy instances",
+                "sub": "drained traffic",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "d",
+                "to": "route",
+                "kind": "request"
+              },
+              {
+                "from": "route",
+                "to": "bad",
+                "kind": "request"
+              },
+              {
+                "from": "route",
+                "to": "good",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "sim": {
+            "input": 10000,
+            "inputLabel": "Requests/sec",
+            "chain": [
+              "route",
+              "bad"
+            ],
+            "capacity": {
+              "route": 50000,
+              "bad": 1000
+            },
+            "watch": "bad",
+            "watchLabel": "Degraded-instance load",
+            "absorb": {
+              "node": "route",
+              "label": "Traffic drained to healthy instances",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            90,
+            90
+          ],
+          "why": "Draining 90% leaves 1,000 requests/sec on the degraded instance, exactly its current safe capacity. A production policy normally preserves headroom and eventually removes it when readiness or lease state says it cannot serve."
+        }
+      ]
+    },
+    {
+      "id": "disc-3",
+      "title": "Configuration rollout",
+      "exercises": [
+        {
+          "id": "disc-3-0",
+          "type": "concept",
+          "title": "Runtime configuration is a versioned production input",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Config version 42",
+                "sub": "validated",
+                "col": 0,
+                "kind": "storage"
+              },
+              {
+                "id": "r",
+                "label": "Staged rollout",
+                "sub": "1% → 10% → 100%",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "s",
+                "label": "Service fleet",
+                "sub": "report active version",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "r",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "body": "Configuration can change routing, limits, and feature behavior without a code deployment, so it needs schema validation, versioning, staged rollout, observability, and rollback. Services should expose which version they loaded and reject malformed values safely.",
+          "note": "A feature flag is temporary configuration with ownership and an expiry plan; stale flags create untested execution branches."
+        },
+        {
+          "id": "service-discovery-configuration-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Runtime configuration is a versioned production input",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Config version 42",
+                "sub": "validated",
+                "col": 0,
+                "kind": "storage"
+              },
+              {
+                "id": "r",
+                "sub": "1% → 10% → 100%",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "s",
+                "sub": "report active version",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "r",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Staged rollout",
+            "Service fleet",
+            "Checkout",
+            "Discovery"
+          ],
+          "answer": {
+            "r": "Staged rollout",
+            "s": "Service fleet"
+          },
+          "why": "Configuration can change routing, limits, and feature behavior without a code deployment, so it needs schema validation, versioning, staged rollout, observability, and rollback. Services should expose which version they loaded and reject malformed values safely. A feature flag is temporary configuration with ownership and an expiry plan; stale flags create untested execution branches."
+        },
+        {
+          "id": "disc-3-1",
+          "type": "order_steps",
+          "prompt": "Build a safe configuration rollout.",
+          "steps": [
+            "Validate the new configuration against its schema and constraints",
+            "Publish an immutable version",
+            "Apply it to a small canary population",
+            "Compare user and system metrics with the control population",
+            "Expand gradually or roll back to the previous version"
+          ],
+          "why": "Validation catches malformed input, immutable versions make state identifiable, a canary limits blast radius, and comparative evidence determines expansion or rollback."
+        },
+        {
+          "id": "disc-3-2",
+          "type": "multi_select",
+          "prompt": "Which properties should a production feature flag have? Select all.",
+          "choices": [
+            "Named owner",
+            "Expected removal date or permanent-policy decision",
+            "Observable exposure and outcome",
+            "A different undocumented default in every service"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Ownership, lifecycle, and exposure evidence keep a flag operable and removable. Divergent undocumented defaults make behavior depend on which service instance receives a request."
+        },
+        {
+          "id": "disc-3-3",
+          "type": "build_diagram",
+          "prompt": "Build a configuration path that supports staged rollout and rollback.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Author",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "s",
+                "label": "Service fleet",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Validated version store",
+            "Staged rollout controller",
+            "Shared source-code branch",
+            "Unbounded message queue"
+          ],
+          "answer": {
+            "h1": "Validated version store",
+            "h2": "Staged rollout controller"
+          },
+          "why": "The version store preserves validated immutable configurations, and the rollout controller selects which population receives each version. Keeping the previous version enables an explicit rollback rather than another emergency edit."
+        },
+        {
+          "id": "xfer-discovery",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A canary configuration is safe on 1% of instances but breaks at 50%. What rollout mechanism limits blast radius?",
+          "choices": [
+            "Overwrite every instance simultaneously",
+            "A permanent DNS cache",
+            "Remove configuration history",
+            "Versioned staged rollout with health gates and rollback"
+          ],
+          "answer": 3,
+          "why": "A staged rollout exposes a small cohort, evaluates explicit health signals, and advances only when evidence remains acceptable. Versioning supports deterministic rollback."
+        }
+      ]
+    }
+  ]
+}

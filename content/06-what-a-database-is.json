@@ -2,7 +2,7 @@
   "unitId": "what-a-database-is",
   "tier": 1,
   "title": "What a Database Is",
-  "subtitle": "Why you can't just use a file — and what a database actually promises",
+  "subtitle": "Storage, lookup, concurrency, durability, and the guarantees above a file",
   "objectives": [
     "Explain what a database gives you that a plain file cannot",
     "Model data with tables, rows, primary keys, and foreign keys, and say why each fact lives in one place",
@@ -17,7 +17,7 @@
         {
           "id": "db-1-0",
           "type": "concept",
-          "title": "A file stores your bytes and promises you nothing else",
+          "title": "A relational database coordinates durable records, concurrent changes, and queries",
           "viz": {
             "nodes": [
               {
@@ -43,21 +43,145 @@
             "edges": [
               {
                 "from": "s1",
-                "to": "f"
+                "to": "f",
+                "kind": "data"
               },
               {
                 "from": "s2",
-                "to": "f"
+                "to": "f",
+                "kind": "data"
               }
             ]
           },
-          "body": "`users.txt`, one line per signup, works flawlessly — with one user. But a file is not a program. It's a region of bytes and an offset. It doesn't know what a record is, doesn't know what's inside it, and doesn't coordinate the processes writing to it. Ask what it *guarantees* and the honest answer is: it will hold whatever bytes reached the disk.",
-          "note": "A database is the program someone already wrote so you don't have to. Every feature it has is there because a file left a hole in exactly that shape."
+          "body": "A relational database accepts writes and declarative queries. Depending on its schema and configuration, it checks constraints, coordinates concurrent transactions, records recovery data, maintains indexes, plans reads, and returns matching rows.",
+          "note": "Writing application records directly to one file provides none of those policies automatically; concurrent or interrupted writes require explicit locking, framing, recovery, and indexing."
+        },
+        {
+          "id": "db-change-1",
+          "type": "system_change",
+          "prompt": "A query finds one email by scanning 1,000,000 user rows. Add a B-tree index on `email`.",
+          "actionLabel": "Create an index on email",
+          "beforeStatus": "ROWS EXAMINED · up to 1,000,000",
+          "afterStatus": "INDEX SEARCH · roughly 20 comparisons plus the matching row lookup",
+          "result": "The lookup stopped scanning the table",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Email query",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "t",
+                "label": "Users table",
+                "sub": "1M-row scan",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "t",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Email query",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "i",
+                "label": "Email index",
+                "sub": "B-tree search",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "t",
+                "label": "Users table",
+                "sub": "matching row",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "i",
+                "kind": "data"
+              },
+              {
+                "from": "i",
+                "to": "t",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "A B-tree index keeps email keys in searchable order, allowing logarithmic navigation instead of checking every row. Writes become more expensive because each insert or email update must also maintain the index."
+        },
+        {
+          "id": "what-a-database-is-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A query finds one email by scanning 1,000,000 user rows. Add a B-tree index on `email`. Place Email index, Users table. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Email query",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "i",
+                "sub": "B-tree search",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "t",
+                "sub": "matching row",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "i",
+                "kind": "request"
+              },
+              {
+                "from": "i",
+                "to": "t",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Email index",
+            "Users table",
+            "Signup A",
+            "Signup B"
+          ],
+          "answer": {
+            "i": "Email index",
+            "t": "Users table"
+          },
+          "why": "The completed diagram contains these directed flows: Email query → Email index; Email index → Users table. That topology is the evidence for the answer: A B-tree index keeps email keys in searchable order, allowing logarithmic navigation instead of checking every row. Writes become more expensive because each insert or email update must also maintain the index.",
+          "connectEdges": true
         },
         {
           "id": "db-1-1",
           "type": "multiple_choice",
-          "prompt": "You store users in `users.txt`. Two people sign up at the exact same instant and both write to the file. What happens?",
+          "prompt": "Two signup processes both read the same `users.txt`, append a user in memory, then rewrite the whole file with no lock or atomic replacement. What can happen?",
           "choices": [
             "Both are saved correctly — the OS handles it",
             "The writes can interleave or overwrite each other, and one signup is silently lost",
@@ -65,12 +189,12 @@
             "The second write is queued perfectly"
           ],
           "answer": 1,
-          "why": "A plain file has no concurrency control: two writers can clobber each other and you lose data with no error at all, which is why handling concurrent writers safely is one of the main reasons databases exist. This is the first thing everyone rediscovers when they 'just use a file' — it works flawlessly with one user and breaks the moment there are two, and the silence is the dangerous part. Nothing crashes, nothing logs, a signup simply never happened."
+          "why": "Under the stated naïve read-modify-rewrite code, both processes derive output from the same old contents, so the later replacement can erase the earlier signup. File locks or an append protocol could prevent that specific race. A database packages concurrency control, recovery, and indexing as managed data services."
         },
         {
           "id": "db-1-2",
           "type": "multi_select",
-          "prompt": "What does a database give you that a plain file does not? Select all.",
+          "prompt": "Which mechanisms does a database provide as managed data services that a basic file read/write API does not provide automatically? Select all.",
           "choices": [
             "Safe concurrent access for many readers and writers",
             "Finding one record without reading the whole file",
@@ -82,12 +206,12 @@
             1,
             2
           ],
-          "why": "Storing bytes is the one thing a file already does perfectly well — everything else (concurrency, querying, crash safety) is what you're actually buying. Worth stating plainly: a database is not 'a fancy file'. It's a concurrency system, a query engine, and a crash-recovery system that happens to keep bytes on a disk, and those three problems are why it's the most complex component you'll run."
+          "why": "A database packages concurrency control, maintained indexes, and crash-recovery logging behind its data operations. Applications can build locking, indexes, logs, checksums, and atomic replacement over filesystem primitives, but a basic file API does not automatically define or enforce those record-level policies."
         },
         {
           "id": "db-1-3",
           "type": "multiple_choice",
-          "prompt": "Your process is killed halfway through writing a record to a file. What state is the file in?",
+          "prompt": "Your process overwrites a record in place with multiple writes, using no write-ahead log, checksum, or atomic replacement. It is killed halfway through. What state can the file be in?",
           "choices": [
             "Clean — the OS finishes the write for you",
             "Possibly half-written and corrupt, with no record of what was in progress",
@@ -95,7 +219,7 @@
             "Completely unchanged"
           ],
           "answer": 1,
-          "why": "Nothing protects a partial write, so you can be left with half a record and no way to know what was meant to happen — corrupt data that looks like real data. A database refuses to leave you there: it keeps a log of intended changes so that after a crash it can recover to a clean state, where the change either fully happened or fully didn't. You'll see exactly how in this unit's last lesson."
+          "why": "Under the stated in-place protocol, the process can stop after only part of the record is written, leaving neither the old nor intended new value. Filesystems offer primitives from which safer protocols can be built; databases package logging, page checks, and recovery rules for this job."
         },
         {
           "id": "db-1-4",
@@ -108,7 +232,7 @@
             "Nothing — files are searchable by default"
           ],
           "answer": 1,
-          "why": "A file has no idea what's inside it, so finding anything means scanning everything — while a database can jump straight to a record, and that difference is the entire game at scale. How it jumps is the subject of the Indexes unit; for now hold the shape of the problem: 'scan everything' versus 'go straight there' is a difference of a million times, not a few percent."
+          "why": "Because the file has no access structure keyed by email, the program must compare the target with each line until it finds a match or reaches the end. The worst case reads all 10 million lines; an index can instead narrow the search to a small subset of records."
         },
         {
           "id": "db-1-5",
@@ -121,7 +245,7 @@
             "compiler"
           ],
           "answer": 0,
-          "why": "Storage is the least interesting part of the definition — safety under concurrency and the ability to query are the point."
+          "why": "A database combines persistent storage with query processing and coordination of concurrent changes. Those mechanisms let multiple clients find and modify shared data while the database preserves its declared constraints and recovery guarantees."
         },
         {
           "id": "db-1-6",
@@ -134,7 +258,7 @@
             "They're required by web frameworks"
           ],
           "answer": 1,
-          "why": "Every feature of a database traces back to one of those three hard problems: find it fast, share it safely, never lose it. Keep this frame — when you later evaluate any storage technology (SQL, NoSQL, a cache, object storage), you're really asking which of those three it does well and which it quietly gives up."
+          "why": "The keyed answer names the three responsibilities that distinguish a database from raw storage: query execution finds selected records, concurrency control coordinates overlapping operations, and recovery mechanisms preserve or restore committed data after failures."
         }
       ]
     },
@@ -145,9 +269,155 @@
         {
           "id": "db-2-0",
           "type": "concept",
-          "title": "In the relational model, every fact has exactly one home",
-          "body": "Put every book and its author's details in one table and the author's name is stored once per book — one fact in twenty places, each free to disagree with the others. The relational model splits them. `authors` holds each author exactly once, under an id: its *primary key*. `books` stores only that id — a *foreign key*. A pointer, not a copy.",
-          "note": "The id should be meaningless — a number, not the author's name. Everything else about a row is allowed to change; identity isn't, and every table pointing at it would have to change too."
+          "title": "Relational tables connect facts with primary and foreign keys",
+          "body": "A primary key uniquely identifies a row. A foreign key stores another row's primary-key value and can enforce that the referenced row exists. Normalization places a fact such as an author's name in one table while related books store the author's identifier.",
+          "note": "Stable, meaningless identifiers reduce cascading updates when names or other attributes change. Their values still require lifecycle and generation rules."
+        },
+        {
+          "id": "db-change-2",
+          "type": "system_change",
+          "prompt": "Two users choose the same username at the same moment. Both application checks say it is available. Make the database decide the winner.",
+          "actionLabel": "Add a UNIQUE constraint",
+          "choices": [
+            "Check availability twice in application code",
+            "Add `UNIQUE(username)`",
+            "Cache available usernames for five minutes"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Both requests can still finish both checks before either writes.",
+            "The authoritative database serializes the competing inserts and rejects one.",
+            "Caching availability makes the check staler and leaves the write race intact."
+          ],
+          "beforeStatus": "USERNAME `maya` · stored twice",
+          "afterStatus": "USERNAME `maya` · one insert commits · one is rejected",
+          "result": "The invariant is enforced at the serialization point",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Request A",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Request B",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "Users table",
+                "sub": "duplicates allowed",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Request A",
+                "sub": "commits",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Request B",
+                "sub": "conflict",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "UNIQUE(username)",
+                "sub": "one row",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "why": "A pre-insert application lookup has a race between checking and writing. A database uniqueness constraint evaluates competing writes at the authoritative store and rejects the loser."
+        },
+        {
+          "id": "what-a-database-is-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Two users choose the same username at the same moment. Both application checks say it is available. Make the database decide the winner. Place UNIQUE(username). Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Request A",
+                "sub": "commits",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Request B",
+                "sub": "conflict",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "sub": "one row",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "UNIQUE(username)",
+            "Signup A",
+            "Signup B"
+          ],
+          "answer": {
+            "d": "UNIQUE(username)"
+          },
+          "why": "The completed diagram contains these directed flows: Request A → UNIQUE(username); Request B → UNIQUE(username). That topology is the evidence for the answer: A pre-insert application lookup has a race between checking and writing. A database uniqueness constraint evaluates competing writes at the authoritative store and rejects the loser."
         },
         {
           "id": "db-2-1",
@@ -160,7 +430,7 @@
             "To use less disk space overall"
           ],
           "answer": 1,
-          "why": "If you repeat a user's email on all 500 of their orders, you now have 500 places to update when it changes — and 500 opportunities for them to disagree. This is normalization, the core idea of the relational model: every fact lives in exactly one place. Later you'll learn when to deliberately break the rule (denormalization) to buy speed, but you break it knowingly, accepting the update problem you just re-created."
+          "why": "Separating users from orders stores the user's email once and links each order through a key. This normalization avoids an update anomaly: if the email were copied into 500 order rows, a partial update could leave conflicting values. The tradeoff is that retrieving combined user-and-order data may require a join."
         },
         {
           "id": "db-2-2",
@@ -184,7 +454,7 @@
               "right": "The agreed shape of the data"
             }
           ],
-          "why": "Tables hold rows, rows have columns, and the schema is the contract describing what shape every row must take. Notice 'schema' is the same idea as an API contract from unit 3 — an agreement about shape that many parties depend on — and it has the same property: changing it once people depend on it is the hard part."
+          "why": "A table groups records with a common structure; each row is one record and each column is one named attribute. The schema defines that structure, including types and constraints, so the database can validate writes and interpret stored values consistently."
         },
         {
           "id": "db-2-3",
@@ -197,7 +467,7 @@
             "The largest column"
           ],
           "answer": 1,
-          "why": "The primary key is a row's identity — the handle you use to find, reference, and link that exact row. Which is why using an email as a primary key is a trap: everything else about a row can change, but identity shouldn't, and people change emails, so every table that referenced them must change too. Prefer a meaningless, stable id."
+          "why": "A primary-key constraint requires a non-null value that is unique within the table, so one key identifies exactly one row. Other tables can reference that stable identity. Mutable natural values such as email addresses create extra update work when used as keys, so generated identifiers are often safer."
         },
         {
           "id": "db-2-4",
@@ -210,7 +480,7 @@
             "Automatic encryption of the column"
           ],
           "answer": 1,
-          "why": "A foreign key is a relationship and a guarantee at once: the database itself refuses to create orphan rows — orders belonging to nobody. That's a constraint, a rule the database enforces no matter who writes to it — your API, a migration script, a colleague's one-off query at 2am, an intern with `psql`. Rules in application code get bypassed by the next writer; rules in the database cannot be."
+          "why": "A foreign-key constraint requires each non-null `orders.user_id` value to match an existing `users.id` value. The database checks that rule for every writer, preventing orphaned orders unless the constraint is disabled or deferred under explicitly configured conditions."
         },
         {
           "id": "db-2-5",
@@ -227,7 +497,7 @@
             1,
             2
           ],
-          "why": "A schema buys you enforcement, shared understanding, and efficient storage — what it emphatically does not buy is easy change, since altering a schema on a huge live table is genuinely hard. That's the real tradeoff rather than a footnote: schema gives you guarantees today and friction tomorrow, and that exact tension is the seed of the SQL vs NoSQL argument in the very next unit."
+          "why": "A schema lets the database reject values that violate declared types or constraints, gives readers a shared description of each field, and enables type-aware storage and execution. Schema changes can still be expensive on large live tables when they rewrite data or require coordination with old application versions."
         },
         {
           "id": "db-2-6",
@@ -240,7 +510,7 @@
             "search"
           ],
           "answer": 0,
-          "why": "Primary key = this row's identity. Foreign key = a reference to some other row's identity. Together they're how the relational model links data without duplicating it."
+          "why": "The primary key is the unique identity of a row. A foreign key stores another table's primary-key value and can enforce that the referenced row exists, allowing related facts to be linked without copying all of their attributes."
         }
       ]
     },
@@ -251,7 +521,7 @@
         {
           "id": "db-3-0",
           "type": "concept",
-          "title": "The query is a request, not a plan — and only the plan has a cost",
+          "title": "A declarative SQL query is compiled into an execution plan",
           "viz": {
             "nodes": [
               {
@@ -281,20 +551,86 @@
             "edges": [
               {
                 "from": "q",
-                "to": "p"
+                "to": "p",
+                "kind": "request"
               },
               {
                 "from": "p",
-                "to": "i"
+                "to": "i",
+                "kind": "request"
               },
               {
                 "from": "p",
-                "to": "s"
+                "to": "s",
+                "kind": "request"
               }
             ]
           },
-          "body": "`SELECT * FROM users WHERE email = 'x@y.com'` describes a result. It contains no instructions — nothing about what to read, or whether to use an index. Between that text and the disk sits the *query planner*, which picks the strategy. Two runs of that identical text can differ in cost by a factor of a million, and the text never says which you got.",
-          "note": "The planner picks by guessing, from statistics it gathered about your data earlier. Which is why a query can get slow with no code change at all: the data shifted, the guess changed, and the plan changed underneath you."
+          "body": "SQL states the rows and columns required. The query planner uses table statistics, available indexes, and estimated operation costs to choose an execution plan such as an index lookup or table scan. The executor runs that plan and returns the requested result set.",
+          "note": "Stale statistics or changed data distribution can make the planner choose a slower plan even when the SQL text and application code are unchanged."
+        },
+        {
+          "id": "what-a-database-is-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: A declarative SQL query is compiled into an execution plan",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Your `SELECT`",
+                "col": 0
+              },
+              {
+                "id": "p",
+                "sub": "picks one",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "i",
+                "sub": "~1ms",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "s",
+                "sub": "reads every row",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "p",
+                "kind": "request"
+              },
+              {
+                "from": "p",
+                "to": "i",
+                "kind": "request"
+              },
+              {
+                "from": "p",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Query planner",
+            "Index lookup",
+            "Full table scan",
+            "Signup A",
+            "Signup B"
+          ],
+          "answer": {
+            "p": "Query planner",
+            "i": "Index lookup",
+            "s": "Full table scan"
+          },
+          "why": "SQL states the rows and columns required. The query planner uses table statistics, available indexes, and estimated operation costs to choose an execution plan such as an index lookup or table scan. The executor runs that plan and returns the requested result set. Stale statistics or changed data distribution can make the planner choose a slower plan even when the SQL text and application code are unchanged."
         },
         {
           "id": "db-3-1",
@@ -307,7 +643,7 @@
             "Refuses to run the query"
           ],
           "answer": 1,
-          "why": "Without an index the database does exactly what your text file did: reads everything. Writing SQL doesn't make something fast — it just makes it possible. Critical mental model: SQL is a request, not a promise about speed, and the same query can take 1ms or 10 seconds depending entirely on whether a suitable index exists. People are shocked by this because the query text looks identical either way."
+          "why": "With no index whose leading key supports the email predicate, the executor has no direct path to matching rows. It performs a full table scan and evaluates `email = 'x@y.com'` for each of the 10 million rows, so work grows with table size."
         },
         {
           "id": "db-3-2",
@@ -315,12 +651,12 @@
           "prompt": "Now: `SELECT * FROM users WHERE id = 42`, where `id` is the primary key. Fast or slow?",
           "choices": [
             "Slow — same as scanning every row",
-            "Fast — the primary key is automatically indexed, so the database jumps straight there",
+            "Fast in a typical relational engine — primary-key enforcement uses a unique access structure for indexed navigation",
             "Slow, because it uses the disk",
             "It depends on the table's size, always"
           ],
           "answer": 1,
-          "why": "Primary keys come with an index for free, which is why looking up by id is instant while looking up by an unindexed email is a scan. This is why so many systems feel fine in development: everyone looks things up by id at first, and that's always fast. The scans arrive later, with the features that search by email, by name, by status."
+          "why": "Typical relational engines create or require a unique access structure, commonly a B-tree index, to enforce the primary key. The engine navigates that structure and then accesses the relevant table or index page; this avoids checking every row but is not a zero-I/O jump."
         },
         {
           "id": "db-3-3",
@@ -344,7 +680,7 @@
               "right": "The database's decision about HOW to run your query"
             }
           ],
-          "why": "You ask a question, the planner decides the strategy, a scan is the brute-force one, and a join reassembles data you deliberately split apart. Joins are the payoff for normalizing — store each fact once, reassemble views of it on demand — but reassembly isn't free, and joining huge tables is precisely where the relational model starts to hurt at scale. That pain is a major reason NoSQL and denormalization exist."
+          "why": "A query specifies the requested result, and the query planner selects an execution strategy. A full table scan tests every row; a join combines related rows from separate tables. Join cost depends on row counts, indexes, predicates, and the selected join algorithm."
         },
         {
           "id": "db-3-4",
@@ -357,7 +693,7 @@
             "It's just a historical name"
           ],
           "answer": 1,
-          "why": "You describe the result you want, and the query planner chooses the strategy — which index to use, which table to read first, how to join. This is both a superpower and a landmine: the planner has statistics about your data and can optimize better than you'd hand-code, but a small change in the data distribution can make it pick a different plan and your query falls off a performance cliff with zero code changes. 'Nothing changed, but it got slow' is usually this."
+          "why": "SQL declares the desired rows and columns. The query planner selects the execution algorithm from available indexes, table statistics, and estimated costs, including scan order and join methods. Stale statistics or a changed data distribution can cause the planner to select a slower plan for unchanged SQL text."
         },
         {
           "id": "db-3-5",
@@ -366,7 +702,7 @@
           "answer": 10,
           "tolerance": 2,
           "unit": "seconds",
-          "why": "10 million ÷ 1 million per second = about 10 seconds, for a single query — now picture 100 users running it at once. This is why 'scan vs indexed lookup' isn't a nice-to-have optimization but the difference between a product and an outage: those 100 concurrent scans saturate your database, queue up (remember unit 4), and take down every other query too, including the fast ones."
+          "why": "At 1 million rows per second, checking 10 million rows takes about 10 seconds. Concurrent scans compete for disk bandwidth, memory bandwidth, and CPU; once those resources saturate, requests queue and can delay indexed queries sharing the same database."
         },
         {
           "id": "db-3-6",
@@ -383,7 +719,87 @@
             1,
             3
           ],
-          "why": "Index the column you filter on, ask for less data, and let the database do the filtering — `SELECT *` on a wide table is the opposite, dragging columns you'll never read across the network. 'Filter in the database, not in the app' deserves special emphasis: pulling a million rows over the network to filter them down to ten in Python is the single most common performance sin in web development. Move the work to the data, because the data is heavy and the answer is light."
+          "why": "A suitable index reduces rows examined, selecting only required columns reduces storage and network bytes, and database-side filtering avoids transferring discarded rows to the application. `SELECT *` can increase I/O on a wide table and may prevent an index-only scan."
+        }
+      ]
+    },
+    {
+      "id": "db-pool-sim",
+      "title": "Connection pools are capacity limits, not speed boosts",
+      "exercises": [
+        {
+          "id": "db-pool-sim-card",
+          "type": "concept",
+          "title": "A pool bounds concurrent database work",
+          "body": "Each connection can execute only a limited number of queries over time. Too few connections queue application work; too many can increase database CPU, memory, lock, and context-switching contention. The useful pool size is measured, not maximized.",
+          "note": "Per-connection throughput changes as query cost and database saturation change."
+        },
+        {
+          "id": "db-pool-sim-0",
+          "type": "simulate",
+          "prompt": "The application sends 4,000 queries/sec. One database connection completes 20 queries/sec under this workload. Choose the *fewest* active connections that can keep up.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "app",
+                "label": "Application queries",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "pool",
+                "label": "Connection pool",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "db",
+                "label": "Database service capacity",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "app",
+                "to": "pool",
+                "kind": "request"
+              },
+              {
+                "from": "pool",
+                "to": "db",
+                "kind": "data"
+              }
+            ]
+          },
+          "sim": {
+            "input": 4000,
+            "inputLabel": "Queries/sec",
+            "chain": [
+              "pool",
+              "db"
+            ],
+            "capacity": {},
+            "watch": "db",
+            "watchLabel": "Queries / pool capacity",
+            "absorb": {
+              "node": "pool",
+              "label": "Active database connections",
+              "min": 50,
+              "max": 300,
+              "start": 50,
+              "unit": " connections"
+            },
+            "model": {
+              "kind": "pool",
+              "servicePerUnit": 20
+            }
+          },
+          "answerRange": [
+            200,
+            200
+          ],
+          "why": "At 20 queries/sec per connection, 199 connections provide 3,980 queries/sec and queue work. Two hundred provide 4,000. More connections can increase database contention, so measured per-connection throughput is not constant forever."
         }
       ]
     },
@@ -394,7 +810,7 @@
         {
           "id": "db-4-0",
           "type": "concept",
-          "title": "The database makes you wait for a disk, and gives you a promise in exchange",
+          "title": "A write-ahead log makes committed changes recoverable after a crash",
           "viz": {
             "nodes": [
               {
@@ -427,47 +843,100 @@
             "edges": [
               {
                 "from": "c",
-                "to": "d"
+                "to": "d",
+                "kind": "data"
               },
               {
                 "from": "d",
-                "to": "w"
+                "to": "w",
+                "kind": "data"
               },
               {
                 "from": "d",
                 "to": "p",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
-          "body": "A database that answered `INSERT` before the change reached a disk would be fast, and would quietly lose work it had already accepted. Writing it into the huge data file first would be honest and far too slow. So: append a note of what it's about to do to one sequential log — the *write-ahead log* — force that down, then answer.",
-          "note": "The data pages can lag as far behind as they like, because the log is the authority: whatever it holds, the database can redo after a crash. Durability isn't the data being written — it's the *intention*, written first."
+          "body": "Before acknowledging a durable commit, a database appends the change record to its write-ahead log (WAL) and flushes the required log bytes to stable storage. Modified data pages may be written later. During recovery, the database replays logged changes that were not yet reflected in those pages.",
+          "note": "Sequential WAL appends are cheaper than forcing many scattered data pages. Group commit can flush log records for several transactions with one storage synchronization."
         },
         {
           "id": "db-4-1",
           "type": "multiple_choice",
-          "prompt": "You `INSERT` a row and the database returns success. Then the power dies. Is your row there when it comes back up?",
+          "prompt": "With synchronous durable commit enabled, the database returns success only after flushing the write-ahead log (WAL) to stable storage. Power fails immediately. Is the row recoverable?",
           "choices": [
             "No — it was still in memory",
-            "Yes — 'success' means the database durably recorded it before answering",
+            "Yes — recovery can replay the flushed committed WAL record",
             "Only if it was small",
             "Only if you waited a few seconds"
           ],
           "answer": 1,
-          "why": "That's the promise, and it's the whole point of the word *committed*: it survives a crash, or the word would mean nothing. The trick is the write-ahead log (WAL): before touching the real data, the database appends a record of what it's about to do to a sequential log and forces THAT to disk, then replays it after a crash. That's how you get durability without paying for a slow random disk write on every single change."
+          "why": "Under a durable commit configuration, the database returns success only after the transaction's write-ahead log (WAL) record reaches stable storage. After restart, recovery replays committed WAL records whose data pages were not yet written, preserving the acknowledged row."
         },
         {
           "id": "db-4-2",
-          "type": "multiple_choice",
-          "prompt": "Why is the write-ahead log fast, even though it forces data onto disk before returning?",
-          "choices": [
-            "It's kept in memory only",
-            "It's a sequential append — and appending is dramatically faster than writing randomly across the disk",
-            "It's compressed",
-            "It isn't fast; it's just a necessary cost"
+          "type": "build_diagram",
+          "prompt": "Build the durable commit path. The recovery record must be flushed before success; scattered data pages may be written later.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "commit",
+                "label": "`COMMIT`",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "sub": "coordinates commit",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "flush before success",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "flush later",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "commit",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Database Engine",
+            "Write-Ahead Log (flush first)",
+            "Data Pages (write later)",
+            "Query Cache",
+            "Read Replica"
           ],
-          "answer": 1,
-          "why": "The log is append-only, so the disk writes one continuous stream instead of hopping around to update scattered data pages — and sequential beats random by a huge margin. Sequential vs random access is one of the largest performance facts in all of storage, and databases are engineered around it rather than pretending disk behaves like RAM. Once you notice it, you see it everywhere: log-structured storage, Kafka, SSD write patterns."
+          "answer": {
+            "h1": "Database Engine",
+            "h2": "Write-Ahead Log (flush first)",
+            "h3": "Data Pages (write later)"
+          },
+          "why": "The database engine appends the change to the sequential write-ahead log and flushes the required log record before acknowledging a durable commit; dirty table and index pages can reach storage later. If success is returned before the log is durable, a crash can lose an acknowledged change because recovery has nothing to replay."
         },
         {
           "id": "db-4-3",
@@ -480,7 +949,7 @@
             "The counter stays at 10"
           ],
           "answer": 1,
-          "why": "This is a lost update: both read 10, both computed 11, both wrote 11, and one user's increment simply disappeared with no error anywhere. It's the `users.txt` problem again wearing a database costume. The fix is to stop doing read-modify-write in your app and let the database do it atomically (`UPDATE counters SET n = n + 1`), or use a transaction with proper isolation — the subject of the Transactions unit. The lesson that matters right now: concurrency bugs don't crash, they quietly corrupt."
+          "why": "Both requests compute from the same value, so each writes 11 and the later write replaces the earlier result. This lost-update anomaly can be avoided with an atomic statement such as `UPDATE counters SET n = n + 1`, or with concurrency control that detects or serializes the conflicting read-modify-write operations."
         },
         {
           "id": "db-4-4",
@@ -497,7 +966,7 @@
             1,
             2
           ],
-          "why": "Constraints and durability belong in the database — it enforces them for every writer, forever — while business policy changes with the product and belongs in the app. The test: *would this rule still be true no matter which app, script, or human writes to this table?* If yes, it's a data invariant, so put it where it can't be bypassed. If it's policy marketing might change next quarter, keep it in the application."
+          "why": "Uniqueness, referential integrity, and durability are data invariants that must hold regardless of which application, script, or administrator performs the write. Database constraints and commit protocols cover all such writers. A changeable pricing rule is application policy and may differ by product context."
         },
         {
           "id": "db-4-5",
@@ -510,7 +979,7 @@
             "The second request is automatically rejected"
           ],
           "answer": 1,
-          "why": "Check-then-act is a race, always: between your check and your insert, the other request slips through, and both believe they're the first. The only reliable fix is a `UNIQUE` constraint in the database, letting one insert fail and handling that error. This is why the database is the last line of defense — it's the single point every writer must pass through, so application checks are advisory while database constraints are law."
+          "why": "Both requests can complete the existence check before either inserts, so each observes no matching row. A database `UNIQUE` constraint makes the decision atomic at insertion: one row is accepted and the conflicting insert fails for the application to handle."
         },
         {
           "id": "db-4-6",
@@ -522,7 +991,7 @@
             55,
             100
           ],
-          "why": "Losing a handful of events out of billions changes no decision anyone will ever make, so throughput matters vastly more here than perfect durability — batch hard and accept a little loss. This is unit 5's *what does it cost to be wrong?* applied to durability: a payment must never vanish, an analytics ping can. Paying for guarantees you don't need is exactly how you build a system that's slow AND expensive."
+          "why": "If the analytics use case explicitly tolerates losing a small number of events, batching acknowledgements amortizes storage flushes and raises throughput. The accepted failure mode is that a process or machine crash can erase the unflushed batch; financial or audit records generally require a stricter durability point."
         },
         {
           "id": "db-4-7",
@@ -535,7 +1004,21 @@
             "Because the software is old"
           ],
           "answer": 1,
-          "why": "Your app servers are interchangeable and you scale them by adding boxes; the database holds the truth, and the moment you want a second copy of the truth for scale, you inherit replication, consistency, and conflict. This is unit 5's lens at its sharpest: you deliberately concentrated your state here, which makes the database simultaneously your most valuable component and your bottleneck — and everything ahead (indexes, replication, sharding, CAP) is a consequence of that one decision."
+          "why": "The database is the stateful source of truth, so scaling it requires preserving data identity, ordering, and consistency across storage resources. Stateless application servers can be cloned because any instance can handle a request; database replicas or partitions require coordination and introduce lag, conflicts, or cross-partition work."
+        },
+        {
+          "id": "xfer-db",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "Two clinic processes append and edit the same patient JSON file concurrently. Updates disappear after interleaved writes. What database capability directly addresses this?",
+          "choices": [
+            "Image compression",
+            "Transactional concurrency control",
+            "A larger filename",
+            "HTTP caching"
+          ],
+          "answer": 1,
+          "why": "A database coordinates concurrent reads and writes through transactions and concurrency control. A shared file offers no automatic lost-update protection or atomic multi-record change."
         }
       ]
     }

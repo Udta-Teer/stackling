@@ -1,0 +1,769 @@
+{
+  "unitId": "schema-data-migrations",
+  "tier": 5,
+  "title": "Schema & Data Migrations",
+  "subtitle": "Change live data formats while old and new application versions run simultaneously",
+  "objectives": [
+    "Use expand-and-contract schema changes",
+    "Backfill data without overwhelming production",
+    "Make mixed-version reads and writes safe",
+    "Plan rollback before deleting old representations"
+  ],
+  "lessons": [
+    {
+      "id": "mig-1",
+      "title": "Expand before contract",
+      "exercises": [
+        {
+          "id": "mig-1-0",
+          "type": "concept",
+          "title": "A compatible migration separates adding a new representation from removing the old one",
+          "viz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Old app",
+                "sub": "reads old column",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Expanded schema",
+                "sub": "old + new",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "n",
+                "label": "New app",
+                "sub": "reads new column",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "n",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "Expand the schema with an additive change that old code tolerates, deploy code that understands both representations, migrate data and traffic, then remove the old representation only after no supported reader or writer depends on it.",
+          "note": "A deployment and a schema change are separate distributed events; there is no instant when every process switches together."
+        },
+        {
+          "id": "mig-change-1",
+          "type": "system_change",
+          "prompt": "A deployment renames `name` to `display_name` while old servers still read `name`. Prevent mixed-version failures.",
+          "actionLabel": "Expand with both columns",
+          "choices": [
+            "Drop `name` before deployment",
+            "Add `display_name`, dual-write temporarily, then remove `name` after cutover",
+            "Pause monitoring until rollout ends"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Old servers fail as soon as the column disappears.",
+            "The overlap keeps both application versions compatible during rollout and rollback.",
+            "Removing evidence does not create compatibility."
+          ],
+          "beforeStatus": "ROLLOUT · old servers read missing column · errors",
+          "afterStatus": "ROLLOUT · old and new servers read supported columns",
+          "result": "Schema compatibility now spans the deployment window",
+          "viz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Old app",
+                "sub": "reads name",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "New-only schema",
+                "sub": "display_name",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Old app",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Expanded schema",
+                "sub": "name + display_name",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "n",
+                "label": "New app",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "n",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "The additive phase preserves old readers while new code begins using the new column. Dual writes or database derivation maintain both values until backfill and traffic evidence show that the old column can be removed."
+        },
+        {
+          "id": "schema-data-migrations-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A deployment renames `name` to `display_name` while old servers still read `name`. Prevent mixed-version failures. Place Expanded schema, New app. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Old app",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "sub": "name + display_name",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "n",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "n",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Expanded schema",
+            "New app",
+            "New-only schema",
+            "Backfill"
+          ],
+          "answer": {
+            "d": "Expanded schema",
+            "n": "New app"
+          },
+          "why": "The completed diagram contains these directed flows: Old app → Expanded schema; New app → Expanded schema. That topology is the evidence for the answer: The additive phase preserves old readers while new code begins using the new column. Dual writes or database derivation maintain both values until backfill and traffic evidence show that the old column can be removed.",
+          "connectEdges": true
+        },
+        {
+          "id": "mig-1-1",
+          "type": "order_steps",
+          "prompt": "Build an expand-and-contract rollout.",
+          "steps": [
+            "Add the backward-compatible schema",
+            "Deploy code that reads the old form and writes both old and new forms",
+            "Backfill historical rows with version checks while dual writes cover live changes",
+            "Verify equivalence, then move reads to the new representation",
+            "Stop old writes only after every writer has migrated",
+            "Remove the old schema after the rollback window expires"
+          ],
+          "why": "Dual writing must start before the backfill so concurrent production updates are not lost from the new representation. Version-aware or idempotent backfill updates must not overwrite a newer dual write. Read cutover follows verification, and destructive cleanup waits until no supported reader, writer, or rollback path needs the old form."
+        }
+      ]
+    },
+    {
+      "id": "mig-2",
+      "title": "Backfills are production workloads",
+      "exercises": [
+        {
+          "id": "mig-2-0",
+          "type": "concept",
+          "title": "A backfill competes with live traffic for database, network, and cache capacity",
+          "body": "Process historical rows in bounded batches, checkpoint progress, limit concurrency, and monitor replication lag and user-facing latency. An idempotent update lets a stopped worker resume without corrupting rows it already processed.",
+          "note": "Completion speed is subordinate to production safety unless the migration has an explicit emergency deadline."
+        },
+        {
+          "id": "mig-change-2",
+          "type": "system_change",
+          "prompt": "A backfill scans and updates 500 million rows at full speed, driving checkout p99 from 200ms to 4s. Preserve headroom.",
+          "actionLabel": "Throttle checkpointed batches",
+          "choices": [
+            "Increase backfill concurrency",
+            "Run bounded batches with a latency-based pause and saved cursor",
+            "Disable checkout timeouts"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "More concurrency increases contention against live traffic.",
+            "Bounded batches and feedback from production latency keep migration load inside available headroom.",
+            "Longer checkout waits hide overload while retaining more resources."
+          ],
+          "beforeStatus": "DATABASE · backfill consumes 90% I/O · checkout p99 4s",
+          "afterStatus": "DATABASE · backfill limited to spare I/O · checkout p99 220ms",
+          "result": "Historical work now yields to the live workload",
+          "viz": {
+            "nodes": [
+              {
+                "id": "b",
+                "label": "Backfill",
+                "sub": "unbounded",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "90% I/O",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "b",
+                "label": "Batch worker",
+                "sub": "cursor + throttle",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "headroom preserved",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Checkpointed batches make progress resumable, while a concurrency or rate limit bounds interference. Production latency, lock time, and replica lag provide feedback for pausing or reducing the backfill rate."
+        },
+        {
+          "id": "schema-data-migrations-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A backfill scans and updates 500 million rows at full speed, driving checkout p99 from 200ms to 4s. Preserve headroom. Place Batch worker, Database. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "b",
+                "sub": "cursor + throttle",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "headroom preserved",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Batch worker",
+            "Database",
+            "Old app",
+            "Expanded schema"
+          ],
+          "answer": {
+            "b": "Batch worker",
+            "d": "Database"
+          },
+          "why": "The completed diagram contains these directed flows: Batch worker → Database. That topology is the evidence for the answer: Checkpointed batches make progress resumable, while a concurrency or rate limit bounds interference. Production latency, lock time, and replica lag provide feedback for pausing or reducing the backfill rate."
+        },
+        {
+          "id": "mig-2-1",
+          "type": "multi_select",
+          "prompt": "Which properties make a backfill safely resumable? Select all.",
+          "choices": [
+            "Idempotent row transformation",
+            "Durable progress cursor",
+            "Bounded batch size",
+            "Assuming the process never restarts"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Idempotency tolerates repeated rows, a durable cursor records progress, and bounded batches limit transaction and lock scope. Restart assumptions are invalid for long-running production work."
+        }
+      ]
+    },
+    {
+      "id": "mig-backlog-sim",
+      "title": "A backfill needs bounded completion capacity",
+      "exercises": [
+        {
+          "id": "mig-backlog-sim-card",
+          "type": "concept",
+          "title": "A live backfill races a moving production frontier",
+          "body": "Historical rows and new writes can both require transformation. If safe backfill throughput stays below incoming migration work, completion moves farther away. More workers help only while database CPU, storage, locks, and user latency retain headroom.",
+          "note": "Throttle against production health, then verify the remaining rate can meet the deadline."
+        },
+        {
+          "id": "mig-backlog-sim-0",
+          "type": "simulate",
+          "prompt": "A change stream adds 50,000 rows/sec to the migration workload. Each backfill worker safely transforms 8,000 rows/sec. Over five minutes, choose the *fewest* workers that avoid falling further behind.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "changes",
+                "label": "Rows requiring migration",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "workers",
+                "label": "Throttled backfill workers",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "behind",
+                "label": "Unmigrated backlog",
+                "col": 2,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "changes",
+                "to": "workers",
+                "kind": "event"
+              },
+              {
+                "from": "workers",
+                "to": "behind",
+                "kind": "event"
+              }
+            ]
+          },
+          "sim": {
+            "input": 50000,
+            "inputLabel": "Rows/sec",
+            "chain": [
+              "workers",
+              "behind"
+            ],
+            "capacity": {
+              "behind": 0
+            },
+            "watch": "behind",
+            "watchLabel": "Rows added after 5 min",
+            "absorb": {
+              "node": "workers",
+              "label": "Backfill workers",
+              "min": 1,
+              "max": 10,
+              "start": 1,
+              "unit": " workers"
+            },
+            "model": {
+              "kind": "queue",
+              "duration": 300,
+              "servicePerUnit": 8000
+            }
+          },
+          "answerRange": [
+            7,
+            7
+          ],
+          "why": "Six workers process 48,000 rows/sec and fall behind by 600,000 rows in five minutes. Seven provide 56,000/sec. That surplus is only useful while production latency and database headroom remain within limits."
+        }
+      ]
+    },
+    {
+      "id": "mig-3",
+      "title": "Cutover and rollback",
+      "exercises": [
+        {
+          "id": "mig-3-0",
+          "type": "concept",
+          "title": "A migration is complete only after read, write, rollback, and cleanup paths agree",
+          "body": "Compare old and new results before cutover, expose active representation versions, and retain a tested rollback path. Once new writes cannot be represented in the old schema, rollback requires an explicit reverse transform or becomes impossible.",
+          "note": "Removing old data is a product decision about rollback and audit requirements, not housekeeping alone."
+        },
+        {
+          "id": "mig-3-1",
+          "type": "build_diagram",
+          "prompt": "Build a cutover path that compares old and new reads before switching users.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "o",
+                "label": "Old read",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "n",
+                "label": "New read",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "h2",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "o",
+                "kind": "data"
+              },
+              {
+                "from": "h1",
+                "to": "n",
+                "kind": "data"
+              },
+              {
+                "from": "o",
+                "to": "h2",
+                "kind": "data"
+              },
+              {
+                "from": "n",
+                "to": "h2",
+                "kind": "data"
+              }
+            ]
+          },
+          "palette": [
+            "Shadow-read router",
+            "Result comparator + metrics",
+            "CDN",
+            "Retry storm"
+          ],
+          "answer": {
+            "h1": "Shadow-read router",
+            "h2": "Result comparator + metrics"
+          },
+          "why": "Shadow reads exercise the new path without serving its result, and comparison metrics quantify disagreement. Cutover follows acceptable correctness and performance evidence rather than deployment completion alone."
+        },
+        {
+          "id": "schema-data-migrations-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Build a cutover path that compares old and new reads before switching users.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "o",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "n",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 3,
+                "label": "Result comparator + metrics"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "o",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "n",
+                "kind": "request"
+              },
+              {
+                "from": "o",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "n",
+                "to": "h2",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Shadow-read router",
+            "Old read",
+            "New read",
+            "Old app",
+            "Expanded schema"
+          ],
+          "answer": {
+            "h1": "Shadow-read router",
+            "o": "Old read",
+            "n": "New read"
+          },
+          "why": "The completed diagram contains these directed flows: Application → Shadow-read router; Shadow-read router → Old read; Shadow-read router → New read; Old read → Result comparator + metrics; New read → Result comparator + metrics. That topology is the evidence for the answer: Shadow reads exercise the new path without serving its result, and comparison metrics quantify disagreement. Cutover follows acceptable correctness and performance evidence rather than deployment completion alone."
+        },
+        {
+          "id": "mig-3-2",
+          "type": "multiple_choice",
+          "prompt": "When is dropping the old column defensible?",
+          "choices": [
+            "Immediately after adding the new one",
+            "After old readers and writers are gone, backfill is verified, and the rollback window has closed",
+            "When disk reaches 50%",
+            "Before testing restore procedures"
+          ],
+          "answer": 1,
+          "why": "Destructive cleanup waits until no supported code or rollback procedure needs the old representation and verification shows the new data is complete and correct."
+        }
+      ]
+    },
+    {
+      "id": "mig-4",
+      "title": "Prove the migration before cleanup",
+      "exercises": [
+        {
+          "id": "mig-4-0",
+          "type": "concept",
+          "title": "Row count is not proof that a backfill preserved meaning",
+          "body": "A migration can update every row and still be wrong: concurrent writes may be overwritten, values may be transformed incorrectly, or a retry may skip a range. Verification compares invariants, sampled records, error counts, and old-versus-new read results before destructive cleanup.",
+          "note": "Keep the old representation until rollback no longer depends on it. Cleanup is a separate migration with its own evidence and observation window."
+        },
+        {
+          "id": "mig-4-1",
+          "type": "multi_select",
+          "prompt": "A backfill reports 500 million rows processed. Which checks provide evidence that the migration is correct? Select all.",
+          "choices": [
+            "Compare old and new read results on a representative sample",
+            "Check domain invariants and null/error counts",
+            "Verify rows written concurrently with the backfill",
+            "Trust the processed-row counter by itself"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "A progress counter proves attempted coverage, not semantic correctness. Comparison reads detect transformation differences, invariants detect impossible state, and concurrent-write checks expose stale backfill overwrites."
+        },
+        {
+          "id": "mig-4-2",
+          "type": "multiple_choice",
+          "prompt": "The backfill read version 7 of a row. Production writes version 8, then the backfill finishes and writes its transformed version 7. What prevents this lost update?",
+          "choices": [
+            "Write only if the source version is still 7, then retry conflicts",
+            "Increase the batch size",
+            "Disable migration metrics",
+            "Run the stale write twice"
+          ],
+          "answer": 0,
+          "why": "A compare-and-set condition makes the stale write fail after production advances the row. The worker then rereads version 8 and transforms current state instead of overwriting it with an older snapshot."
+        },
+        {
+          "id": "mig-4-3",
+          "type": "build_diagram",
+          "prompt": "Build a verification path that never serves the new read to the user: fork one request, compare old and new results, and send only the old result to the response until cutover.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Read request",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h4",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "u",
+                "label": "User response",
+                "col": 3,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h4",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "h4",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "u",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Shadow-read fork",
+            "Old authoritative read",
+            "New candidate read",
+            "Comparator + metrics",
+            "Backfill worker",
+            "Schema lock"
+          ],
+          "answer": {
+            "h1": "Shadow-read fork",
+            "h2": "Old authoritative read",
+            "h3": "New candidate read",
+            "h4": "Comparator + metrics"
+          },
+          "why": "Both paths receive the same request, but only the old path supplies the user response. The comparator records disagreements and latency without exposing candidate results, producing evidence for a later cutover."
+        },
+        {
+          "id": "mig-4-4",
+          "type": "multiple_choice",
+          "prompt": "The new reader is deployed everywhere, but rollback would redeploy code that still reads the old column. May you drop that column now?",
+          "choices": [
+            "Yes—current traffic no longer reads it",
+            "No—the supported rollback path still depends on it",
+            "Yes—if the backfill was fast",
+            "No—columns can never be removed"
+          ],
+          "answer": 1,
+          "why": "Compatibility must include the versions you may intentionally restore, not only the version currently serving traffic. Drop the old column after the rollback window closes or after the rollback artifact no longer depends on it."
+        },
+        {
+          "id": "xfer-migration",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A billing migration converts dollars to cents while live writes continue. A backfill reads version 4, then production writes version 5. What prevents stale overwrite?",
+          "choices": [
+            "Condition the backfill write on the source version and retry conflicts",
+            "Increase the batch size",
+            "Drop the old column first",
+            "Disable production writes without a plan"
+          ],
+          "answer": 0,
+          "why": "A version condition rejects the stale transformation after production advances the row. The worker rereads current state and transforms version 5 instead of replacing it with version 4 data."
+        }
+      ]
+    }
+  ]
+}

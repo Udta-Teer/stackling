@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stackling · Later Topic Backlog</title>
+<style>
+:root{--bg:#071522;--card:#0d2438;--ink:#eef5fb;--muted:#9db4cc;--blue:#4cb0ff;--amber:#ffb020;--mint:#35d0a5;--line:rgba(76,176,255,.2)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,system-ui,sans-serif;background-image:linear-gradient(rgba(76,176,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(76,176,255,.04) 1px,transparent 1px);background-size:28px 28px}.wrap{max-width:1040px;margin:auto;padding:34px 20px 80px}header{padding:28px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(135deg,rgba(30,90,168,.3),rgba(13,36,56,.96))}.eyebrow,.tag{font:800 11px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.09em;color:var(--amber)}h1{font-size:clamp(36px,7vw,64px);line-height:1.02;letter-spacing:-.045em;margin:12px 0}h2{margin:46px 0 14px;font-size:27px}p{color:#cfe0f0;max-width:790px}.rule{border-left:3px solid var(--mint);padding:12px 15px;background:rgba(53,208,165,.08);border-radius:0 12px 12px 0;margin-top:20px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card{border:1px solid var(--line);border-radius:17px;background:rgba(13,36,56,.94);padding:18px}.card h3{font-size:19px;margin:6px 0}.card p{margin:0;color:var(--muted)}.card ul{padding-left:19px;margin:12px 0 0}.card li+li{margin-top:5px}.now{color:var(--mint);font-weight:800}.later{color:var(--amber);font-weight:800}@media(max-width:700px){.grid{grid-template-columns:1fr}header{padding:21px}}
+</style></head>
+<body><main class="wrap">
+<header><div class="eyebrow">Stackling · controlled backlog</div><h1>Topics worth adding later</h1><p>This is not permission to keep expanding the course. The current 44-unit path ships first. A topic moves from this page into the curriculum only when it teaches a capability the existing units cannot teach by becoming deeper.</p><div class="rule"><b>Gate:</b> improve complete request paths, schemas, failure injection, architecture revision, and design review in the existing studios before adding another unit.</div></header>
+
+<h2>Highest-value extensions</h2><section class="grid">
+<article class="card"><div class="tag">P1 · concurrency</div><h3>Distributed locks and fencing tokens</h3><p>Lease expiry, stale owners, fencing tokens, and why a lock without enforcement cannot protect an external resource.</p><ul><li>Prerequisites: Consensus, Idempotency</li><li>Best format: competing-owner simulation</li></ul></article>
+<article class="card"><div class="tag">P1 · data movement</div><h3>Change Data Capture</h3><p>Reading committed database changes into streams without inventing an unsafe application dual write.</p><ul><li>Prerequisites: Transactions, Event Streams</li><li>Best format: outbox versus log-based CDC lab</li></ul></article>
+<article class="card"><div class="tag">P1 · retrieval</div><h3>Search systems and inverted indexes</h3><p>Tokenization, postings lists, relevance, indexing lag, shard fan-out, and deletion from derived search state.</p><ul><li>Prerequisites: Indexes, Sharding, Consistency</li><li>Capstone candidate: product search</li></ul></article>
+<article class="card"><div class="tag">P1 · execution</div><h3>Batch processing and workflow orchestration</h3><p>Durable workflow state, retries, compensation, backfills, scheduling, and work that outlives one process.</p><ul><li>Prerequisites: Queues, Idempotency, Streams</li><li>Best format: failed multi-step workflow</li></ul></article>
+</section>
+
+<h2>Valuable after the first release</h2><section class="grid">
+<article class="card"><div class="tag">P2 · storage</div><h3>Object storage internals</h3><p>Chunking, erasure coding, metadata, checksums, repair, multipart upload, and why object stores do not behave like mounted disks.</p></article>
+<article class="card"><div class="tag">P2 · analytics</div><h3>Warehouses and analytical systems</h3><p>Columnar storage, partition pruning, batch ingestion, materialized views, and separating operational from analytical workloads.</p></article>
+<article class="card"><div class="tag">P2 · probability</div><h3>Bloom filters and probabilistic structures</h3><p>Trading bounded false positives for memory and I/O savings without pretending approximation is exactness.</p></article>
+<article class="card"><div class="tag">P2 · economics</div><h3>Cost-aware architecture</h3><p>Model bandwidth, storage, requests, idle capacity, replication, and operational labor as design constraints.</p></article>
+<article class="card"><div class="tag">P2 · governance</div><h3>Privacy, deletion, and data residency</h3><p>Purpose limitation, regional placement, deletion propagation, backup retention, audit evidence, and derived-data cleanup.</p></article>
+<article class="card"><div class="tag">P2 · platform</div><h3>API gateways and service meshes</h3><p>Separate edge policy from service-to-service policy and identify when platform indirection solves more than it obscures.</p></article>
+</section>
+
+<h2>Admission test</h2><section class="card"><p>A proposed unit must answer all four questions:</p><ol><li>What capability is absent from the current 44 units?</li><li>Which earlier units are prerequisites?</li><li>What interactive system can a learner manipulate?</li><li>Which existing unit cannot absorb this material without losing coherence?</li></ol><p><span class="now">Pass all four:</span> schedule it. <span class="later">Fail any:</span> deepen an existing unit instead.</p></section>
+</main></body></html>

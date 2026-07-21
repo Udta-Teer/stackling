@@ -39,7 +39,60 @@ TIER_LABEL = {
     2: "Serving Scale",
     3: "Hard Truths",
     4: "Design Challenges",
+    5: "Production Systems",
 }
+
+# The filename is an immutable authoring identifier, not the learning path.
+# Reordering files would rename 44 sources and risks breaking references and
+# persisted progress. Keep the canonical path here, keyed by stable unitId.
+# Each tuple also names the learner-facing stage; this deliberately differs
+# from some historical `tier` values after the 44-unit curriculum migration.
+COURSE_ORDER = [
+    ("how-internet-works", "Request Foundations"),
+    ("client-server-http", "Request Foundations"),
+    ("apis", "Request Foundations"),
+    ("latency-vs-throughput", "Request Foundations"),
+    ("where-state-lives", "Request Foundations"),
+    ("checkpoint-foundations", "Request Foundations"),
+    ("what-a-database-is", "Durable Data"),
+    ("sql-vs-nosql", "Durable Data"),
+    ("indexes", "Durable Data"),
+    ("transactions-and-acid", "Durable Data"),
+    ("replication", "Durable Data"),
+    ("checkpoint-storing-data", "Durable Data"),
+    ("scaling-vertical-vs-horizontal", "Serving Traffic"),
+    ("load-balancing", "Serving Traffic"),
+    ("caching", "Serving Traffic"),
+    ("cdns", "Serving Traffic"),
+    ("sharding", "Serving Traffic"),
+    ("rate-limiting", "Serving Traffic"),
+    ("message-queues", "Serving Traffic"),
+    ("idempotency", "Serving Traffic"),
+    ("checkpoint-serving-scale", "Serving Traffic"),
+    ("observability", "Distributed Systems"),
+    ("resilience-backpressure", "Distributed Systems"),
+    ("consistency-models", "Distributed Systems"),
+    ("cap-theorem", "Distributed Systems"),
+    ("consensus", "Distributed Systems"),
+    ("disaster-recovery", "Distributed Systems"),
+    ("checkpoint-hard-truths", "Distributed Systems"),
+    ("authentication-authorization", "Production Systems"),
+    ("security-threat-modeling", "Production Systems"),
+    ("service-discovery-configuration", "Production Systems"),
+    ("schema-data-migrations", "Production Systems"),
+    ("event-streams-processing", "Production Systems"),
+    ("multi-region-architecture", "Production Systems"),
+    ("architecture-evolution", "Production Systems"),
+    ("checkpoint-design-challenges", "Production Systems"),
+    ("design-url-shortener", "Design Studio"),
+    ("design-rate-limiter", "Design Studio"),
+    ("design-notification-platform", "Design Studio"),
+    ("design-news-feed", "Design Studio"),
+    ("design-chat-app", "Design Studio"),
+    ("design-cloud-file-storage", "Design Studio"),
+    ("design-video-streaming", "Design Studio"),
+    ("design-ride-sharing", "Design Studio"),
+]
 
 
 # Fields the renderer actually reads. The builder copies ONLY these into the
@@ -63,19 +116,40 @@ def build_block():
     if not files:
         raise SystemExit("no content files found")
 
-    lines = [START]
-    names, labels = [], []
-
+    loaded = []
+    by_id = {}
     for f in files:
-        n = unit_number(f)
         d = json.load(open(f, encoding="utf-8"))
+        uid = d.get("unitId")
+        if not uid:
+            raise SystemExit(f"{os.path.basename(f)}: missing unitId")
+        if uid in by_id:
+            raise SystemExit(f"duplicate unitId {uid!r}")
+        loaded.append((f, d))
+        by_id[uid] = (f, d)
+
+    ordered_ids = [uid for uid, _ in COURSE_ORDER]
+    missing = [uid for uid in ordered_ids if uid not in by_id]
+    unplaced = sorted(set(by_id) - set(ordered_ids))
+    if missing or unplaced or len(ordered_ids) != len(set(ordered_ids)):
+        raise SystemExit(
+            f"COURSE_ORDER mismatch: missing={missing}, unplaced={unplaced}, "
+            f"duplicate_order_ids={len(ordered_ids) != len(set(ordered_ids))}"
+        )
+
+    lines = [START]
+    names_by_id = {}
+
+    # Definitions stay in file-number order so UNIT23 continues to mean source
+    # file 23. Only COURSE below controls the learner's progression.
+    for f, d in loaded:
+        n = unit_number(f)
         tier = d.get("tier")
         if tier not in TIER_LABEL:
             raise SystemExit(f"{os.path.basename(f)}: unknown tier {tier!r}")
 
         var = f"UNIT{n}"
-        names.append(var)
-        labels.append(TIER_LABEL[tier])
+        names_by_id[d["unitId"]] = var
 
         # Strip fields the renderer doesn't read, so the embed stays lean.
         def lesson(l):
@@ -139,6 +213,8 @@ def build_block():
         lines.append(f"/* ---- {os.path.basename(f)} ---- */")
         lines.append(f"const {var} = " + blob + ";")
 
+    names = [names_by_id[uid] for uid, _ in COURSE_ORDER]
+    labels = [label for _, label in COURSE_ORDER]
     lines.append("")
     lines.append(f"const COURSE = [{', '.join(names)}];")
     lines.append(

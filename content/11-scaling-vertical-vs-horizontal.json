@@ -2,7 +2,7 @@
   "unitId": "scaling-vertical-vs-horizontal",
   "tier": 2,
   "title": "Scaling: Vertical vs Horizontal",
-  "subtitle": "A bigger machine, or more of them — and what each one costs you",
+  "subtitle": "Compare larger machines with distributed capacity and their operational requirements",
   "objectives": [
     "Distinguish scaling up from scaling out, and know which is a purchase and which is a redesign",
     "Explain why vertical scaling runs out: ceiling, idle capacity, and single point of failure",
@@ -17,7 +17,7 @@
         {
           "id": "scale-1-0",
           "type": "concept",
-          "title": "There are exactly two ways to make a system bigger",
+          "title": "Vertical scaling enlarges one machine; horizontal scaling adds machines",
           "viz": {
             "nodes": [
               {
@@ -58,27 +58,179 @@
               {
                 "from": "now",
                 "to": "up",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               },
               {
                 "from": "now",
                 "to": "o1",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               },
               {
                 "from": "now",
                 "to": "o2",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               },
               {
                 "from": "now",
                 "to": "o3",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
-          "body": "One server, out of room. You get two moves. Replace it with a bigger machine — more cores, more RAM, still one box — and that's *vertical* scaling, or scaling up. Run more copies of the machine you already have and that's *horizontal* scaling, or scaling out. Same goal, opposite work: scaling up is a purchase, scaling out is a redesign.",
-          "note": "The words trip people up because both just mean *more*. Up = the machine grew. Out = the count grew. One of those you can do this afternoon; the other changes how you write software permanently."
+          "body": "*Vertical scaling* replaces or resizes a server to provide more CPU, memory, storage, or network capacity. *Horizontal scaling* runs additional server instances and partitions or distributes requests among them. Both increase capacity, while horizontal scaling changes how traffic and state are coordinated.",
+          "note": "A horizontal tier requires a routing component and interchangeable instances, so request handling cannot depend on state stored only on one instance."
+        },
+        {
+          "id": "scale-change-1",
+          "type": "system_change",
+          "prompt": "One application server handles 60 req/s while 90 req/s arrives. Add a second server and route traffic across both.",
+          "actionLabel": "Scale out to two servers",
+          "beforeStatus": "APPLICATION LOAD · 90 / 60 req/s · 30 req/s queues",
+          "afterStatus": "APPLICATION LOAD · 45 / 60 req/s on each server · 0 queued",
+          "result": "Horizontal capacity absorbed the traffic",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Users",
+                "sub": "90 req/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "90 / 60",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Users",
+                "sub": "90 req/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "label": "Load balancer",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "45 / 60",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "45 / 60",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "lb",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "A second interchangeable server adds processing capacity, while the load balancer makes that capacity reachable. This improves throughput and queueing only when the application can run correctly across multiple servers."
+        },
+        {
+          "id": "scaling-vertical-vs-horizontal-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: One application server handles 60 req/s while 90 req/s arrives. Add a second server and route traffic across both. Place Load balancer, Server A, Server B. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Users",
+                "sub": "90 req/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "sub": "45 / 60",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "45 / 60",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "lb",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Load balancer",
+            "Server A",
+            "Server B",
+            "Your Server",
+            "One Bigger Server"
+          ],
+          "answer": {
+            "lb": "Load balancer",
+            "a": "Server A",
+            "b": "Server B"
+          },
+          "why": "The completed diagram contains these directed flows: Users → Load balancer; Load balancer → Server A; Load balancer → Server B. That topology is the evidence for the answer: A second interchangeable server adds processing capacity, while the load balancer makes that capacity reachable. This improves throughput and queueing only when the application can run correctly across multiple servers.",
+          "connectEdges": true
         },
         {
           "id": "scale-1-1",
@@ -91,7 +243,7 @@
             "Caching and load balancing"
           ],
           "answer": 1,
-          "why": "Vertical = one machine, made bigger. Horizontal = more machines, each the same size. Same goal, completely different engineering — and the names are worth internalizing because they map to two different kinds of work: scaling up is a purchase, scaling out is a redesign. One of those you can do this afternoon; the other changes how you build software permanently."
+          "why": "Vertical scaling increases the CPU, memory, or storage of one machine. Horizontal scaling adds machines and divides requests or work among them. Scaling up is usually an infrastructure change; scaling out also requires routing, interchangeable workers, and coordination for shared state."
         },
         {
           "id": "scale-1-2",
@@ -112,10 +264,10 @@
             },
             {
               "left": "Horizontal's ceiling",
-              "right": "Effectively none — you can add another"
+              "right": "Capacity can grow by adding machines while work and dependencies can be partitioned"
             }
           ],
-          "why": "Up has a wall you can reach; out doesn't, since you can always add one more box. But 'effectively none' is carrying weight there: you can always add a machine, and whether your SYSTEM goes faster depends entirely on whether the work can actually be split apart. That's lesson 3, and it's where the free lunch ends."
+          "why": "Vertical capacity stops at the largest available machine. A horizontal pool can accept additional machines, while useful capacity grows only when the workload can be partitioned and shared dependencies do not remain the bottleneck."
         },
         {
           "id": "scale-1-3",
@@ -128,7 +280,7 @@
             "linear"
           ],
           "answer": 0,
-          "why": "Up the machine (vertical), or out across machines (horizontal)."
+          "why": "Vertical scaling increases the resources of a single machine; horizontal scaling spreads the service across additional machines."
         },
         {
           "id": "scale-1-4",
@@ -141,7 +293,7 @@
             "Both are equally easy"
           ],
           "answer": 1,
-          "why": "Resizing a machine is a config change: your application runs exactly as it did, with more room, and that's the entire appeal. Which is why scaling up is almost always the right FIRST move, and why dismissing it as unsophisticated is a mistake — a config change that buys you twelve months is worth more than an architecture change that buys you five years you may never need."
+          "why": "A vertical resize preserves the application's single-machine execution model. Capacity can often be increased through an instance-size change and a restart, with application code left unchanged. This is a practical first step when a larger machine is available and the restart fits the service's availability plan."
         },
         {
           "id": "scale-1-5",
@@ -154,7 +306,7 @@
             "The database must be replicated"
           ],
           "answer": 1,
-          "why": "Horizontal scaling assumes machines are interchangeable, and the moment a request needs something that exists on only one machine, they aren't. That's unit 5's lesson arriving with a deadline: everything difficult about scaling out reduces to this one requirement, and lesson 3 is a tour of every place it quietly isn't true."
+          "why": "A load balancer may send successive requests to different servers, so every eligible server must be able to obtain the session data, files, and other state needed to serve them. State held only on one server makes request routing dependent on that server and prevents full interchangeability."
         },
         {
           "id": "scale-1-6",
@@ -171,7 +323,7 @@
             1,
             2
           ],
-          "why": "Simple, capped, and still just one machine — statelessness is horizontal's demand, since vertical scaling doesn't care how much state you keep in memory, which is exactly why it's so easy. Notice that last one is the whole trade in miniature: vertical asks nothing of your architecture, while horizontal asks you to give up local state, and that's a bill you pay in code rather than dollars."
+          "why": "Vertical scaling usually changes hardware or instance configuration, has a maximum machine size, and leaves the service dependent on one machine. It does not require a stateless application because requests continue to run on that same machine."
         }
       ]
     },
@@ -182,7 +334,7 @@
         {
           "id": "scale-2-0",
           "type": "concept",
-          "title": "Every instance family is a ladder, and every ladder has a top step",
+          "title": "Vertical scaling selects a larger size from a finite instance family",
           "viz": {
             "nodes": [
               {
@@ -217,20 +369,142 @@
             "edges": [
               {
                 "from": "s",
-                "to": "m"
+                "to": "m",
+                "kind": "request"
               },
               {
                 "from": "m",
-                "to": "l"
+                "to": "l",
+                "kind": "request"
               },
               {
                 "from": "l",
-                "to": "x"
+                "to": "x",
+                "kind": "request"
               }
             ]
           },
-          "body": "Cloud compute comes in families of fixed sizes, each with a published price. AWS `m5` runs from `m5.large` — 2 vCPU, about $0.10/hr on demand — up to `m5.24xlarge` at 96 vCPU, about $4.61/hr. Then it stops: there is no `m5.48xlarge`. Other families climb higher, and every one of those stops too. Scaling up is walking a ladder someone else built.",
-          "note": "The whole price list is public and the arithmetic is one division. Worth doing yourself before you accept received wisdom about what large machines cost — it's a number repeated far more often than it's checked."
+          "body": "A cloud instance family offers fixed CPU and memory sizes up to a largest machine. Within many mainstream families, on-demand price rises approximately in proportion to capacity. Resizing increases the resources of one failure domain and stops providing another step when the family maximum is reached.",
+          "note": "A resize commonly requires a restart or replacement, and the enlarged machine still causes a full service outage if no redundant instance can take over."
+        },
+        {
+          "id": "scale-change-2",
+          "type": "system_change",
+          "prompt": "A stateless API needs 240 request/s. One server handles 100 request/s and a larger machine is unavailable. Spread traffic across three equal servers.",
+          "actionLabel": "Scale out to three servers",
+          "beforeStatus": "CAPACITY · 100 request/s · demand 240 request/s",
+          "afterStatus": "CAPACITY · 300 request/s · about 80 request/s per server",
+          "result": "Aggregate capacity exceeded demand with one server class",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "240 request/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s",
+                "label": "One server",
+                "sub": "100 request/s",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "240 request/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Load balancer",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "s",
+                "label": "3 servers",
+                "sub": "300 request/s total",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Horizontal scaling adds capacity by running interchangeable instances behind a distributor. It requires request state to be shared or externalized and creates coordination, deployment, and partial-failure work."
+        },
+        {
+          "id": "scaling-vertical-vs-horizontal-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A stateless API needs 240 request/s. One server handles 100 request/s and a larger machine is unavailable. Spread traffic across three equal servers. Place Load balancer, 3 servers. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "240 request/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "s",
+                "sub": "300 request/s total",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Load balancer",
+            "3 servers",
+            "Your Server",
+            "One Bigger Server"
+          ],
+          "answer": {
+            "l": "Load balancer",
+            "s": "3 servers"
+          },
+          "why": "The completed diagram contains these directed flows: 240 request/s → Load balancer; Load balancer → 3 servers. That topology is the evidence for the answer: Horizontal scaling adds capacity by running interchangeable instances behind a distributor. It requires request state to be shared or externalized and creates coordination, deployment, and partial-failure work."
         },
         {
           "id": "scale-2-1",
@@ -243,7 +517,7 @@
             "It depends on the operating system"
           ],
           "answer": 1,
-          "why": "Mainstream cloud instance families are priced roughly linearly per vCPU: step up one size and you roughly double both the machine and the bill. The 'big iron costs a fortune' rule came from an era of proprietary large machines and doesn't describe how most people buy compute now — which is worth un-learning, because it removes a folklore argument for distributing EARLY. Across the mainstream range, ten small boxes and one ten-times-bigger box land in roughly the same place. The premium is real at the top of the range, where the largest specialty tiers do get disproportionately expensive per unit — and notice when that bites: it's the same moment the ceiling does. The price *premium* and the ceiling arrive together, at the top — which makes the per-core premium a late argument for scaling out, not an early one. Idle capacity is a separate cost argument and it bites at any size; that one's coming."
+          "why": "Within a mainstream cloud instance family, price generally rises close to linearly with virtual CPU and memory, so doubling resources often roughly doubles cost. The largest and specialized tiers can carry higher per-unit premiums. The economic crossover to horizontal scaling therefore depends on the workload, available instance tiers, and operational costs."
         },
         {
           "id": "scale-2-2",
@@ -267,7 +541,7 @@
               "right": "Resizing usually means a restart"
             }
           ],
-          "why": "Four separate limits, and only the first is about running out of capacity — the other three bite well before you reach the ceiling. They have different deadlines too: idle capacity bills you continuously, downtime hurts at every upgrade, and the single point of failure hurts you once, badly, on a day you didn't choose. Note which cost complaint this is: at ordinary sizes, where per-unit pricing is roughly flat, you're paying for peak you aren't using rather than a price premium."
+          "why": "The hard ceiling limits maximum capacity. Peak sizing leaves paid resources idle during quiet periods, a single machine remains one failure domain, and resizing commonly requires a restart. These constraints are independent, so vertical scaling can become operationally unsuitable before the size ceiling is reached."
         },
         {
           "id": "scale-2-3",
@@ -280,7 +554,7 @@
             "Restart it"
           ],
           "answer": 1,
-          "why": "That's the ceiling: there is no 'slightly bigger' option left, so vertical scaling has nothing more to offer. The dangerous part isn't that the ceiling exists — it's WHEN you meet it. You hit it under load, at your busiest moment, with no incremental option and a migration you haven't started. Horizontal degrades gracefully; vertical hits a wall at full speed."
+          "why": "Once the workload saturates the largest available instance, vertical scaling has no further capacity increment. Continuing growth then requires reducing the work or distributing it across machines, and that migration must be prepared before sustained load reaches the ceiling."
         },
         {
           "id": "scale-2-4",
@@ -293,7 +567,7 @@
             "Depends on the CPU"
           ],
           "answer": 1,
-          "why": "Vertical scaling buys capacity; it never buys redundancy, because one machine is one machine however large. This is the argument people forget when defending the big box: even if one machine could serve all your traffic forever, you'd still want a second one, because one is a single point of failure. Capacity and availability are two separate reasons to add machines, and only one of them is about load."
+          "why": "A larger machine provides more capacity but remains a single failure domain. If it stops serving, no other machine can answer, so availability falls to zero until recovery or failover. Redundancy requires an independently operating copy of the service."
         },
         {
           "id": "scale-2-5",
@@ -306,7 +580,7 @@
             "Rewriting the application"
           ],
           "answer": 1,
-          "why": "The machine has to stop being the old size and start being the new one — that's a restart, which means downtime unless something else can serve traffic meanwhile. There's a quiet irony here: the clean way to upgrade a machine with no downtime is to have a second machine to fail over to, so even scaling up gracefully tends to require the redundancy that scaling out gives you."
+          "why": "Changing an instance's CPU or memory allocation commonly requires stopping and restarting it. A maintenance window accepts that interruption; a failover avoids user-visible downtime by routing traffic to another healthy machine during the resize."
         },
         {
           "id": "scale-2-6",
@@ -323,7 +597,7 @@
             1,
             2
           ],
-          "why": "Ceiling, inflexible capacity, and fragility. It emphatically does NOT force a rewrite — needing no rewrite is precisely what makes it attractive right up until it fails you. That combination is what makes the ceiling sneak up on people: vertical scaling asks nothing of you, so nobody plans for the day it stops working, and then that day is the day you need to have already planned."
+          "why": "Vertical scaling is bounded by the largest machine, keeps peak capacity allocated during low demand, and leaves one machine as a single point of failure. Application rewrites are not an inherent requirement of scaling up; avoiding them is one of its operational advantages."
         }
       ]
     },
@@ -334,7 +608,7 @@
         {
           "id": "scale-3-0",
           "type": "concept",
-          "title": "Horizontal scaling assumes your machines are interchangeable",
+          "title": "Horizontal scaling requires work that can be distributed across instances",
           "viz": {
             "nodes": [
               {
@@ -367,20 +641,86 @@
             "edges": [
               {
                 "from": "c",
-                "to": "lb"
+                "to": "lb",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "a"
+                "to": "a",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "b"
+                "to": "b",
+                "kind": "request"
               }
             ]
           },
-          "body": "A second server only helps if either machine can serve any request. That holds right up until something a user needs exists on only one box — the file they uploaded, sitting on that machine's local disk. Now half their requests land on a stranger. The machines aren't interchangeable, and *add another box* quietly stops working.",
-          "note": "Which is why 1 → 2 is the hardest scaling step there is, and it's the first one. Every assumption you made about there being one machine surfaces at once, and nobody ever wrote them down. 2 → 200 is boring after it."
+          "body": "A load balancer may send consecutive requests to different instances. Each instance must therefore obtain required user state from a shared service or from the request itself. Work also needs independent partitions; operations that coordinate through one shared lock or record remain serialized.",
+          "note": "A shared counter, lock, or database row can cap throughput for the whole tier even when unused CPU remains on individual instances."
+        },
+        {
+          "id": "scaling-vertical-vs-horizontal-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Horizontal scaling requires work that can be distributed across instances",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "sub": "has their file",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "doesn't",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "lb",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Load Balancer",
+            "Server A",
+            "Server B",
+            "Your Server",
+            "One Bigger Server"
+          ],
+          "answer": {
+            "lb": "Load Balancer",
+            "a": "Server A",
+            "b": "Server B"
+          },
+          "why": "A load balancer may send consecutive requests to different instances. Each instance must therefore obtain required user state from a shared service or from the request itself. Work also needs independent partitions; operations that coordinate through one shared lock or record remain serialized. A shared counter, lock, or database row can cap throughput for the whole tier even when unused CPU remains on individual instances."
         },
         {
           "id": "scale-3-1",
@@ -393,24 +733,84 @@
             "The second server has old code"
           ],
           "answer": 1,
-          "why": "Two machines, one of which holds your session — land on the other and you're a stranger, so the servers aren't interchangeable and horizontal scaling doesn't work yet. Going from one machine to two is the hardest scaling step there is, and it's not close: it's where every hidden assumption of single-machine-ness surfaces at once, and you'd been relying on all of them without ever writing them down."
+          "why": "A session stored in server-local memory exists only on the server that created it. When the load balancer routes a later request to the other server, that server cannot find the session and treats the user as logged out. A shared session store or another explicit routing strategy is required."
         },
         {
           "id": "scale-3-2",
-          "type": "multi_select",
-          "prompt": "Going from 1 server to 2 tends to break which hidden assumptions? Select all.",
-          "choices": [
-            "Sessions kept in local memory",
-            "Uploaded files written to local disk",
-            "A scheduled job that now runs on every machine instead of once",
-            "The database schema"
+          "type": "build_diagram",
+          "prompt": "Make two app servers interchangeable. Place the request distributor before the fleet and the session authority where either server can reach it.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "clients",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "entry",
+                "sub": "selects a healthy server",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "label": "App Server A",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "App Server B",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "sessions",
+                "sub": "reachable by both",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "clients",
+                "to": "entry",
+                "kind": "request"
+              },
+              {
+                "from": "entry",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "entry",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "sessions",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "sessions",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Load Balancer",
+            "Shared Session Store",
+            "Local Session Memory",
+            "Read Replica"
           ],
-          "answer": [
-            0,
-            1,
-            2
-          ],
-          "why": "Local sessions vanish, local files become invisible to peers, and that nightly cron now fires once per machine — so your billing job runs twice. The schema is untouched; it never assumed anything about how many servers existed. The cron one catches people hardest because it fails silently and in the wrong direction: nothing errors, you just charged everyone twice. Single-machine assumptions rarely announce themselves — they just quietly start doing everything N times."
+          "answer": {
+            "entry": "Load Balancer",
+            "sessions": "Shared Session Store"
+          },
+          "why": "The load balancer may send consecutive requests to either app server, so both must read the same session authority from a shared store. If sessions remain in local memory, a request routed to the other server cannot find the login; losing one server also loses every session stored only there."
         },
         {
           "id": "scale-3-3",
@@ -451,19 +851,23 @@
             "edges": [
               {
                 "from": "c",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
                 "from": "h",
-                "to": "s1"
+                "to": "s1",
+                "kind": "request"
               },
               {
                 "from": "h",
-                "to": "s2"
+                "to": "s2",
+                "kind": "request"
               },
               {
                 "from": "h",
-                "to": "s3"
+                "to": "s3",
+                "kind": "request"
               }
             ]
           },
@@ -475,7 +879,7 @@
           "answer": {
             "h": "Load Balancer"
           },
-          "why": "Something has to decide which machine each request goes to — that's a load balancer's entire job, and it's the piece that makes 'more machines' visible to the outside world as one service. Notice horizontal scaling immediately required a new component you didn't need before: that's the pattern, since scaling out doesn't remove work, it relocates it."
+          "why": "The load balancer accepts traffic at one service address and selects one of the three app servers for each request. This routing layer lets clients use the fleet without knowing individual server addresses or membership changes."
         },
         {
           "id": "scale-3-4",
@@ -488,7 +892,7 @@
             "Nothing changes at all"
           ],
           "answer": 1,
-          "why": "Horizontal scaling only helps to the extent the work is genuinely independent — anything all ten machines must touch is a queue with ten machines waiting in it. Any point where every machine must agree is a serialization point, and it caps your speedup no matter how many machines you add. This is unit 4's bottleneck rule with a distributed accent: adding capacity to the parts that weren't the constraint changes nothing."
+          "why": "Updates to one contended counter must be serialized or coordinated to preserve a correct value. All ten workers therefore queue at that shared resource, whose throughput bounds the system even though independent compute capacity increased."
         },
         {
           "id": "scale-3-5",
@@ -501,7 +905,7 @@
             "One that writes to the same row constantly"
           ],
           "answer": 1,
-          "why": "Independent work splits cleanly: two machines can handle two images and never speak to each other, while the others all require coordination — and coordination is what doesn't scale. Here's the tell to carry: can two requests be handled by two machines that never talk to each other? If yes, horizontal scaling is nearly free. If no, you're not really buying machines — you're buying coordination, and that's the expensive part."
+          "why": "Each image resize can run from its own input and produce its own output without synchronizing with another resize. Independent tasks can be partitioned across workers, so added machines increase throughput with little coordination overhead."
         },
         {
           "id": "scale-3-6",
@@ -514,7 +918,7 @@
             "Nothing — that's why it's better"
           ],
           "answer": 1,
-          "why": "Two demands: nothing a user needs may live on only one machine, and the work must divide without every machine needing to agree with every other one. Neither demand is about hardware, which is the surprise — scaling out is cheap to buy and expensive to qualify for, because the money is trivial next to the architectural conditions you have to meet first."
+          "why": "Horizontal scaling requires eligible machines to be interchangeable for incoming requests and requires the workload to split without constant shared coordination. Server-local state violates interchangeability, while shared locks or counters can preserve a single throughput bottleneck."
         }
       ]
     },
@@ -525,9 +929,9 @@
         {
           "id": "scale-4-0",
           "type": "concept",
-          "title": "One of these two moves you can undo; the other one you cannot",
-          "body": "Resize a box and you can resize it back on Friday — nothing else in your system noticed it happened. Split the work across machines and there is no undo: the split is now in your code, your tests, your deploys and your on-call rotation, permanently. Two options that look equally reasonable on a diagram are not equally reasonable when only one is reversible.",
-          "note": "So the bar for going out is evidence, and evidence has a shape: a constraint you can name and a number that says so. Anything you can't measure isn't a reason — it's a preference that learned to sound like one."
+          "title": "Scaling strategy follows the measured constraint and availability target",
+          "body": "Vertical scaling changes machine size with little application complexity until the size ceiling. Horizontal scaling adds routing, distributed state, partial failures, and multi-instance operations while enabling elastic capacity and redundancy. Choose the tier and resource that current measurements identify as constrained.",
+          "note": "Capacity and availability are separate requirements: one machine may have enough CPU yet still violate an uptime target because its failure removes the entire service."
         },
         {
           "id": "scale-4-1",
@@ -540,7 +944,7 @@
             "Their users notice the improvement"
           ],
           "answer": 1,
-          "why": "Distributed systems aren't free: you buy scale with complexity, so if you don't need the scale yet you've simply bought the complexity. The cost is mostly invisible on an architecture diagram and brutal in daily life — every bug is now a distributed bug, every local test needs six things running, and every outage is a scavenger hunt. That tax is charged daily; the scale benefit arrives someday, maybe."
+          "why": "Six services and a message bus introduce network failure, cross-service observability, deployment coordination, and data-consistency work. With only 5,000 users, those recurring engineering costs may exceed the capacity benefit, while a simpler deployment can meet the measured load."
         },
         {
           "id": "scale-4-2",
@@ -553,19 +957,19 @@
             "It depends only on the programming language"
           ],
           "answer": 1,
-          "why": "Hardware got enormous while everyone was learning to distribute — a single large box today would have been a datacenter fifteen years ago. Plenty of well-known products ran on a handful of machines far longer than their engineers expected, so the useful planning question isn't 'will we outgrow one machine?' but 'when — and what will we know by then that we don't know now?' Deciding later with real data beats deciding now with a guess."
+          "why": "Large commodity and cloud machines can provide hundreds of CPU cores and terabytes of memory, so one machine may support substantial workloads when the application uses those resources effectively. The actual limit depends on request cost, storage access, concurrency, and the workload's measured bottleneck."
         },
         {
           "id": "scale-4-3",
           "type": "tradeoff_slider",
-          "prompt": "New product, 2,000 users, growing steadily, small team. Slide toward your scaling strategy.",
+          "prompt": "A small team runs one server at 900 peak req/s, 35% CPU, and 40% memory. Traffic is forecast to double over the next year, and its 99.5% uptime target permits planned maintenance. Choose the next-year capacity strategy.",
           "leftLabel": "Scale up (bigger box, stay simple)",
           "rightLabel": "Scale out (distribute now)",
           "answerRange": [
             0,
             35
           ],
-          "why": "At this size a bigger box is a config change and distributing is a project, so buy the simple thing — you'll learn where your real bottleneck is long before you're forced to commit to an architecture. The deciding factor is asymmetry rather than size: scaling up is reversible and cheap to try, while distributing is a one-way door that changes how you test, deploy, and debug forever. When one option is reversible and the other isn't, take the reversible one until you have evidence you must not."
+          "why": "Doubling the measured peak to 1,800 requests per second still leaves substantial CPU and memory headroom on one server, and the stated uptime target does not require redundancy. Scaling up or staying put for now avoids routing and partial-failure complexity; a stricter availability target or a measured single-machine bottleneck would shift the choice toward scaling out."
         },
         {
           "id": "scale-4-4",
@@ -578,7 +982,7 @@
             "Only during business hours"
           ],
           "answer": 1,
-          "why": "Redundancy and capacity are unrelated: a machine that's only 10% busy still takes your whole service down when it dies. This is the split people miss — there are two independent reasons to go horizontal, and most only think about load. If your uptime target is serious, you're going horizontal even when one box would be fast enough, and you'll inherit every interchangeability requirement from lesson 3 along with it."
+          "why": "An idle machine can still fail, and a service with only that machine is unavailable during the failure. A 99.99% availability target therefore requires redundant serving capacity and failover even when traffic uses only a small fraction of one machine's capacity."
         },
         {
           "id": "scale-4-5",
@@ -595,7 +999,7 @@
             1,
             2
           ],
-          "why": "Ceiling, redundancy, and elasticity are all real, evidence-backed reasons; fashion is not — and it's the most expensive reason on the list. Elasticity is the one people under-rate: if your traffic is 10× at noon and quiet at 3am, many small machines let you pay for what you use, while one big machine is sized for your worst hour and idle the rest of the time. That's a cost argument for scaling out even before you're near the ceiling."
+          "why": "Approaching the maximum machine size creates a capacity requirement; an uptime target creates a redundancy requirement; and large traffic swings create an elasticity requirement. A horizontally scaled pool can add or remove instances with demand, whereas architectural fashion provides no workload or reliability condition to justify the added complexity."
         },
         {
           "id": "scale-4-6",
@@ -608,7 +1012,7 @@
             "Nothing — 30% is fine"
           ],
           "answer": 1,
-          "why": "Scale the bottleneck rather than the comfortable part (unit 4) — and you're in luck, because a stateless CPU-bound tier is the one place where 'just add machines' genuinely works. This is the happy case, and it's precisely why the industry pushed state out of the app tier so hard: stateless compute is the one component that really does scale by adding boxes, while every other tier makes you negotiate."
+          "why": "The app tier is CPU-bound, while the database has spare capacity. Because app servers hold no request-specific local state, the load balancer can distribute requests across additional identical servers, increasing compute throughput at the active bottleneck."
         },
         {
           "id": "scale-4-7",
@@ -621,7 +1025,21 @@
             "Whichever is cheaper this month"
           ],
           "answer": 1,
-          "why": "Both dogmas are wrong: scaling up is the cheap, reversible default, and scaling out is a deliberate purchase you make for a named reason — capacity ceiling, availability, or elasticity. Notice horizontal scaling didn't actually solve a problem by itself anywhere in this unit; it relocated problems into interchangeability, traffic distribution, and coordination. The units ahead are what you buy to manage that relocation, and it's worth seeing them as consequences rather than upgrades."
+          "why": "Scaling up is usually the simpler reversible step while a larger machine can satisfy capacity and availability requirements. Scaling out becomes appropriate when one machine approaches its ceiling, independent replicas are needed for availability, or capacity must track demand. It also introduces traffic distribution, state placement, and coordination requirements that must be designed explicitly."
+        },
+        {
+          "id": "xfer-scaling",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A WebSocket process keeps each connected user's session only in local memory. Why can't a load balancer freely send the user's next message to any new server?",
+          "choices": [
+            "WebSockets require one global CPU",
+            "The database must be NoSQL",
+            "The servers are not interchangeable for that session",
+            "Horizontal servers cannot use networks"
+          ],
+          "answer": 2,
+          "why": "Local connection state makes one process special. Horizontal routing needs connection-aware placement or shared/external state for operations that are allowed to move."
         }
       ]
     }

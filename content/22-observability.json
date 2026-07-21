@@ -2,7 +2,7 @@
   "unitId": "observability",
   "tier": 3,
   "title": "Observability",
-  "subtitle": "You can't fix what you can't see — and you can't see what you didn't instrument",
+  "subtitle": "Use metrics, logs, and traces to detect impact and locate causes",
   "objectives": [
     "Distinguish logs, metrics, and traces by the question each one answers",
     "Explain why averages and dashboards hide the failures that matter",
@@ -17,7 +17,7 @@
         {
           "id": "obs-1-0",
           "type": "concept",
-          "title": "Metrics, logs and traces aren't three formats — they're three different questions",
+          "title": "Metrics, logs, and traces preserve different dimensions of system behavior",
           "viz": {
             "nodes": [
               {
@@ -58,24 +58,241 @@
             "edges": [
               {
                 "from": "c",
-                "to": "g"
+                "to": "g",
+                "kind": "request"
               },
               {
                 "from": "g",
-                "to": "a"
+                "to": "a",
+                "kind": "request"
               },
               {
                 "from": "g",
-                "to": "i"
+                "to": "i",
+                "kind": "request"
               },
               {
                 "from": "g",
-                "to": "p"
+                "to": "p",
+                "kind": "request"
               }
             ]
           },
-          "body": "These are not three formats of the same data. One is a number that has already been aggregated. One is a full record of a single event. One is a single id stitched through every hop of a request. Each exists because it answers a question the other two answer badly — and each shape falls straight out of its question. Read the shape backwards to the question.",
-          "note": "All three are blind to whatever you never instrumented. Which makes a green graph a weaker statement than it looks: it can only ever speak about the one thing it measures. Absence of a signal is not evidence of absence."
+          "body": "A metric aggregates numeric measurements over time. A log records one event with its fields. A distributed trace links timed spans from one request across services using a propagated trace identifier. Operators combine them to detect a change, inspect an event, and locate latency or failure along a request path.",
+          "note": "Each signal covers only instrumented code paths and recorded fields. An uninstrumented failure can occur while every collected series remains healthy."
+        },
+        {
+          "id": "observability-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Metrics, logs, and traces preserve different dimensions of system behavior",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g",
+                "sub": "trace id",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "sub": "6ms",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "i",
+                "sub": "2,800ms",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "label": "Pricing",
+                "sub": "9ms",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "g",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "i",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Gateway",
+            "Auth",
+            "Inventory",
+            "Checkout API",
+            "Payment"
+          ],
+          "answer": {
+            "g": "Gateway",
+            "a": "Auth",
+            "i": "Inventory"
+          },
+          "why": "A metric aggregates numeric measurements over time. A log records one event with its fields. A distributed trace links timed spans from one request across services using a propagated trace identifier. Operators combine them to detect a change, inspect an event, and locate latency or failure along a request path. Each signal covers only instrumented code paths and recorded fields. An uninstrumented failure can occur while every collected series remains healthy.",
+          "connectEdges": true
+        },
+        {
+          "id": "obs-change-1",
+          "type": "system_change",
+          "prompt": "One checkout crosses three services, but their logs cannot be connected. Propagate one trace ID through every call.",
+          "actionLabel": "Propagate the trace context",
+          "beforeStatus": "INCIDENT SEARCH · thousands of unrelated log lines · slow call unknown",
+          "afterStatus": "TRACE · one request path · Inventory span accounts for 2.8 seconds",
+          "result": "The slow dependency became visible",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Checkout API",
+                "sub": "request ?",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "i",
+                "label": "Inventory",
+                "sub": "request ?",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Payment",
+                "sub": "request ?",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "i",
+                "kind": "request"
+              },
+              {
+                "from": "i",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Checkout API",
+                "sub": "trace 7f3 · 6ms",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "i",
+                "label": "Inventory",
+                "sub": "trace 7f3 · 2.8s",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Payment",
+                "sub": "trace 7f3 · 9ms",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "i",
+                "kind": "request"
+              },
+              {
+                "from": "i",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Propagating trace context links spans from one request across service boundaries and exposes where its time was spent. Sampling and correct context propagation still matter; a missing span can break the path."
+        },
+        {
+          "id": "observability-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: One checkout crosses three services, but their logs cannot be connected. Propagate one trace ID through every call. Place Inventory, Payment. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Checkout API",
+                "sub": "trace 7f3 · 6ms",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "i",
+                "sub": "trace 7f3 · 2.8s",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "sub": "trace 7f3 · 9ms",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "i",
+                "kind": "request"
+              },
+              {
+                "from": "i",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Inventory",
+            "Payment",
+            "Client",
+            "Gateway"
+          ],
+          "answer": {
+            "i": "Inventory",
+            "p": "Payment"
+          },
+          "why": "The completed diagram contains these directed flows: Checkout API → Inventory; Inventory → Payment. That topology is the evidence for the answer: Propagating trace context links spans from one request across service boundaries and exposes where its time was spent. Sampling and correct context propagation still matter; a missing span can break the path."
         },
         {
           "id": "obs-1-1",
@@ -83,12 +300,12 @@
           "prompt": "Your service is slow. Your CPU graph looks fine. What does that actually tell you?",
           "choices": [
             "The service isn't slow",
-            "Only that CPU isn't the constraint — you're waiting on something you haven't instrumented, and you can't see it",
+            "Only that this aggregate CPU graph does not establish CPU as the cause; inspect per-core use, throttling, queues, and wait time before ruling CPU in or out",
             "The problem is the database",
             "The metric is broken"
           ],
           "answer": 1,
-          "why": "A healthy graph tells you what ISN'T wrong, which is progress and not an answer — the slowness lives in whatever you never measured, whether that's a lock, a dependency, or a queue. This is the whole premise of observability: your system is only as debuggable as your instrumentation, and unmeasured things are invisible rather than absent."
+          "why": "An average CPU graph can look normal while one core is saturated, a container is throttled, brief peaks are averaged away, or only the affected host is overloaded. Per-core utilization, throttling, run queues, and CPU wait data are needed before excluding CPU; dependency, lock, disk, and network waits remain alternative causes."
         },
         {
           "id": "obs-1-2",
@@ -112,7 +329,7 @@
               "right": "Alert, then investigate, then locate"
             }
           ],
-          "why": "They aren't three formats of the same thing, they're three different questions — metrics are cheap aggregates that tell you something changed, logs are expensive detail about individual events, and traces show one request's journey across services. The workflow is the point: a metric wakes you, a trace narrows it to a service, a log tells you what that service actually did."
+          "why": "Metrics aggregate measurements across events, logs record details of individual events, and traces connect timed spans from one request across services. Together they support detection with metrics, localization with traces, and event-level diagnosis with logs."
         },
         {
           "id": "obs-1-3",
@@ -125,33 +342,88 @@
             "Metrics are more detailed"
           ],
           "answer": 1,
-          "why": "A metric is a pre-aggregated number that costs about the same whether you serve ten requests or ten million, whereas logs scale linearly with traffic in both storage and money. So they trade off exactly opposite ways: metrics are cheap and lose the detail, logs keep everything and get expensive precisely when traffic is high — which is when you need them."
+          "why": "Metrics pre-aggregate observations into bounded time series, while logging every request creates storage and ingestion proportional to traffic. Logs preserve event detail, but metrics provide affordable rates, percentiles, and alerts at high volume, so both signals serve different queries."
         },
         {
           "id": "obs-1-4",
-          "type": "multiple_choice",
-          "prompt": "A request passes through 6 microservices and takes 3 seconds. Which signal finds the slow one?",
-          "choices": [
-            "Logs from each service",
-            "A trace — one request id followed across all six, showing how long each span took",
-            "CPU metrics",
-            "The load balancer's access log"
+          "type": "spot_bottleneck",
+          "prompt": "One distributed trace shows the timed spans below. Tap the span that dominates this request's critical path.",
+          "nodes": [
+            "Gateway — 18ms",
+            "Auth — 7ms",
+            "Inventory call — 2,740ms",
+            "Pricing call — 21ms"
           ],
-          "answer": 1,
-          "why": "Each service's own logs show it was fine, because each service WAS fine — the time is in the gaps and the waiting, which nobody sees locally. A trace stitches the request together with one id so you can look at the whole journey at once, which is the only view where 'service D waited 2.8s on service E' is visible."
+          "answer": 2,
+          "why": "The inventory span consumes 2,740 ms, far more than the other recorded spans, so it dominates the traced request's latency. The trace localizes waiting to that dependency path; inventory's own metrics and logs are then needed to distinguish its internal cause."
         },
         {
           "id": "obs-1-5",
-          "type": "multiple_choice",
-          "prompt": "Why does distributed tracing require every service to cooperate?",
-          "choices": [
-            "For security",
-            "Because the trace id must be passed along in every call — one service that drops it breaks the chain, and everything downstream becomes invisible",
-            "To reduce overhead",
-            "Because traces are stored locally"
+          "type": "build_diagram",
+          "prompt": "Build the tracing path so gateway and checkout spans become one end-to-end trace instead of unrelated fragments.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "gateway",
+                "label": "Gateway",
+                "sub": "starts trace",
+                "col": 0,
+                "kind": "gw"
+              },
+              {
+                "id": "context",
+                "sub": "on service call",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "checkout",
+                "label": "Checkout",
+                "sub": "child span",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "backend",
+                "sub": "join + query spans",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "gateway",
+                "to": "context",
+                "kind": "request"
+              },
+              {
+                "from": "context",
+                "to": "checkout",
+                "kind": "request"
+              },
+              {
+                "from": "gateway",
+                "to": "backend",
+                "kind": "request"
+              },
+              {
+                "from": "checkout",
+                "to": "backend",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Propagated Trace Context",
+            "Trace Collector / Backend",
+            "Fresh Trace ID",
+            "CPU Metric"
           ],
-          "answer": 1,
-          "why": "A trace is only a chain of spans sharing an id, so propagation is the whole mechanism — a service that receives the id and doesn't forward it silently orphans everything it calls. That's why tracing tends to be all-or-nothing infrastructure: partial adoption produces traces that end abruptly at exactly the boundary you were trying to see across."
+          "answer": {
+            "context": "Propagated Trace Context",
+            "backend": "Trace Collector / Backend"
+          },
+          "why": "The gateway passes the existing trace and parent identifiers on the checkout call, and both services export their spans to a backend that joins them by those identifiers. If checkout starts a fresh trace instead, its latency and errors remain recorded but cannot be correlated reliably with the originating request path."
         },
         {
           "id": "obs-1-6",
@@ -164,7 +436,7 @@
             "Monitoring is for infrastructure, observability for apps"
           ],
           "answer": 1,
-          "why": "A dashboard shows the failures you predicted, which are the ones you've usually already fixed — real incidents are the ones nobody anticipated, so the question is whether your data can answer something you're inventing at 3am. That's the practical test: can you ask a new question of yesterday's data without shipping code first?"
+          "why": "Monitoring checks predefined conditions, while observability describes whether emitted telemetry supports new questions about internal state. Retaining sufficiently structured metrics, logs, and traces allows an engineer to investigate an unanticipated failure without first adding instrumentation and waiting for it to recur."
         }
       ]
     },
@@ -175,22 +447,18 @@
         {
           "id": "obs-2-0",
           "type": "concept",
-          "title": "Nobody experiences your average",
-          "body": "Ninety-five requests at 30ms and five at 1 second average out to 78ms. Under a 100ms target the dashboard is green. But one user in twenty waited a full second — and 78ms is equally compatible with *everyone* getting 78ms, which is a completely different product. `p99`, the number 99% come in under, is 1 second here.",
-          "note": "The mean isn't lying to you, it's *averaging* — and one number cannot say whether the spread is tight or horrible. Percentiles aren't a refinement of the mean. They're the thing you wanted all along."
+          "title": "Latency percentiles expose slow requests hidden by the mean",
+          "body": "Sort request latencies from fastest to slowest. The `p95` value is the latency at or below which 95% of observations fall; the slowest 5% exceed it. A mean compresses the full distribution into one value, so a small group of very slow requests can remain invisible.",
+          "note": "Track percentiles by operation and region. Aggregating unrelated workloads can hide a severe tail in a low-volume endpoint or location."
         },
         {
           "id": "obs-2-1",
-          "type": "multiple_choice",
-          "prompt": "Your dashboard shows average latency: a healthy 90ms. Users are complaining. What are you missing?",
-          "choices": [
-            "Nothing — check their connection",
-            "The average is hiding the tail: p99 could be 6 seconds and the mean would barely move",
-            "The dashboard is broken",
-            "You need more replicas"
-          ],
-          "answer": 1,
-          "why": "Averages compress a distribution into one number and lose exactly the part that hurts — this is unit 4's lesson, now as an instrumentation failure rather than a reasoning one. Nobody experiences your average; they experience one request. A dashboard showing only means is a dashboard that structurally cannot show you an outage that affects 1% of traffic."
+          "type": "estimate",
+          "prompt": "Sort 100 request latencies: 95 are 80ms, 4 are 500ms, and 1 is 6,000ms. Using nearest-rank p99, what is p99?",
+          "answer": 500,
+          "tolerance": 0,
+          "unit": "ms",
+          "why": "With 100 sorted observations, nearest-rank p99 is the 99th value. Positions 96 through 99 are 500 ms, while only position 100 is 6,000 ms, so p99 is 500 ms. The mean is `(95 × 80 + 4 × 500 + 1 × 6,000) ÷ 100 = 156 ms`; that single average still hides both tail cohorts."
         },
         {
           "id": "obs-2-2",
@@ -203,7 +471,7 @@
             "Only a logging problem"
           ],
           "answer": 1,
-          "why": "Unit 3 warned that lying with status codes breaks caches and clients; here it also blinds your own instrumentation, because the error rate is computed from what you reported rather than what happened. Honest signals are load-bearing infrastructure — everything downstream, including the human deciding whether to page someone, is reasoning from numbers you generated."
+          "why": "If failed work is reported as `200 OK`, status-derived error metrics count those requests as successes. Alerts, service-level indicators, clients, and caches then operate on incorrect outcome data, so the application must expose failures through an accurate status or an explicit success signal."
         },
         {
           "id": "obs-2-3",
@@ -220,7 +488,7 @@
             1,
             2
           ],
-          "why": "Averages hide the tail, uncorrelated logs can't be assembled into a story, and dishonest status codes corrupt every derived signal. Percentiles are the fix rather than a problem — and the request id is the humblest and most valuable item on the list, because logs you can't join are a pile of sentences rather than an account of what happened."
+          "why": "Averages collapse slow tail requests into one aggregate, logs need a shared request ID for cross-component correlation, and false success codes undercount failures. Latency percentiles preserve the distribution boundary at each reported percentile, making slow cohorts visible during diagnosis."
         },
         {
           "id": "obs-2-4",
@@ -233,7 +501,7 @@
             "Requests, users, revenue, cost"
           ],
           "answer": 1,
-          "why": "Those four describe the service as its users experience it, whereas CPU and memory describe the machine — and unit 4 showed a machine can look fine while queueing destroys the tail. Saturation is the one people skip and the one that predicts: it's how close you are to the cliff, which is the difference between noticing at 70% and discovering at 100%."
+          "why": "Latency measures response time, traffic measures demand, errors measure unsuccessful work, and saturation measures how fully a constrained resource is used. These signals cover current user-visible behavior and remaining capacity; host CPU and memory alone can miss limits such as a full connection pool or growing queue."
         },
         {
           "id": "obs-2-5",
@@ -246,7 +514,7 @@
             "It's more accurate"
           ],
           "answer": 1,
-          "why": "Unit 4's queueing curve is flat and then vertical, so latency stays fine at 60% and 70% and then explodes — by the time latency tells you, you're already over. Saturation moves smoothly and gives you the warning that the outcome metrics can't, which is why 'we're at 78% of connection pool' is worth an alert and 'latency is up' is worth a page."
+          "why": "Saturation measures utilization of a finite resource such as worker slots, connections, or queue capacity. It can rise before user-visible latency because waiting time grows sharply as available capacity approaches zero, making saturation useful for capacity warnings."
         },
         {
           "id": "obs-2-6",
@@ -254,12 +522,12 @@
           "prompt": "Your metrics say the service is healthy. Users say it's broken. Who's right?",
           "choices": [
             "The metrics — they're objective",
-            "The users, always — if they're suffering and your graphs are green, your instrumentation is measuring the wrong thing",
-            "It depends on how many users",
-            "Neither; check the logs"
+            "Neither source settles it alone: reproduce the path and segment telemetry by client, region, operation, and dependency",
+            "The users, always, even before reproducing the report",
+            "The dashboard, because aggregates cannot be wrong"
           ],
           "answer": 1,
-          "why": "Metrics are a model of reality and users ARE reality, so a disagreement is a defect in the model rather than in the customers. Treat the gap as the most valuable signal you'll get all quarter: it names precisely which question your instrumentation can't answer, and closing it is worth more than any dashboard you'd have built otherwise."
+          "why": "A report may be client-specific, mistaken, or outside the measured service, while a green aggregate may hide one region or path. Reproduction and segmented telemetry establish scope. Once the failure is confirmed, green metrics reveal an instrumentation gap in the affected user outcome."
         }
       ]
     },
@@ -270,22 +538,18 @@
         {
           "id": "obs-3-0",
           "type": "concept",
-          "title": "A metric's price is the number of distinct label combinations, not the number of requests",
-          "body": "A metric is pre-aggregated, which is why it costs about the same at ten requests or ten million. But the aggregation happens per label combination, and each distinct combination is its own series — kept forever, scraped forever. So the question to ask of a new label isn't \"is this useful?\" It's \"how many distinct values can it take?\" Multiply. Then decide.",
-          "note": "And labels multiply rather than add: 5 endpoints × 4 statuses × 3 regions × 20 versions is 1,200 series from four innocent-looking dimensions. Nobody adds a cardinality explosion on purpose. They add a fourth label."
+          "title": "Metric label cardinality determines the number of stored time series",
+          "body": "A metrics backend creates a separate time series for each distinct combination of metric name and label values. Labels combine multiplicatively: 8 routes × 5 statuses × 4 regions produce 160 series before adding instances or versions.",
+          "note": "Unbounded labels such as request identifiers can create millions of series, increasing memory, storage, query latency, and ingestion cost."
         },
         {
           "id": "obs-3-1",
-          "type": "multiple_choice",
-          "prompt": "You add user_id as a label on your latency metric. You have 10 million users. What just happened?",
-          "choices": [
-            "Better visibility per user",
-            "A cardinality explosion: your metric system now stores a separate time series per user, which can be orders of magnitude more expensive than the service it monitors",
-            "Nothing — labels are cheap",
-            "The metric becomes more accurate"
-          ],
-          "answer": 1,
-          "why": "A metric's cost scales with the number of distinct label combinations, so a high-cardinality label like user_id multiplies one series into millions — teams have genuinely taken down their monitoring, or their budget, with a single well-intentioned label. The rule is that metrics want low-cardinality dimensions like endpoint or status; per-user detail belongs in logs or traces, which are built for it."
+          "type": "estimate",
+          "prompt": "A latency metric has 12 routes, 5 statuses, 3 regions, and a `user_id` label with 10 million possible values. If every combination occurs, how many time series can it create?",
+          "answer": 1800000000,
+          "tolerance": 0,
+          "unit": "series",
+          "why": "Label dimensions multiply: `12 × 5 × 3 × 10,000,000 = 1,800,000,000` possible series. This cardinality can overwhelm ingestion, indexes, memory, and queries. Store per-user identifiers in event-oriented logs or traces; keep metric labels bounded to dimensions suitable for continuous aggregation."
         },
         {
           "id": "obs-3-2",
@@ -298,20 +562,20 @@
             "In the database"
           ],
           "answer": 1,
-          "why": "The split follows from how each is stored: metrics pre-aggregate, so every dimension multiplies the series count, while logs and traces record events you query on demand and never pay for combinations you don't ask about. That's the division of labour — metrics tell you 1% of requests are slow, traces tell you which ones, logs tell you what happened inside them."
+          "why": "Logs and traces store individual events or spans, so a `user_id` can remain a searchable field without creating one persistent metric series per user. Metrics should retain low-cardinality dimensions for aggregation, while traces identify slow requests and logs provide their detailed events."
         },
         {
           "id": "obs-3-3",
           "type": "multiple_choice",
-          "prompt": "Tracing every request at high volume is too expensive. You sample 1%. What did you lose?",
+          "prompt": "Uniform 1% sampling retains at least one trace from 100 failed requests only about 63% of the time. What operational conclusion follows?",
           "choices": [
-            "Nothing meaningful",
-            "The rare event — a 1-in-10,000 failure is now almost certainly not in your sample, which is precisely the request you needed",
-            "Only some latency data",
-            "The ability to alert"
+            "Uniform sampling reliably preserves every incident",
+            "Rare failures can disappear from the sampled traces, so error-biased or tail-based sampling is safer for diagnosis",
+            "The service should stop collecting metrics",
+            "Increasing log retention guarantees the missing traces will appear"
           ],
           "answer": 1,
-          "why": "Uniform sampling keeps a representative picture of the typical and systematically discards the exceptional, so it's optimized against the thing you actually investigate. Tail-based sampling inverts it: buffer the trace, and keep it if it was slow or errored — you keep 100% of the interesting traces and 0.1% of the boring ones, which is the same information for a fraction of the bill."
+          "why": "Uniform sampling discards each trace independently, so an incident can leave no retained failure trace even when many requests failed. Error-biased or tail-based policies preferentially retain diagnostically valuable traces instead of asking the learner to compute an exponential probability on a phone."
         },
         {
           "id": "obs-3-4",
@@ -328,19 +592,16 @@
             1,
             2
           ],
-          "why": "The bill, the overhead, and the maintenance are all real, and the third is the one nobody budgets for — dashboards rot, alerts accumulate, and a wall of graphs nobody trusts is worse than none because it looks like coverage. Observability doesn't slow your queries; it's an operating cost you pay for the ability to understand your own system."
+          "why": "Telemetry requires storage and ingestion, instrumentation consumes application resources, and dashboards and alerts require maintenance as services change. Query performance is not inherently reduced by having observability; any overhead depends on how telemetry is collected and exported."
         },
         {
           "id": "obs-3-5",
-          "type": "tradeoff_slider",
-          "prompt": "You're deciding log retention for a service handling a billion requests a day. Slide toward your policy.",
-          "leftLabel": "Log everything, keep 90 days",
-          "rightLabel": "Sample + structured events, keep 7 days hot",
-          "answerRange": [
-            55,
-            100
-          ],
-          "why": "At a billion requests a day, full logs for 90 days is a bill that can exceed the service's own infrastructure, spent mostly on lines nobody will ever read. Keeping a short hot window plus retained samples and structured events covers the investigations you actually run — most incidents are debugged with data from the last few hours — while compliance data, which is a genuinely different requirement, goes to cheap cold storage."
+          "type": "estimate",
+          "prompt": "A service emits a 2KB event for each of 1 billion daily requests. Ignoring indexes and replicas, how much raw storage does 7 days of full hot retention require? Use decimal units.",
+          "answer": 14,
+          "tolerance": 0,
+          "unit": "TB",
+          "why": "`2 KB × 1 billion = 2 TB/day`, so seven days require 14 TB before indexing or replication. Ninety days would require 180 TB. If responders query only seven days but compliance needs 90 days for 0.1% of security events, keep the short full window hot and route that defined subset to cheaper long-term storage."
         },
         {
           "id": "obs-3-6",
@@ -353,7 +614,90 @@
             "They compress better"
           ],
           "answer": 1,
-          "why": "A log line's value is realized when you search it under pressure, and free text forces you to write regexes against sentences that different engineers phrased differently. Structured events with consistent fields turn logs into a queryable dataset — which is what makes answering a question you didn't anticipate possible at all, and that was the definition of observability."
+          "why": "Structured logs encode fields such as `request_id`, `status`, and `duration_ms` consistently, allowing reliable filtering, grouping, and aggregation. Free-text logs require parsing variable sentences and can make the same value difficult to query across services."
+        }
+      ]
+    },
+    {
+      "id": "obs-ingest-sim",
+      "title": "Telemetry can overload its own pipeline",
+      "exercises": [
+        {
+          "id": "obs-ingest-sim-card",
+          "type": "concept",
+          "title": "The telemetry pipeline has its own capacity limit",
+          "body": "Logs, metrics, and traces enter ingestion workers before storage. If emission exceeds ingestion, telemetry queues grow precisely when an incident creates more errors. Sampling, admission policy, and spare capacity keep the diagnostic path usable.",
+          "note": "Preserve errors and representative traces before repetitive low-value events."
+        },
+        {
+          "id": "obs-ingest-sim-0",
+          "type": "simulate",
+          "prompt": "Services emit 80,000 events/sec. Each ingestion worker handles 20,000/sec. Over 60 seconds, choose the *fewest* workers that prevent telemetry backlog growth.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "apps",
+                "label": "Service telemetry",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "ingest",
+                "label": "Ingestion workers",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "backlog",
+                "label": "Telemetry backlog",
+                "col": 2,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "apps",
+                "to": "ingest",
+                "kind": "request"
+              },
+              {
+                "from": "ingest",
+                "to": "backlog",
+                "kind": "event"
+              }
+            ]
+          },
+          "sim": {
+            "input": 80000,
+            "inputLabel": "Events/sec",
+            "chain": [
+              "ingest",
+              "backlog"
+            ],
+            "capacity": {
+              "backlog": 0
+            },
+            "watch": "backlog",
+            "watchLabel": "Events added after 60 sec",
+            "absorb": {
+              "node": "ingest",
+              "label": "Ingestion workers",
+              "min": 1,
+              "max": 8,
+              "start": 1,
+              "unit": " workers"
+            },
+            "model": {
+              "kind": "queue",
+              "duration": 60,
+              "servicePerUnit": 20000
+            }
+          },
+          "answerRange": [
+            4,
+            4
+          ],
+          "why": "Three workers process 60,000 events/sec and accumulate 1.2 million events in one minute. Four match arrivals. Production capacity should exceed that knife edge so bursts and worker failures do not blind the system."
         }
       ]
     },
@@ -364,9 +708,9 @@
         {
           "id": "obs-4-0",
           "type": "concept",
-          "title": "Alert on what users feel, not on what you guessed would hurt them",
-          "body": "A page is an interrupt on someone's life at 2am, so it had better be earned. The distinction that does the earning is between a *cause* and a *symptom*. A cause is a condition that might hurt someone. A symptom is someone actually being hurt. Only one of those is visible from outside your system, and only one of them is, by itself, worth waking a human for.",
-          "note": "Every false page teaches the on-call that the pager lies. Alert fatigue isn't weakness — it's the rational response to a noisy signal, and it's how the one real alert gets lost among fifty that weren't."
+          "title": "Paging alerts should measure sustained user-visible failure",
+          "body": "A page signals that immediate human action is required. Base it on symptoms such as elevated error rate, breached latency objectives, or failed critical transactions over a defined duration. Internal resource saturation is a diagnostic signal unless it reliably predicts imminent user impact.",
+          "note": "Noisy cause-based pages produce alert fatigue and slow response to real incidents. Route non-urgent capacity conditions to tickets or dashboards instead."
         },
         {
           "id": "obs-4-1",
@@ -379,7 +723,7 @@
             "CPU shouldn't be monitored"
           ],
           "answer": 1,
-          "why": "CPU is a possible cause of problems, not a problem, so alerting on it pages you for every busy-but-fine moment — and each false page teaches the on-call that alerts are noise. Alert on what users experience: latency, errors, and failed requests. If CPU is high and nobody is suffering, the correct response is genuinely nothing."
+          "why": "CPU above 80% is a resource condition, but the prompt states that service outcomes remain healthy, so it does not justify an urgent page by itself. User-impact alerts should track symptoms such as sustained error rate or latency; CPU saturation can drive a capacity warning or investigation."
         },
         {
           "id": "obs-4-2",
@@ -392,7 +736,7 @@
             "Whether it happened before"
           ],
           "answer": 1,
-          "why": "A page is an interrupt on someone's life, and it's only justified by urgent, actionable harm — everything else is a ticket or a dashboard. The failure mode is alerting on anything interesting: the on-call learns to ignore the pager, and the one real alert arrives among fifty that weren't. Alert fatigue isn't a personal weakness, it's what any rational human does with a noisy signal."
+          "why": "A pager alert should indicate urgent user impact or an imminent failure that the on-call can mitigate. Non-urgent or non-actionable conditions belong in dashboards or tickets; paging on them raises the false-positive rate and makes critical alerts harder to identify."
         },
         {
           "id": "obs-4-3",
@@ -401,7 +745,7 @@
           "choices": [
             "Error rate above 5% for 5 minutes",
             "p99 latency above the SLO for 10 minutes",
-            "Disk will be full in 4 hours",
+            "Disk will be full in 4 hours, cleanup is not automated, and on-call needs 2 hours to prevent exhaustion",
             "A single request returned 500"
           ],
           "answer": [
@@ -409,7 +753,7 @@
             1,
             2
           ],
-          "why": "Sustained errors and sustained latency are users being harmed right now, and imminent disk exhaustion is urgent and actionable with a deadline — all three need a human tonight. One 500 is noise: at any real traffic level, individual errors happen constantly and they're what error-rate metrics are for. Pages need a duration, or you're paging on jitter."
+          "why": "Sustained error rates and latency show ongoing user impact. Disk exhaustion in four hours also warrants a page here because no automation will recover it and a human needs two hours to intervene. A single `500 Internal Server Error` is one sample; it should page only when an aggregate rate, duration, or burn-rate threshold indicates material impact."
         },
         {
           "id": "obs-4-4",
@@ -422,20 +766,155 @@
             "To give the system time to fix itself"
           ],
           "answer": 1,
-          "why": "Any metric sampled finely enough crosses any threshold sometimes — a deploy, a GC pause, one bad client — and paging on the instant means paging on jitter. The duration encodes what you actually meant: not 'errors touched 5%' but 'errors are STAYING at 5%', which is a real condition rather than a blip that resolved before anyone opened a laptop."
+          "why": "A duration condition distinguishes sustained failure from brief threshold crossings caused by deployment, garbage collection, or a small traffic sample. Requiring the error rate to remain above 5% for a defined interval reduces pages for incidents that resolve before intervention is possible."
         },
         {
           "id": "obs-4-5",
-          "type": "multiple_choice",
-          "prompt": "One database goes down, and 40 alerts fire across 12 services. What's the problem?",
-          "choices": [
-            "Not enough alerts",
-            "Every service alerted on its own symptom, so the on-call must reconstruct one root cause from 40 messages — alerting on causes at the source would have said it once",
-            "The database needs monitoring",
-            "The alerts are too slow"
+          "type": "build_diagram",
+          "prompt": "Checkout and search both fail behind one database incident. Build a paging path that preserves user-impact alerts but sends one actionable notification.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "checkout",
+                "label": "Checkout errors",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "search",
+                "label": "Search errors",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "symptom",
+                "sub": "sustained impact",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "group",
+                "sub": "one incident",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "pager",
+                "label": "Pager",
+                "sub": "one notification",
+                "col": 3,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "checkout",
+                "to": "symptom",
+                "kind": "request"
+              },
+              {
+                "from": "search",
+                "to": "symptom",
+                "kind": "request"
+              },
+              {
+                "from": "symptom",
+                "to": "group",
+                "kind": "request"
+              },
+              {
+                "from": "group",
+                "to": "pager",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "User-impact Alert Rules",
+            "Dependency-aware incident grouping",
+            "Raw CPU Threshold",
+            "40 Independent Pages"
           ],
-          "answer": 1,
-          "why": "Forty alerts is one incident wearing forty costumes, and the human's first ten minutes go to realising that instead of fixing anything. This is the honest counterweight to 'alert on symptoms': symptoms are right for detection, and when one dependency fails everything downstream is a symptom — so you also want dependency-aware grouping, so the page says 'the database is down' rather than reading out its consequences."
+          "answer": {
+            "symptom": "User-impact Alert Rules",
+            "group": "Dependency-aware incident grouping"
+          },
+          "why": "Sustained user-impact rules turn checkout and search failures into meaningful alerts, then dependency-aware grouping correlates both symptoms to one database incident before paging. Without grouping, one dependency failure can create a page storm; suppressing symptom alerts instead can hide the user impact that makes the incident urgent."
+        },
+        {
+          "id": "observability-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Checkout and search both fail behind one database incident. Build a paging path that preserves user-impact alerts but sends one actionable notification.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "checkout",
+                "label": "Checkout errors",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "search",
+                "label": "Search errors",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "symptom",
+                "sub": "sustained impact",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "group",
+                "sub": "one incident",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "pager",
+                "sub": "one notification",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "checkout",
+                "to": "symptom",
+                "kind": "request"
+              },
+              {
+                "from": "search",
+                "to": "symptom",
+                "kind": "request"
+              },
+              {
+                "from": "symptom",
+                "to": "group",
+                "kind": "request"
+              },
+              {
+                "from": "group",
+                "to": "pager",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "User-impact Alert Rules",
+            "Dependency-aware incident grouping",
+            "Pager",
+            "Client",
+            "Gateway"
+          ],
+          "answer": {
+            "symptom": "User-impact Alert Rules",
+            "group": "Dependency-aware incident grouping",
+            "pager": "Pager"
+          },
+          "why": "The completed diagram contains these directed flows: Checkout errors → User-impact Alert Rules; Search errors → User-impact Alert Rules; User-impact Alert Rules → Dependency-aware incident grouping; Dependency-aware incident grouping → Pager. That topology is the evidence for the answer: Sustained user-impact rules turn checkout and search failures into meaningful alerts, then dependency-aware grouping correlates both symptoms to one database incident before paging. Without grouping, one dependency failure can create a page storm; suppressing symptom alerts instead can hide the user impact that makes the incident urgent."
         },
         {
           "id": "obs-4-6",
@@ -448,7 +927,21 @@
             "It's only needed for microservices"
           ],
           "answer": 1,
-          "why": "Observability isn't a product you buy but a property you build, and the whole unit came down to two things: your system is only as visible as you instrumented it, and every signal you emit dishonestly — a 200 on a failure, an average hiding a tail — corrupts every decision made downstream of it, including yours at 3am."
+          "why": "Observability depends on telemetry that accurately represents system behavior: metrics expose aggregate outcomes, logs preserve event details, and traces connect request paths. Missing instrumentation and misleading signals such as false success codes or averages without tail percentiles prevent reliable diagnosis."
+        },
+        {
+          "id": "xfer-observability",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A checkout request crosses six services. Metrics show elevated latency but not which hop consumed it. What evidence connects the slow spans for this one request?",
+          "choices": [
+            "CPU count alone",
+            "A distributed trace carrying one trace context",
+            "A monthly average",
+            "One log file with no request identifier"
+          ],
+          "answer": 1,
+          "why": "Trace context links spans across service boundaries and exposes the critical path for one request. Metrics reveal the population-level symptom but not that request's hop-by-hop timing."
         }
       ]
     }

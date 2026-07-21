@@ -58,8 +58,11 @@ This is the product's differentiator. Each is a reusable component driven by JSO
 | 7 | `estimate` | Numeric input for capacity math | Back-of-envelope estimation |
 | 8 | `fill_blank` | Choose word to complete a statement | Vocabulary |
 | 9 | `match_pairs` | Match term ↔ definition | Concept mapping |
+| 10 | `concept` | Read a concise mechanism-first explanation; optionally skip | Beginner access before assessment |
+| 11 | `simulate` | Vary one input and watch load propagate through a system | Capacity intuition and thresholds |
+| 12 | `system_change` | Apply one architecture change and compare explicit before/after topology and measurements | Causal system-design reasoning |
 
-> **Build priority:** ship types 1, 3, 8, 9 first (easiest, cover most content), then 4 and 5 (the "wow" interactions), then 6, 7.
+> **Build priority:** concept teaching and `system_change` are core lesson infrastructure. Recognition exercises support them; they are not the product's main event.
 
 ### 3.3 Feedback rules
 

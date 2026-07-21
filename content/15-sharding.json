@@ -2,7 +2,7 @@
   "unitId": "sharding",
   "tier": 2,
   "title": "Sharding / Partitioning",
-  "subtitle": "Splitting the data across machines — and what you give up to do it",
+  "subtitle": "Partition data and traffic across machines while managing skew and cross-shard work",
   "objectives": [
     "Explain when replication stops being enough and splitting is the only option left",
     "Choose a shard key, and predict the hot shard it will create",
@@ -17,7 +17,7 @@
         {
           "id": "shard-1-0",
           "type": "concept",
-          "title": "Replication gives every machine all of the data; sharding gives each one a slice",
+          "title": "Sharding routes each record to one partition using a shard key",
           "viz": {
             "nodes": [
               {
@@ -58,24 +58,200 @@
             "edges": [
               {
                 "from": "a",
-                "to": "r"
+                "to": "r",
+                "kind": "request"
               },
               {
                 "from": "r",
-                "to": "s1"
+                "to": "s1",
+                "kind": "data"
               },
               {
                 "from": "r",
-                "to": "s2"
+                "to": "s2",
+                "kind": "data"
               },
               {
                 "from": "r",
-                "to": "s3"
+                "to": "s3",
+                "kind": "data"
               }
             ]
           },
-          "body": "A replica is a full copy. Every copy must therefore apply every write — that is what makes it a copy, and it is why adding replicas adds machines without dividing the writing. Sharding does the other thing: each machine holds only its own slice of the rows, and only ever hears the traffic that names its keys. Work out what that divides, and what it doesn't.",
-          "note": "It is also the decision you can't quietly undo. The shard key isn't a setting you tune later — it is the rule that decides which machine every row physically sits on, and everything downstream inherits that choice."
+          "body": "A sharding rule reads a shard key, such as `user_id`, and maps each record to one database partition. Reads and writes that include the key route to that partition. Because partitions hold disjoint subsets, write load and storage can be distributed across machines.",
+          "note": "Replication must still be configured within each shard for redundancy. Without replicas, losing one shard makes its entire subset unavailable."
+        },
+        {
+          "id": "shard-change-1",
+          "type": "system_change",
+          "prompt": "One database receives 12,000 independent user writes per second but handles 5,000. Hash users across three shards.",
+          "actionLabel": "Shard by user ID",
+          "beforeStatus": "WRITE LOAD · 12,000 / 5,000 writes/s · overloaded",
+          "afterStatus": "WRITE LOAD · approximately 4,000 / 5,000 writes/s per shard",
+          "result": "The write load spread across three owners",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "sub": "12k writes/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "12k / 5k",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "sub": "hash(user_id)",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "label": "Shard router",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "s1",
+                "label": "Shard 1",
+                "sub": "~4k / 5k",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "s2",
+                "label": "Shard 2",
+                "sub": "~4k / 5k",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "s3",
+                "label": "Shard 3",
+                "sub": "~4k / 5k",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "s1",
+                "kind": "data"
+              },
+              {
+                "from": "r",
+                "to": "s2",
+                "kind": "data"
+              },
+              {
+                "from": "r",
+                "to": "s3",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Hashing a well-distributed user ID can spread independent user writes across shards. The result is approximate: celebrity traffic or a poor key can still create a hot shard, and cross-shard queries become more expensive."
+        },
+        {
+          "id": "sharding-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: One database receives 12,000 independent user writes per second but handles 5,000. Hash users across three shards. Place Shard router, Shard 1, Shard 2. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "sub": "hash(user_id)",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "s1",
+                "sub": "~4k / 5k",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "s2",
+                "sub": "~4k / 5k",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "s3",
+                "label": "Shard 3",
+                "sub": "~4k / 5k",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "s1",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "s2",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "s3",
+                "kind": "data"
+              }
+            ]
+          },
+          "palette": [
+            "Shard router",
+            "Shard 1",
+            "Shard 2",
+            "App Server",
+            "Router"
+          ],
+          "answer": {
+            "r": "Shard router",
+            "s1": "Shard 1",
+            "s2": "Shard 2"
+          },
+          "why": "The completed diagram contains these directed flows: Application → Shard router; Shard router → Shard 1; Shard router → Shard 2; Shard router → Shard 3. That topology is the evidence for the answer: Hashing a well-distributed user ID can spread independent user writes across shards. The result is approximate: celebrity traffic or a poor key can still create a hot shard, and cross-shard queries become more expensive.",
+          "connectEdges": true
         },
         {
           "id": "shard-1-1",
@@ -88,7 +264,7 @@
             "Only during peak hours"
           ],
           "answer": 1,
-          "why": "Replication scales reads because any copy can answer a read, but every copy must perform every write — so a write bottleneck is untouched, and you've slightly worsened it by giving the leader five more followers to ship changes to. This is the asymmetry from unit 10 collecting its debt: copies cannot reduce write load, which leaves exactly one option — stop making every machine hold everything."
+          "why": "Each replica must apply the complete write stream to remain a copy of the dataset. Adding five read replicas creates more read-serving capacity but does not divide database writes, and replication transport can add work to the leader."
         },
         {
           "id": "shard-1-2",
@@ -101,7 +277,7 @@
             "Indexing"
           ],
           "answer": 0,
-          "why": "Replication copies the whole dataset onto each machine; sharding divides it so each machine owns a slice. Copies versus slices — that one distinction is the whole difference between units 10 and 15."
+          "why": "Sharding partitions rows by a deterministic rule so each shard stores only its assigned subset. This division lets storage and request work be distributed across machines."
         },
         {
           "id": "shard-1-3",
@@ -125,7 +301,7 @@
               "right": "Writes, reads, and total data size"
             }
           ],
-          "why": "They solve different problems and compose rather than compete: shard to divide the write load and the data, then replicate each shard so losing a machine doesn't lose that slice. Real systems at scale do both, because sharding alone gives you no redundancy — it just gives you more single points of failure."
+          "why": "Replication places the full dataset on each copy and provides additional read paths and redundancy. Sharding places different subsets on different machines and divides reads, writes, and storage; each shard still needs replication if it must survive a machine failure."
         },
         {
           "id": "shard-1-4",
@@ -142,7 +318,7 @@
             1,
             3
           ],
-          "why": "Splitting the data means each machine takes only its share of the writes, stores only its share of the bytes, AND answers only its share of the reads — so all three scale past one box. Survival is the one it doesn't buy: lose a shard and that slice is simply gone unless you also replicated it. Reads deserve a footnote though — sharding genuinely scales them, but it's rarely the right *tool* for them, because caching and read replicas buy the same relief without cross-shard queries, distributed transactions, or a shard key you can never change. The exception is when the working set outgrows one machine's memory, where replicas don't help (every copy has the same undersized cache) and only splitting the data does."
+          "why": "Sharding assigns each machine a subset of rows, so writes and reads for different subsets can run in parallel and total stored data can exceed one machine's capacity. A single copy of each shard remains a failure risk; replication is required to preserve that shard's data and availability."
         },
         {
           "id": "shard-1-5",
@@ -155,7 +331,7 @@
             "The load balancer decides"
           ],
           "answer": 1,
-          "why": "Sharding needs a deterministic rule mapping each row to one shard, because otherwise nobody could find it again — every reader and writer must independently compute the same answer. That rule's input is the shard key, and choosing it is the single most consequential decision in this unit: it decides where every row lives, forever, and it is brutally hard to change later."
+          "why": "The shard key is the input to a deterministic placement rule. Readers and writers use that rule, directly or through a router, to locate user 12345 without probing every shard; changing the key later requires relocating data to match the new mapping."
         },
         {
           "id": "shard-1-6",
@@ -168,7 +344,7 @@
             "Because databases can't be sharded safely"
           ],
           "answer": 1,
-          "why": "Sharding is a one-way door that changes what your database can do: queries spanning shards get slow, transactions spanning shards get hard, and the shard key becomes an assumption baked into everything. Those bills arrive every day from the moment you shard, while the benefit only arrives when one machine genuinely can't cope — so the order matters enormously. Scale up, cache, and replicate first; shard when the ceiling is actually in sight."
+          "why": "Sharding makes the placement key part of the data layout and turns multi-shard queries and transactions into distributed operations. Those costs apply to development and operation immediately, so sharding is justified when measured write throughput or storage size is approaching one machine's limit."
         }
       ]
     },
@@ -179,7 +355,7 @@
         {
           "id": "shard-2-0",
           "type": "concept",
-          "title": "Your shard key does two jobs at once: spread the load, and keep your queries on one machine",
+          "title": "Range partitioning assigns contiguous shard-key intervals to machines",
           "viz": {
             "nodes": [
               {
@@ -194,40 +370,108 @@
                 "label": "Shard A",
                 "col": 1,
                 "kind": "db",
-                "sub": "ids 1–1M"
+                "sub": "ids [1, 1M)"
               },
               {
                 "id": "b",
                 "label": "Shard B",
                 "col": 1,
                 "kind": "db",
-                "sub": "ids 1M–2M"
+                "sub": "ids [1M, 2M)"
               },
               {
                 "id": "c",
                 "label": "Shard C",
                 "col": 1,
                 "kind": "db",
-                "sub": "ids 2M–3M"
+                "sub": "ids [2M, 3M)"
               }
             ],
             "edges": [
               {
                 "from": "u",
-                "to": "a"
+                "to": "a",
+                "kind": "data"
               },
               {
                 "from": "u",
-                "to": "b"
+                "to": "b",
+                "kind": "data"
               },
               {
                 "from": "u",
-                "to": "c"
+                "to": "c",
+                "kind": "data"
               }
             ]
           },
-          "body": "The shard key is the column the rule reads to decide where a row lives. Two ways to map it. *Range*: ids 1–1M on shard A, 1M–2M on B, and so on — the rule preserves the key's order. *Hash*: hash the key and take the remainder — the rule deliberately throws that order away. Every bill either one sends you is a consequence of that single difference.",
-          "note": "And the choice between them matters less than the column you feed them. Range or hash decides *how* a key is mapped; the key itself decides which questions your system can still answer cheaply, and which it can't."
+          "body": "In range partitioning, the router compares a shard key with ordered boundaries: keys in one interval go to shard A, the next interval to shard B, and so on. Range queries on the shard key can target only shards whose intervals overlap the requested range.",
+          "note": "Range boundaries can produce uneven load when inserted keys cluster in one part of the key space, even if stored records are balanced overall."
+        },
+        {
+          "id": "sharding-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Range partitioning assigns contiguous shard-key intervals to machines",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Router",
+                "col": 0,
+                "kind": "gw",
+                "sub": "reads the key"
+              },
+              {
+                "id": "a",
+                "col": 1,
+                "sub": "ids [1, 1M)",
+                "hole": true
+              },
+              {
+                "id": "b",
+                "col": 1,
+                "sub": "ids [1M, 2M)",
+                "hole": true
+              },
+              {
+                "id": "c",
+                "col": 1,
+                "sub": "ids [2M, 3M)",
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "u",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "u",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Shard A",
+            "Shard B",
+            "Shard C",
+            "App Server",
+            "Shard 1"
+          ],
+          "answer": {
+            "a": "Shard A",
+            "b": "Shard B",
+            "c": "Shard C"
+          },
+          "why": "In range partitioning, the router compares a shard key with ordered boundaries: keys in one interval go to shard A, the next interval to shard B, and so on. Range queries on the shard key can target only shards whose intervals overlap the requested range. Range boundaries can produce uneven load when inserted keys cluster in one part of the key space, even if stored records are balanced overall."
         },
         {
           "id": "shard-2-1",
@@ -240,7 +484,7 @@
             "The database rebalances automatically"
           ],
           "answer": 1,
-          "why": "Sequential ids mean today's users all fall in the same range, so range-partitioning on them sends every insert to whichever shard owns the highest range — you built four machines and kept a one-machine write bottleneck. The general trap: range partitioning on any value that increases with time concentrates all new writes on one shard, which is exactly what you sharded to avoid."
+          "why": "Auto-incrementing identifiers increase into the highest active range, so all new user rows map to the shard owning that range. The other shards may serve older data, while the newest shard receives the entire signup write stream and becomes a hot shard."
         },
         {
           "id": "shard-2-2",
@@ -264,20 +508,20 @@
               "right": "'All rows between X and Y' now hits every shard"
             }
           ],
-          "why": "It's the same tradeoff as B-trees versus hashing from unit 8, promoted to the level of machines: ordering buys you range scans and risks hotspots, while hashing buys you even distribution by deliberately destroying the order you'd need for ranges."
+          "why": "Range partitioning preserves key order, so a range query can target adjacent shards, while monotonic writes can concentrate on one range. Hash partitioning spreads keys by hash value, improving distribution while removing the ordering needed to localize range queries."
         },
         {
           "id": "shard-2-3",
           "type": "multiple_choice",
-          "prompt": "You hash user_id to pick a shard. What did that fix, and what did it break?",
+          "prompt": "You hash `user_id` to pick a shard. What did that fix, and what did it break?",
           "choices": [
             "Nothing changed",
-            "Writes now spread evenly across shards — but 'give me all users created last week' must now ask every shard, because related rows are deliberately scattered",
+            "Sequential user writes now spread across shards, but a query for user IDs 1M–2M must scatter because hashing no longer preserves adjacent ID ranges",
             "It fixed everything with no cost",
             "It broke writes but fixed reads"
           ],
           "answer": 1,
-          "why": "Hashing spreads keys uniformly regardless of what the values mean, which is precisely why the hot shard disappears — and precisely why ordering does too. Rows that are adjacent in time or alphabet now sit on different machines by design, so any query defined by a range has to fan out to all of them and combine the results."
+          "why": "A suitable hash distributes sequential user IDs across hash ranges, preventing the newest IDs from concentrating writes on one range shard. The cost is that adjacent `user_id` values no longer share a shard, so a range query on that actual shard key must contact every shard and merge results."
         },
         {
           "id": "shard-2-4",
@@ -290,7 +534,7 @@
             "The shard key is too long"
           ],
           "answer": 1,
-          "why": "The shard key decided the physical layout, and hashing by message_id scattered messages that belong together — so the app's single most common query became a fan-out to every machine. Sharding by conversation_id instead would put a whole conversation on one shard and turn that query back into a single-shard read. The lesson: shard by whatever your hottest query filters on, so that query stays local."
+          "why": "Hashing each message identifier independently scatters one conversation's messages across shards. Loading the conversation therefore requires scatter-gather, meaning parallel queries to all shards followed by a merge; using `conversation_id` could keep that access pattern local to one shard."
         },
         {
           "id": "shard-2-5",
@@ -303,7 +547,7 @@
             "Pick the smallest column"
           ],
           "answer": 1,
-          "why": "You're satisfying two demands at once: even distribution (or one machine becomes the bottleneck again) and query locality (or every read fans out). A random key nails the first and destroys the second; a sequential key does the reverse — the art is finding a key with high cardinality that also happens to be what your hot queries filter on."
+          "why": "A useful shard key has enough distinct values and an appropriate distribution to avoid concentrating load, while aligning with common query predicates so those queries target one shard. A key that satisfies only distribution can force frequent fan-out, and a localizing key with skew can create hotspots."
         },
         {
           "id": "shard-2-6",
@@ -316,7 +560,7 @@
             "Queries will be slow"
           ],
           "answer": 1,
-          "why": "Sharding by tenant gives beautiful query locality since almost every query is scoped to one tenant anyway — but it also means a tenant is indivisible, so your biggest customer must fit on one machine. That's usually a great trade right up until you land a whale, and then the fix is a composite key that can split a giant tenant further, which is much easier to design now than to retrofit."
+          "why": "Using `tenant_id` keeps tenant-scoped queries on one shard, but the placement rule treats each tenant as an indivisible unit. A very large or busy tenant can exceed one shard's storage or throughput; a composite key can add subdivisions when that risk must be supported."
         }
       ]
     },
@@ -327,7 +571,7 @@
         {
           "id": "shard-3-0",
           "type": "concept",
-          "title": "Splitting the rows evenly does not split the traffic evenly",
+          "title": "Request skew can overload a shard whose key count is evenly distributed",
           "viz": {
             "nodes": [
               {
@@ -368,24 +612,104 @@
             "edges": [
               {
                 "from": "c",
-                "to": "s3"
+                "to": "s3",
+                "kind": "data"
               },
               {
                 "from": "o",
-                "to": "s1"
+                "to": "s1",
+                "kind": "data"
               },
               {
                 "from": "o",
-                "to": "s2"
+                "to": "s2",
+                "kind": "data"
               },
               {
                 "from": "o",
-                "to": "s3"
+                "to": "s3",
+                "kind": "data"
               }
             ]
           },
-          "body": "A hash spreads *rows* evenly. It promises nothing whatsoever about how often those rows get asked for. And rows are never equally popular — traffic follows attention, and attention has never been uniformly distributed. So an immaculate split of the data can sit underneath a grotesque split of the work, with no hash function able to prevent it.",
-          "note": "You can't rebalance your way out, either. The key put that row on that machine, and no reshuffle splits a single key. The fixes differ in kind — cache the hot row, or make the key finer so one hot thing becomes many."
+          "body": "Hash partitioning can assign similar numbers of keys to each shard. Runtime load equals the sum of request rates for those keys, so one frequently accessed key can saturate its shard while every shard stores the same number of records.",
+          "note": "Moving unrelated keys cannot divide traffic for one hot key. Common mitigations cache its reads or split its workload with a finer composite key."
+        },
+        {
+          "id": "sharding-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Request skew can overload a shard whose key count is evenly distributed",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "One popular key",
+                "col": 0,
+                "kind": "client",
+                "sub": "most of the reads"
+              },
+              {
+                "id": "o",
+                "label": "Everything else",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "s1",
+                "col": 1,
+                "sub": "⅓ of rows",
+                "hole": true
+              },
+              {
+                "id": "s2",
+                "col": 1,
+                "sub": "⅓ of rows",
+                "hole": true
+              },
+              {
+                "id": "s3",
+                "col": 1,
+                "sub": "⅓ of rows",
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "s3",
+                "kind": "request"
+              },
+              {
+                "from": "o",
+                "to": "s1",
+                "kind": "request"
+              },
+              {
+                "from": "o",
+                "to": "s2",
+                "kind": "request"
+              },
+              {
+                "from": "o",
+                "to": "s3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Shard 1",
+            "Shard 2",
+            "Shard 3",
+            "App Server",
+            "Router"
+          ],
+          "answer": {
+            "s1": "Shard 1",
+            "s2": "Shard 2",
+            "s3": "Shard 3"
+          },
+          "why": "Hash partitioning can assign similar numbers of keys to each shard. Runtime load equals the sum of request rates for those keys, so one frequently accessed key can saturate its shard while every shard stores the same number of records. Moving unrelated keys cannot divide traffic for one hot key. Common mitigations cache its reads or split its workload with a finer composite key."
         },
         {
           "id": "shard-3-1",
@@ -398,7 +722,7 @@
             "All shards slow down equally"
           ],
           "answer": 1,
-          "why": "Even a perfect hash spreads KEYS evenly, not LOAD — and load follows popularity, which is never uniform. This is the celebrity problem, and it's why real systems special-case their outliers: caching that user's data aggressively, or splitting their activity across a composite key. Any sharding scheme that assumes keys are equally busy will eventually meet a key that isn't."
+          "why": "Hashing can distribute key counts evenly while one key receives far more requests than the others. Because all activity for the celebrity key maps to one shard, that shard becomes the throughput bottleneck; mitigation may cache those reads or subdivide that key's workload."
         },
         {
           "id": "shard-3-2",
@@ -411,7 +735,7 @@
             "Only 20% moves"
           ],
           "answer": 1,
-          "why": "Changing the modulus changes the answer for nearly every key, so adding one machine triggers a near-total reshuffle of the dataset — while serving traffic. That's why naive modulo sharding is a trap you only discover on the day you need to grow, which is the worst possible day to discover it."
+          "why": "The remainder of `hash(key) % 5` differs from `hash(key) % 4` for most hash values. Most keys therefore receive a new shard assignment, forcing a large online data migration and routing transition when the fifth shard is added."
         },
         {
           "id": "shard-3-3",
@@ -419,12 +743,12 @@
           "prompt": "What does consistent hashing fix about that?",
           "choices": [
             "It makes hashing faster",
-            "Adding or removing a node only remaps the keys near it, so roughly 1/n of the data moves instead of nearly all of it",
+            "Adding one node to a balanced ring of n old nodes remaps roughly 1/(n+1) of the keys instead of nearly all of them",
             "It removes the need for a shard key",
             "It prevents hot shards"
           ],
           "answer": 1,
-          "why": "Keys and nodes are placed on the same ring, and each key belongs to the next node clockwise — so adding a node only steals the arc between it and its predecessor, leaving every other key exactly where it was. It makes growth incremental rather than catastrophic, which is the entire point. Note what it doesn't fix: a celebrity key is still one key, and the ring will happily hand it to one node."
+          "why": "Consistent hashing places keys and node positions on a ring and assigns each key to the next node position. Adding one node to `n` old balanced nodes creates `n+1` shares and captures about `1/(n+1)` of the keys; removing one of `n` nodes moves about `1/n`. It does not divide one exceptionally hot key."
         },
         {
           "id": "shard-3-4",
@@ -437,7 +761,7 @@
             "Sort the keys first"
           ],
           "answer": 1,
-          "why": "With three machines you get three arcs, and arcs land wherever the hash puts them — so one machine can easily own twice its share. Giving each machine hundreds of positions on the ring means it owns hundreds of small arcs whose sizes average out, and it also means a departing machine's load is inherited by many peers rather than dumped entirely on its one neighbour."
+          "why": "With one ring position per machine, random gaps between positions can give machines unequal key ranges. Virtual nodes assign each physical machine many positions, averaging those small ranges into a more even share and spreading a departing machine's ranges across multiple peers."
         },
         {
           "id": "shard-3-5",
@@ -450,19 +774,112 @@
             "The load balancer decides"
           ],
           "answer": 1,
-          "why": "Either every client embeds the rule — fast, but now the mapping is duplicated in every deploy and changing it means coordinating a fleet — or a routing tier owns it, which costs a hop and becomes something that must itself be replicated. A directory adds flexibility, letting you move individual shards without redeploying clients, at the price of one more component in the request path that must never be wrong."
+          "why": "A client can compute a stable placement rule locally, or it can query a routing layer or directory that stores the current mapping. Local computation avoids a routing hop but couples deployments to mapping changes; a directory supports movable shards but must be consistent, available, and itself redundant."
         },
         {
           "id": "shard-3-6",
-          "type": "tradeoff_slider",
-          "prompt": "You need to move a shard's data to new machines while staying online. Slide toward your approach.",
-          "leftLabel": "Big-bang cutover (fast, risky)",
-          "rightLabel": "Dual-write + backfill + verify (slow, safer)",
-          "answerRange": [
-            55,
-            100
+          "type": "order_steps",
+          "prompt": "Order a shard migration that stays online without relying on non-atomic dual writes.",
+          "steps": [
+            "Start durable change data capture on the old shard and record its log position",
+            "Backfill a consistent snapshot tied to that log position while writes continue on the old shard",
+            "Replay captured changes with idempotent upserts until the new shard catches up",
+            "Briefly quiesce writes, apply the final log tail, and verify counts and checksums",
+            "Switch reads and writes to the new shard, then resume traffic",
+            "Keep the old shard read-only as a rollback copy until the new placement is proven"
           ],
-          "why": "A big-bang move is short but has no safe abort: if the copy is wrong you discover it with live traffic on the new machines and no clean way back. The incremental path — write to both, backfill history, verify they agree, then shift reads — is longer and lets you stop at any step with the old shard still authoritative. When the thing you're moving is the source of truth, reversibility is worth far more than speed."
+          "why": "Change data capture records every committed old-shard mutation in a durable ordered log, closing the gap created while the snapshot is copied. Catch-up plus a brief write pause establishes a verified cutover point; retaining the old shard read-only preserves rollback without allowing two independent writable copies to diverge."
+        }
+      ]
+    },
+    {
+      "id": "shard-sim",
+      "title": "A balanced dataset can still have a hot shard",
+      "exercises": [
+        {
+          "id": "shard-sim-0",
+          "type": "concept",
+          "title": "Traffic—not row count—determines whether a shard is hot",
+          "body": "A shard holding one celebrity can receive most profile reads even when every shard stores the same number of rows. Splitting or replicating that hot key moves part of its read traffic away from one primary bottleneck; ordinary keys can keep their existing placement.",
+          "note": "Write authority still needs one defined path. This simulation moves read traffic, not concurrent writes."
+        },
+        {
+          "id": "shard-sim-1",
+          "type": "simulate",
+          "prompt": "One celebrity generates 24,000 reads/s on a shard that handles 6,000. Drag the *smallest* share of that key's reads to replicated read buckets that keeps the hot shard alive.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Shard router",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "split",
+                "label": "Hot-key read split",
+                "col": 1
+              },
+              {
+                "id": "hot",
+                "label": "Original hot shard",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "copies",
+                "label": "Read replicas / buckets",
+                "sub": "shifted reads",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "split",
+                "kind": "request"
+              },
+              {
+                "from": "split",
+                "to": "hot",
+                "kind": "data"
+              },
+              {
+                "from": "split",
+                "to": "copies",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "sim": {
+            "input": 24000,
+            "inputLabel": "Celebrity reads",
+            "chain": [
+              "split",
+              "hot"
+            ],
+            "capacity": {
+              "split": 50000,
+              "hot": 6000
+            },
+            "watch": "hot",
+            "watchLabel": "Hot shard reads",
+            "absorb": {
+              "node": "split",
+              "label": "Reads shifted from the hot shard",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            75,
+            75
+          ],
+          "why": "Shifting 75% sends 18,000 reads/s elsewhere and leaves exactly 6,000 on the original shard. This relieves a read hotspot; it does not remove the need to route writes and invalidations correctly."
         }
       ]
     },
@@ -473,7 +890,7 @@
         {
           "id": "shard-4-0",
           "type": "concept",
-          "title": "A query that doesn't name the shard key has to ask every shard, and wait for the slowest",
+          "title": "Queries without a routable shard key use scatter-gather",
           "viz": {
             "nodes": [
               {
@@ -521,41 +938,109 @@
             "edges": [
               {
                 "from": "a",
-                "to": "r"
+                "to": "r",
+                "kind": "request"
               },
               {
                 "from": "r",
-                "to": "s1"
+                "to": "s1",
+                "kind": "data"
               },
               {
                 "from": "r",
-                "to": "s2"
+                "to": "s2",
+                "kind": "data"
               },
               {
                 "from": "r",
-                "to": "s3"
+                "to": "s3",
+                "kind": "data"
               },
               {
                 "from": "r",
-                "to": "s4"
+                "to": "s4",
+                "kind": "data"
               }
             ]
           },
-          "body": "A query naming the shard key goes to one machine. A query that doesn't — *which accounts are over quota?* — can't be routed, so the router asks every shard and merges what comes back. That's a *scatter-gather*, and its cost isn't the average shard's latency: you can't finish until the last one replies. Every shard you add is another draw from the tail.",
-          "note": "Which is why the key is chosen from your read patterns and not from your data model. The key is the only thing that lets the router skip a machine, so every query that doesn't carry one pays for all of them."
+          "body": "When a query does not constrain the shard key, the router cannot select one partition. It sends the query to every relevant shard, waits for their partial results, and merges them. This fan-out and merge operation is called scatter-gather.",
+          "note": "When the result requires every shard response, scatter-gather waits for its slowest shard and also pays routing and merge overhead. More fan-out raises the chance that one shard contributes a tail-latency response."
         },
         {
           "id": "shard-4-1",
-          "type": "multiple_choice",
-          "prompt": "Your users are sharded across 16 machines. You run: 'count all users who signed up today.' What happens?",
-          "choices": [
-            "One shard answers",
-            "All 16 are queried and the results combined — a scatter-gather, as slow as the slowest shard",
-            "It's rejected",
-            "The router knows the answer"
+          "type": "build_diagram",
+          "prompt": "Build the scatter-gather path for `count all users who signed up today`. The query lacks the shard key, so the routing layer must fan out to every partition shown.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "app",
+                "label": "App Query",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "router",
+                "sub": "fans out and merges",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "sub": "partial count",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "partial count",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "c",
+                "sub": "partial count",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "app",
+                "to": "router",
+                "kind": "request"
+              },
+              {
+                "from": "router",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "router",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "router",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Shard Router",
+            "Shard A",
+            "Shard B",
+            "Shard C",
+            "Read Cache",
+            "Single Leader"
           ],
-          "answer": 1,
-          "why": "The data for that question is spread across every machine, so the query has to visit all of them and merge — and it can't finish until the slowest one replies. That's unit 4's tail-latency problem arriving through your shard count: with 16 shards you draw 16 samples from the latency distribution every time, so the typical query now waits on roughly your p96 shard, and about one query in seven waits on a p99 one. Push the fan-out to 100 and the majority of queries wait on a p99 — the effect scales with how many shards you touch, which is another reason to keep queries on one."
+          "answer": {
+            "router": "Shard Router",
+            "a": "Shard A",
+            "b": "Shard B",
+            "c": "Shard C"
+          },
+          "why": "Because the predicate does not include the shard key, the router lacks enough information to choose one partition; it sends the query to every shard and merges their partial counts. Completion waits for the slowest required shard, and one unavailable shard can make the global count unavailable or incomplete unless the product explicitly accepts a partial result."
         },
         {
           "id": "shard-4-2",
@@ -563,12 +1048,12 @@
           "prompt": "You need to transfer money between two users who live on different shards, atomically. How hard is that?",
           "choices": [
             "Easy — wrap it in a transaction",
-            "Hard: a normal transaction covers one database, so spanning shards needs distributed coordination — two-phase commit or a saga",
+            "Hard: strict atomicity needs distributed commit such as two-phase commit, or a redesign that colocates the ledger entries on one transactional shard",
             "Impossible",
             "The router handles it"
           ],
           "answer": 1,
-          "why": "Unit 9's boundary is exactly the shard: `BEGIN/COMMIT` protects one machine's data and knows nothing about the other shard, so atomicity across them needs the machinery you hoped to avoid — a coordinator that can block, or compensating actions and eventual consistency. This is why people shard so that transactions stay within a shard: put things that change together on the same machine, and the hard problem never arises."
+          "why": "A local database transaction cannot atomically commit changes owned by two independent shards. Two-phase commit can coordinate one all-or-nothing outcome, with blocking and coordinator failure modes. Colocating both ledger entries avoids cross-shard commit. A saga exposes intermediate committed states and compensation, so it cannot provide the strict atomicity required here."
         },
         {
           "id": "shard-4-3",
@@ -585,7 +1070,7 @@
             1,
             2
           ],
-          "why": "Anything requiring data from more than one machine becomes coordination — fan out and merge, or a distributed protocol. The single-key lookup is the one that stays easy, and in fact gets faster, since each shard is smaller. That asymmetry is the whole design principle: sharding rewards you for asking questions that live on one machine, and punishes every question that doesn't."
+          "why": "Cross-shard queries and joins must contact and combine data from multiple machines, while cross-shard transactions require a distributed commit or compensation protocol. A lookup by shard key remains local because the router can select exactly one shard."
         },
         {
           "id": "shard-4-4",
@@ -598,7 +1083,7 @@
             "Only affects new data"
           ],
           "answer": 1,
-          "why": "The shard key isn't a setting, it's the physical layout of your data — so changing it is a full migration of everything, live, with application code that assumes the old key threaded throughout. This is why the choice deserves real thought before you make it: sharding is a one-way door, and the key is the hinge."
+          "why": "The shard key determines the machine responsible for every row. Changing it assigns many existing rows to different machines, so the system must copy and verify data, handle concurrent writes, update routing, and cut traffic over while remaining online."
         },
         {
           "id": "shard-4-5",
@@ -611,7 +1096,7 @@
             "Only if you have more than a million users"
           ],
           "answer": 1,
-          "why": "Sharding addresses write throughput and data size, and you have neither problem — so you'd take on cross-shard queries, distributed transactions, and a permanent key decision to fix something a cache handles for free. Match the tool to the actual bottleneck: reads want caching and replicas, writes and size want sharding."
+          "why": "The dataset fits and write capacity is sufficient, so partitioning does not address the stated constraints. Caching can absorb repeated reads and read replicas can add read-serving capacity without introducing shard routing, cross-shard queries, or cross-shard transactions."
         },
         {
           "id": "shard-4-6",
@@ -624,7 +1109,21 @@
             "It's the same as replication"
           ],
           "answer": 1,
-          "why": "It's the last tool you reach for, because it's the only one that solves the write and size ceilings — and the only one whose costs are permanent and structural rather than tunable. Everything hard in this unit traced back to one fact: your data no longer lives in one place, so every question spanning it becomes coordination, which is precisely what unit 11 warned you that scaling out buys."
+          "why": "Sharding partitions writes and stored bytes across machines, allowing the system to exceed one database's write and storage limits. The placement key becomes structural, and operations spanning placements require scatter-gather or distributed transaction coordination, so the benefit must justify those continuing costs."
+        },
+        {
+          "id": "xfer-sharding",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A game shards inventory by `player_id`, but a global query asks for every copy of one rare item. What cost appears?",
+          "choices": [
+            "Automatic serializability across all shards",
+            "The item becomes cached forever",
+            "Scatter-gather across player shards",
+            "One guaranteed local lookup"
+          ],
+          "answer": 2,
+          "why": "The query lacks the shard key and the target rows are distributed by player, so the router must ask many shards and merge their responses."
         }
       ]
     }

@@ -75,6 +75,218 @@ is(errors.length === 0, `no JS errors on load${errors.length ? ': ' + errors[0] 
 const nUnits = await page.evaluate(() => COURSE.length);
 is(await page.locator('#unittabs .utab').count() === nUnits, `all ${nUnits} unit tabs rendered`);
 
+console.log('\n── curriculum order follows prerequisites, not filenames ──');
+const pathIds=await page.evaluate(()=>COURSE.map(u=>u.unitId));
+const before=(a,b)=>pathIds.indexOf(a)>=0 && pathIds.indexOf(a)<pathIds.indexOf(b);
+const follows=(checkpoint,prior)=>pathIds.indexOf(checkpoint)===pathIds.indexOf(prior)+1;
+is(follows('checkpoint-foundations','where-state-lives'), 'Foundations checkpoint closes Foundations');
+is(follows('checkpoint-storing-data','replication'), 'Data checkpoint closes Durable Data');
+is(before('message-queues','idempotency'), 'queues create the retry problem before idempotency solves it');
+is(follows('checkpoint-serving-scale','idempotency'), 'Serving Traffic checkpoint follows safe retries');
+is(before('observability','resilience-backpressure'), 'learners see failures before learning to contain them');
+is(before('consistency-models','cap-theorem') && before('cap-theorem','consensus'),
+   'consistency vocabulary precedes CAP, which precedes consensus');
+is(follows('checkpoint-hard-truths','disaster-recovery'), 'Distributed Systems checkpoint follows recovery');
+is(before('authentication-authorization','security-threat-modeling'),
+   'identity and authorization precede broader threat modeling');
+is(before('multi-region-architecture','architecture-evolution'),
+   'learners accumulate distributed costs before judging architecture evolution');
+is(follows('checkpoint-design-challenges','architecture-evolution'),
+   'Production Systems checkpoint closes the production stage');
+is(pathIds.at(-1)==='design-ride-sharing', 'ride sharing remains the final design studio challenge');
+
+console.log('\n── design studios teach complete paths and end in review ──');
+const studioShape=await page.evaluate(()=>COURSE.filter(u=>u.unitId.startsWith('design-')).map(u=>({
+  id:u.unitId, lessons:u.lessons.length, final:u.lessons.at(-1).title,
+  types:[...new Set(u.lessons.at(-1).exercises.map(e=>e.type))]
+})));
+is(studioShape.length===8, 'all eight design studios are present');
+for(const s of studioShape){
+  is(s.lessons>=4 && /review/i.test(s.final), `${s.id} ends in a complete-system review`);
+  is(['concept','system_change','build_diagram','multi_select'].every(t=>s.types.includes(t)),
+     `${s.id} review teaches, breaks, rebuilds, and critiques the system`);
+}
+await jumpTo('urls-2-0');
+is(/conditional insert/i.test(await page.locator('#stage .prompt').textContent()),
+   'URL creation is taught as a conditional insert, not merely code generation');
+is(await page.locator('#stage .vn').count()===4,
+   'the creation card renders request, candidate, authoritative insert, and response');
+await jumpTo('urls-2-create-flow');
+is((await page.locator('#stage .flow-pool .chip').count())===5,
+   'the learner builds all five steps of one-link creation');
+console.log('\n── all 132 diagram-expansion drills render as real mobile interactions ──');
+await page.setViewportSize({width:360,height:900});
+const expansionAudit=await page.evaluate(()=>{
+  const failures=[]; let count=0;
+  for(let u=0;u<COURSE.length;u++) for(let l=0;l<COURSE[u].lessons.length;l++){
+    const xs=COURSE[u].lessons[l].exercises;
+    for(let i=0;i<xs.length;i++) if(xs[i].diagramExpansion===true){
+      count++; uidx=u; UNIT=COURSE[u]; lidx=l; lesson=COURSE[u].lessons[l]; idx=i;
+      render();
+      const holes=document.querySelectorAll('#stage .vn.hole').length;
+      const chips=document.querySelectorAll('#stage .chip').length;
+      const expected=Object.keys(xs[i].answer||{}).length;
+      if(holes!==expected || chips!==(xs[i].palette||[]).length)
+        failures.push(`${xs[i].id}: holes ${holes}/${expected}, chips ${chips}/${(xs[i].palette||[]).length}`);
+      if(document.documentElement.scrollWidth>innerWidth)
+        failures.push(`${xs[i].id}: page width ${document.documentElement.scrollWidth}/${innerWidth}`);
+    }
+  }
+  return {count,failures};
+});
+is(expansionAudit.count===132, `all ${expansionAudit.count} new drills reached the browser`);
+is(expansionAudit.failures.length===0,
+   `every new drill has complete slots/palette and stays inside 360px${expansionAudit.failures.length?': '+expansionAudit.failures.slice(0,3).join(' | '):''}`);
+
+console.log('\n── every authored diagram state passes the mobile geometry and semantics gate ──');
+const allDiagramAudit=await page.evaluate(()=>{
+  const failures=[]; let states=0,edges=0,after=0;
+  // 360px viewport -> 328px lesson content -> 302px inside the diagram frame.
+  const root=document.createElement('div'); root.style.width='328px'; document.body.appendChild(root);
+  for(const unit of COURSE) for(const lesson of unit.lessons) for(const exercise of lesson.exercises){
+    for(const key of ['viz','afterViz']){
+      const viz=exercise[key]; if(!viz)continue;
+      states++; if(key==='afterViz')after++;
+      root.innerHTML=''; const rendered=renderViz(viz); root.appendChild(rendered.wrap);
+      const nodes=[...root.querySelectorAll('.vn')];
+      const paths=[...root.querySelectorAll('.edges > path')]; edges+=paths.length;
+      if(rendered.wrap.scrollWidth>rendered.wrap.clientWidth+1)
+        failures.push(`${exercise.id}/${key}: frame scroll ${rendered.wrap.scrollWidth}/${rendered.wrap.clientWidth}`);
+      if(paths.length!==(viz.edges||[]).length)
+        failures.push(`${exercise.id}/${key}: edges ${paths.length}/${(viz.edges||[]).length}`);
+      for(const n of nodes) if(n.scrollHeight>n.clientHeight+1 || n.scrollWidth>n.clientWidth+1)
+        failures.push(`${exercise.id}/${key}: clipped ${n.dataset.id}`);
+      for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
+        const a=nodes[i].getBoundingClientRect(),b=nodes[j].getBoundingClientRect();
+        if(a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top)
+          failures.push(`${exercise.id}/${key}: overlap ${nodes[i].dataset.id}/${nodes[j].dataset.id}`);
+      }
+      (viz.edges||[]).forEach((e,i)=>{
+        if(!e.kind)failures.push(`${exercise.id}/${key}: edge ${i} has no kind`);
+        if(['broken','blocked'].includes(e.kind)&&!e.label)
+          failures.push(`${exercise.id}/${key}: ${e.kind} edge ${i} has no label`);
+      });
+    }
+  }
+  root.remove(); return {states,after,edges,failures};
+});
+is(allDiagramAudit.states===497, `all ${allDiagramAudit.states} before/after diagram states reached the renderer`);
+is(allDiagramAudit.after===81, `all ${allDiagramAudit.after} changed-system states were included`);
+is(allDiagramAudit.edges===1224, `all ${allDiagramAudit.edges} directed flows rendered`);
+is(allDiagramAudit.failures.length===0,
+   `no clipping, overlap, hidden scroll, missing edge, or unlabeled failure${allDiagramAudit.failures.length?': '+allDiagramAudit.failures.slice(0,4).join(' | '):''}`);
+
+const connectionCount=await page.evaluate(()=>COURSE.flatMap(u=>u.lessons).flatMap(l=>l.exercises).filter(e=>e.connectEdges).length);
+is(connectionCount===44, 'one diagram in every unit requires learner-authored connections');
+const connectionExercise=await page.evaluate(()=>COURSE.flatMap(u=>u.lessons).flatMap(l=>l.exercises).find(e=>e.connectEdges).id);
+await jumpTo(connectionExercise);
+is(/Step 1 of 2/.test(await page.locator('.connect-panel').textContent()), 'connection exercise explicitly starts with component placement');
+is(/Place all components/.test(await page.locator('#action').textContent()), 'disabled action explains what remains instead of only saying Check');
+const connectionResult=await page.evaluate(()=>{
+  const holes=[...document.querySelectorAll('#stage .vn.hole')];
+  for(const hole of holes){
+    const label=ex.answer[hole.dataset.id];
+    const chip=[...document.querySelectorAll('#stage .chip')].find(c=>c.dataset.label===label);
+    chip.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); hole.click();
+  }
+  for(const edge of ex.viz.edges){
+    document.querySelector(`#stage .vn[data-id="${edge.from}"]`).click();
+    document.querySelector(`#stage .vn[data-id="${edge.to}"]`).click();
+  }
+  return {connected:current.__edges?.size,required:ex.viz.edges.length,enabled:!document.querySelector('#action').disabled,
+          visible:document.querySelectorAll('.edges > path.connected').length};
+});
+is(connectionResult.connected===connectionResult.required && connectionResult.enabled,
+   `placing components is insufficient; connecting every required flow enables Check (${JSON.stringify(connectionResult)})`);
+is(connectionResult.visible===connectionResult.required, `learner-authored connections appear on the diagram (${JSON.stringify(connectionResult)})`);
+is(/System connected/.test(await page.locator('.connect-panel').textContent()), 'the interface confirms that connection work is complete');
+is((await page.locator('#action').textContent())==='Check answer', 'Check becomes explicit when the answer is ready');
+await page.setViewportSize({width:430,height:900});
+await page.evaluate(() => exitToPicker());
+await page.waitForTimeout(120);
+
+console.log('\n── all 30 causal simulations expose a real model-checked threshold ──');
+await page.setViewportSize({width:360,height:900});
+const simulationAudit=await page.evaluate(()=>{
+  const failures=[]; let count=0;
+  for(let u=0;u<COURSE.length;u++) for(let l=0;l<COURSE[u].lessons.length;l++){
+    const xs=COURSE[u].lessons[l].exercises;
+    for(let i=0;i<xs.length;i++) if(xs[i].type==='simulate'){
+      const sx=xs[i]; count++; uidx=u; UNIT=COURSE[u]; lidx=l; lesson=COURSE[u].lessons[l]; idx=i;
+      render();
+      const slider=document.querySelector('#stage input[type="range"]');
+      const watch=document.querySelector(`#stage .vn[data-id="${sx.sim.watch}"]`);
+      if(!slider||!watch){ failures.push(`${sx.id}: missing slider or watched node`); continue; }
+      const safe=sx.answerRange[0]; slider.value=safe; slider.dispatchEvent(new Event('input',{bubbles:true}));
+      if(watch.classList.contains('melt')) failures.push(`${sx.id}: answer ${safe} still melts`);
+      if(safe>+slider.min){
+        slider.value=safe-1; slider.dispatchEvent(new Event('input',{bubbles:true}));
+        if(!watch.classList.contains('melt')) failures.push(`${sx.id}: ${safe-1} is also safe; threshold is not minimal`);
+      }
+      if(document.documentElement.scrollWidth>innerWidth)
+        failures.push(`${sx.id}: page width ${document.documentElement.scrollWidth}/${innerWidth}`);
+    }
+  }
+  return {count,failures};
+});
+is(simulationAudit.count===30, `all ${simulationAudit.count} simulations reached the browser`);
+is(simulationAudit.failures.length===0,
+   `every simulation has a visible minimal threshold at 360px${simulationAudit.failures.length?': '+simulationAudit.failures.slice(0,3).join(' | '):''}`);
+await page.setViewportSize({width:430,height:900});
+await page.evaluate(() => exitToPicker());
+await page.waitForTimeout(120);
+
+console.log('\n── every unit ends with an unfamiliar graded transfer problem ──');
+await page.setViewportSize({width:360,height:900});
+const transferAudit=await page.evaluate(()=>{
+  const failures=[]; let count=0;
+  for(let u=0;u<COURSE.length;u++){
+    let unitCount=0;
+    for(let l=0;l<COURSE[u].lessons.length;l++){
+      const xs=COURSE[u].lessons[l].exercises;
+      for(let i=0;i<xs.length;i++) if(xs[i].transfer===true){
+        const sx=xs[i]; count++; unitCount++;
+        uidx=u; UNIT=COURSE[u]; lidx=l; lesson=COURSE[u].lessons[l]; idx=i;
+        checked=false; current=null; render();
+        const choices=[...document.querySelectorAll('#stage .choice')];
+        if(choices.length!==sx.choices.length){
+          failures.push(`${sx.id}: choices ${choices.length}/${sx.choices.length}`);
+          continue;
+        }
+        choices[sx.answer].click();
+        check();
+        if(!checked || !document.querySelector('#stage .choice.ok') || !document.querySelector('#feedback.feedback.ok'))
+          failures.push(`${sx.id}: correct answer did not produce corrective feedback`);
+        if(document.documentElement.scrollWidth>innerWidth)
+          failures.push(`${sx.id}: page width ${document.documentElement.scrollWidth}/${innerWidth}`);
+      }
+    }
+    if(unitCount!==1) failures.push(`${COURSE[u].unitId}: expected 1 transfer, found ${unitCount}`);
+  }
+  return {count,failures};
+});
+is(transferAudit.count===44, `all ${transferAudit.count} unit transfer problems reached the browser`);
+is(transferAudit.failures.length===0,
+   `every transfer problem renders and grades correctly at 360px${transferAudit.failures.length?': '+transferAudit.failures.slice(0,3).join(' | '):''}`);
+await page.setViewportSize({width:430,height:900});
+await page.evaluate(() => exitToPicker());
+await page.waitForTimeout(120);
+
+console.log('\n── selecting a lesson opens a focused lesson screen ──');
+is(await page.locator('.top').isHidden(), 'lesson controls are hidden on the picker');
+await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+await page.locator('#lessonpick .choice').last().click();
+await page.waitForTimeout(180);
+is(await page.locator('#picker').isHidden(), 'the lesson list disappears immediately');
+is(!(await page.locator('#stage').isHidden()), 'the first lesson card/question is visible immediately');
+is(!(await page.locator('.top').isHidden()), 'lesson controls appear only inside the lesson');
+is(await page.evaluate(() => window.scrollY) === 0, 'the lesson opens at the top instead of inheriting picker scroll');
+is(await page.evaluate(() => document.activeElement === document.querySelector('#stage')),
+   'keyboard and assistive-technology focus moves into the lesson');
+await page.locator('#closebtn').click();
+await page.waitForTimeout(100);
+is(!(await page.locator('#picker').isHidden()), 'Exit returns to the lesson picker');
+
 // The bug the user reported: options containing code spans shattered into columns.
 console.log('\n── the reported bug: option B on unit 2 ──');
 is(await jumpTo('csh-4-5'), 'found the avatar exercise by id');
@@ -89,6 +301,18 @@ is(bTxt.height < 130, `option B is ${Math.round(bTxt.height)}px tall, not a shat
 // no horizontal page scroll at phone width
 const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
 is(scrollW <= 430, `page does not scroll sideways at 430px (scrollWidth ${scrollW})`);
+
+console.log('\n── rate limiter: the bucket store decides; it does not proxy backend traffic ──');
+is(await jumpTo('drl-2-5'), 'found the six-shard limiter exercise');
+const limiterPrompt = await page.locator('#stage .prompt').textContent();
+is(limiterPrompt.includes('500,000') && limiterPrompt.includes('100,000'),
+   'the prompt supplies peak traffic and per-shard capacity');
+is(limiterPrompt.includes('six-shard'), 'the required headroom and shard count are explicit');
+const limiterEdges = await page.locator('.viz .edges path[data-e]').evaluateAll(ps => ps.map(p => p.getAttribute('d')));
+const limiterModel = await page.evaluate(() => ex.viz.edges.map(e => `${e.from}->${e.to}${e.dash?' dashed':''}`));
+is(limiterModel.includes('g->b dashed'), 'allowed backend work branches from the gateway');
+is(!limiterModel.includes('h2->b'), 'the passive bucket cluster does not forward the API request');
+is(limiterEdges.length === 3, 'the decision lookup and allowed request path both render');
 
 console.log('\n── concept card (unit 13, lesson 1) ──');
 await jumpTo('cache-1-0');
@@ -138,6 +362,34 @@ await page.locator('input[type=range]').fill('90');
 await page.locator('#action').click();
 await page.waitForTimeout(150);
 is((await page.locator('.feedback').getAttribute('class')).includes('ok'), '90% grades as correct');
+
+console.log('\n── system_change: architecture action produces a measured consequence ──');
+await jumpTo('state-change-1');
+is((await page.locator('.change-status').textContent()).includes('cart disappears'), 'before measurement is visible');
+is((await page.locator('#action').textContent()).includes('Move the cart'), 'action names the system change');
+const beforeChangeNodes = await page.locator('.change-viz .vn').count();
+await page.locator('#action').click();
+await page.waitForTimeout(450);
+is((await page.locator('.change-status').textContent()).includes('Server B reads'), 'after measurement replaces the failure state');
+is((await page.locator('.change-status').getAttribute('class')).includes('after'), 'consequence is styled as a live success');
+is((await page.locator('.change-viz .vn').count()) > beforeChangeNodes, 'topology visibly changes after the action');
+is(/shared durable storage/i.test(await page.locator('.feedback').textContent()), 'mechanism explanation lands with the result');
+is((await page.locator('#action').textContent()) === 'Continue', 'one action advances normally into the lesson');
+
+console.log('\n── decision lab: wrong architecture changes are observable and revisable ──');
+await jumpTo('state-change-2');
+is((await page.locator('.change-options .choice').count()) === 3, 'lab presents three plausible architecture changes');
+const labIdx = await page.evaluate(() => idx);
+const labNodes = await page.locator('.change-viz .vn').count();
+await page.locator('.change-options .choice').nth(0).click(); // sticky sessions: plausible, incomplete
+is((await page.locator('.change-status').textContent()).includes('losing Server A'), 'wrong change explains the surviving failure');
+is(await page.evaluate(() => idx) === labIdx, 'wrong change does not advance');
+is((await page.locator('.change-viz .vn').count()) === labNodes, 'wrong change does not fake a repaired topology');
+is(await page.locator('.change-options .choice').nth(2).isEnabled(), 'learner can revise the design');
+await page.locator('.change-options .choice').nth(2).click();
+is((await page.locator('.change-status').textContent()).includes('session loaded'), 'correct change produces the measured recovery');
+is((await page.locator('.feedback').getAttribute('class')).includes('ok'), 'correct design reveals the causal explanation');
+is((await page.locator('#action').textContent()) === 'Continue', 'successful lab rejoins the lesson loop');
 
 console.log('\n── build_diagram: real drag and drop (unit 13, lesson 2) ──');
 await jumpTo('cache-2-5');   // the upgraded 2-hole diagram
@@ -213,10 +465,18 @@ is(await page.evaluate(()=>teach) === false, 'the choice survives a reload');
 is((await page.locator('#unittabs .utab').count()) > 0, 'and the page still boots (localStorage is guarded)');
 await page.evaluate(()=>setTeach(true));
 
-console.log('\n── counters count questions, not cards ──');
+console.log('\n── counters count interactions, not teaching cards ──');
+await jumpTo('cache-change-1');
+let k = await page.locator('#stage .kicker').textContent();
+is(/1\/\d+/.test(k), `first interactive experiment reads as 1/n (got "${k}")`);
 await jumpTo('cache-1-1');
-const k = await page.locator('#stage .kicker').textContent();
-is(/1\/\d+/.test(k), `first QUESTION reads as 1/n, not 2/n (got "${k}")`);
+k = await page.locator('#stage .kicker').textContent();
+const expectedInteraction = await page.evaluate(() => {
+  const exercises = UNIT.lessons[lidx].exercises.filter(ex => ex.type !== 'concept');
+  return exercises.findIndex(ex => ex.id === 'cache-1-1') + 1;
+});
+is(new RegExp(`${expectedInteraction}\\/\\d+`).test(k),
+  `the following quiz counts every interaction but no concept cards (got "${k}")`);
 
 
 console.log('\n── match_pairs: a wrong connection must be undoable ──');
@@ -244,7 +504,7 @@ await L().nth(2).click(); await page.waitForTimeout(80);
 is(await page.locator('#action').isDisabled(), 'and disables again once a pair is broken');
 
 console.log('\n── spot_bottleneck: colour must not answer the question ──');
-await jumpTo('cp5-2-4');                       // Postgres is the only kind:"db" node AND the answer
+await jumpTo('cp1-2-3');                       // Four capacities; app servers at index 2 are the bottleneck
 const cls = await page.locator('#stage .vn').evaluateAll(ns => ns.map(n => n.className));
 is(cls.length === 4, 'renders 4 nodes');
 is(!cls.some(c => /\bk-/.test(c)), 'no node carries a kind colour — the odd one out was the answer');
@@ -256,7 +516,7 @@ is(uniq.size === 1, `all nodes look identical until you read the numbers (${uniq
 // while every spot_bottleneck threw a TypeError on grading and shipped broken.
 // Appearance-only coverage on a graded type is not coverage.
 const errsBefore = errors.length;
-await page.locator('#stage .vn').nth(2).click();     // Postgres = the answer
+await page.locator('#stage .vn').nth(2).click();     // App servers = the answer
 is(!(await page.locator('#action').isDisabled()), 'Check enables once a node is tapped');
 await page.locator('#action').click();
 await page.waitForTimeout(200);
@@ -267,8 +527,8 @@ is((await page.locator('#stage .vn').nth(2).getAttribute('class')).includes('ok'
 is((await page.locator('#action').textContent()).trim() !== 'Check', 'the button advances instead of staying stuck');
 
 console.log('\n── a wrong bottleneck marks both nodes ──');
-await jumpTo('cp5-2-4');
-await page.locator('#stage .vn').nth(0).click();     // Drivers = wrong
+await jumpTo('cp1-2-3');
+await page.locator('#stage .vn').nth(0).click();     // DNS = wrong
 await page.locator('#action').click();
 await page.waitForTimeout(200);
 is((await page.locator('.feedback').getAttribute('class')).includes('bad'), 'a wrong tap grades wrong');
@@ -316,15 +576,18 @@ is((await page.locator('#stage .mrow.ok').count()) === 4, 'all four rows green')
 is((await page.locator('#stage .myours').count()) === 0, 'no "you said" line when nothing was wrong');
 
 console.log('\n── checkpoints announce themselves ──');
-await jumpTo('cp5-2-4');
+await jumpTo('cp1-2-3');
 is((await page.locator('#stage .kicker .cp').count()) === 1, 'a checkpoint lesson is badged Checkpoint');
 await jumpTo('cache-1-1');
 is((await page.locator('#stage .kicker .cp').count()) === 0, 'a normal lesson is not');
 await page.goto(FILE + '#review'); await page.waitForTimeout(250);
-await page.evaluate(() => { uidx=31; UNIT=COURSE[31]; bootUnits(); boot(); });
+await page.evaluate(() => {
+  uidx=COURSE.findIndex(u=>u.unitId==='checkpoint-design-challenges');
+  UNIT=COURSE[uidx]; bootUnits(); boot();
+});
 await page.waitForTimeout(150);
 const sub = await page.locator('#pk-sub').textContent();
-is(/Mixing units/.test(sub), `the picker explains why there's no lesson ("${sub.slice(0,40)}...")`);
+is(/Apply|Combine|Connect|Reason|Transfer/.test(sub), `the checkpoint subtitle explains the transfer task ("${sub.slice(0,40)}...")`);
 await page.evaluate(() => { uidx=0; UNIT=COURSE[0]; bootUnits(); boot(); });
 await page.waitForTimeout(150);
 // Force the case rather than hoping a unit exhibits it: every unit has a
@@ -344,7 +607,7 @@ await page.waitForTimeout(120);
 is(!(await page.locator('#pk-sub').isHidden()), 'and shows it again when there is one');
 
 console.log('\n── build_diagram: a wrong drop must be undoable ──');
-await jumpTo('cp5-2-2');
+await jumpTo('cache-2-5');
 const dragTo = async (label, i) => {
   const c = await page.locator(`.chip[data-label="${label}"]`).boundingBox();
   const h = await page.locator('.vn.hole').nth(i).boundingBox();
@@ -355,7 +618,8 @@ const dragTo = async (label, i) => {
 await dragTo('Message Queue', 0);                  // deliberately wrong
 is((await page.locator('.vn[data-id="h1"]').textContent()).includes('Message Queue'), 'a wrong component lands in the slot');
 await page.locator('.vn[data-id="h1"]').click(); await page.waitForTimeout(150);
-is((await page.locator('.vn[data-id="h1"]').textContent()).trim() === '?', 'tapping the filled slot clears it');
+is((await page.locator('.vn[data-id="h1"] .vl').textContent()).trim() === '?',
+   'tapping the filled slot clears it while preserving the slot instruction');
 is(!(await page.locator('.chip[data-label="Message Queue"]').getAttribute('class')).includes('used'),
    'and the component returns to the palette');
 // the undo existed all along — it was the HINT that never mentioned it
@@ -383,6 +647,9 @@ const typeReport = await page.evaluate(async () => {
       }
   for (const [t, [u, l, e]] of Object.entries(seen)) {
     if (t === 'concept') { out.push([t, 'ok', 'not graded']); continue; }
+    // system_change is action-driven and has no Check state. Its causal
+    // before→action→after contract is exercised by the dedicated E2E above.
+    if (t === 'system_change') { out.push([t, 'ok', 'action-driven E2E']); continue; }
     try {
       uidx = u; UNIT = COURSE[u]; bootUnits(); boot(); startLesson(l); idx = e; render();
       const x = lesson.exercises[e];
@@ -408,7 +675,7 @@ const typeReport = await page.evaluate(async () => {
 for (const [t, status, detail] of typeReport) {
   is(status === 'ok', `${t.padEnd(16)} survives Check${status === 'ok' ? '' : ' → ' + status + ': ' + detail}`);
 }
-is(typeReport.length === 11, `all 11 exercise types covered (found ${typeReport.length})`);
+is(typeReport.length === 12, `all 12 exercise types covered (found ${typeReport.length})`);
 // and correct answers must actually grade as correct, not merely not-throw
 const graded = await page.evaluate(() => document.querySelector('#feedback').className);
 is(/ok/.test(graded), 'the last correct answer graded as correct, not just silent');
@@ -436,7 +703,7 @@ await page.waitForTimeout(80);
 is((await page.locator('.feedback p').count()) === 1, 'Check works immediately (no dead-time on Check)');
 
 console.log('\n── a slider you never touched is not an answer ──');
-await jumpTo('cache-4-6');
+await jumpTo('txn-4-6');
 is(await page.locator('#action').isDisabled(), 'Check is disabled until the slider moves');
 is(await page.evaluate(() => current) === null, 'current starts null, not 50');
 await page.locator('#stage input[type=range]').fill('70');
@@ -457,13 +724,29 @@ await page.waitForTimeout(120);
 is(!(await page.locator('#action').isDisabled()), 'clearing the field after grading does NOT kill Continue');
 
 console.log('\n── order_steps reveals the sequence ──');
+await page.setViewportSize({width:360,height:780});
 await jumpTo('cache-2-1');
+const flowCount = await page.evaluate(() => ex.steps.length);
+is((await page.locator('.flow-slot').count()) === 1, 'mobile flow starts with one next-step slot, not a screen of empty boxes');
+is(await page.evaluate(() => document.documentElement.scrollWidth === 360), 'flow builder has no horizontal overflow at 360px');
+const initialFlowHeight = await page.locator('#body').evaluate(el => el.getBoundingClientRect().height);
+is(initialFlowHeight < 560, `initial flow stays compact on a phone (${Math.round(initialFlowHeight)}px)`);
+is((await page.locator('.order .arrows').count()) === 0, 'the old up/down list controls are gone');
+is(await page.locator('#action').isDisabled(), 'Check waits until the complete flow is built');
+await page.locator('.flow-pool .chip').first().click();
+is((await page.locator('.order button.row').count()) === 1, 'tapping a candidate places a node into the flow');
+is((await page.locator('.flow-slot').count()) === 2, 'the next slot appears progressively after the placed node');
+await page.locator('.order button.row').first().click();
+is((await page.locator('.order button.row').count()) === 0, 'tapping a placed node returns it for revision');
+for(let i=0;i<flowCount;i++) await page.locator('.flow-pool .chip').first().click();
+is(!(await page.locator('#action').isDisabled()), 'Check enables when the flow is complete');
 await page.locator('#action').click();
 await page.waitForTimeout(150);
 is((await page.locator('#stage .order .row.ok, #stage .order .row.bad').count()) > 0, 'rows are marked after Check');
 const shownOrder = await page.locator('#stage .order .lbl').allTextContents();
 const trueOrder  = await page.evaluate(() => ex.steps.map(s => s.replace(/[`*]/g,'')));
 is(JSON.stringify(shownOrder.map(t=>t.trim())) === JSON.stringify(trueOrder), 'the CORRECT sequence is displayed, in order');
+await page.setViewportSize({width:430,height:900});
 
 console.log('\n── losing is not winning ──');
 await page.goto(FILE); await page.waitForTimeout(300);   // no #review -> hearts bite
@@ -520,7 +803,9 @@ await page.waitForTimeout(200);
 await page.locator('#closebtn').click();                 // exit without answering
 await page.waitForTimeout(150);
 is(await page.evaluate(() => lesson === null), 'exiting drops the lesson');
-await page.locator('#teachbtn').click();                 // used to render a dead exercise over the picker
+// Picker mode deliberately hides lesson-only controls now. Exercise the same
+// state change directly; it used to render a dead exercise over the picker.
+await page.evaluate(() => setTeach(!teach));
 await page.waitForTimeout(200);
 is(await page.locator('#stage').isHidden(), 'the stage stays hidden — no exercise stapled over the picker');
 is(!(await page.locator('#picker').isHidden()), 'the picker is still the picker');
@@ -535,6 +820,40 @@ is(head.fill !== 'none', `arrowhead is filled, not hollow (${head.fill})`);
 is(head.stroke === 'none', 'and not stroked by the edge rule');
 is((await page.evaluate(() => document.querySelectorAll('.edges > path').length)) === 2,
    '".edges > path" selects only the 2 real edges, not the marker');
+const markerGeometry = await page.evaluate(() => {
+  const m=document.querySelector('marker#ah');
+  return {refX:m.getAttribute('refX'), refY:m.getAttribute('refY'),
+          units:m.getAttribute('markerUnits'), viewBox:m.getAttribute('viewBox')};
+});
+is(markerGeometry.refX === '9' && markerGeometry.refY === '5',
+   'the arrow tip is the marker reference point, so it lands on the curve endpoint');
+is(markerGeometry.units === 'userSpaceOnUse' && markerGeometry.viewBox === '0 0 10 10',
+   'arrowhead size is stable across normal, live, and dead edge widths');
+
+const endpoint = async locator => locator.evaluate(p => {
+  const end=p.getPointAtLength(p.getTotalLength());
+  const target=document.querySelector(`.vn[data-id="${p.dataset.to}"]`);
+  return {x:end.x,y:end.y,dir:p.dataset.dir,left:target.offsetLeft,top:target.offsetTop,
+          right:target.offsetLeft+target.offsetWidth,bottom:target.offsetTop+target.offsetHeight};
+});
+const landsOnTarget = g => g.dir === 'right' ? Math.abs(g.x-g.left)<.6 && g.y>=g.top && g.y<=g.bottom
+  : g.dir === 'left' ? Math.abs(g.x-g.right)<.6 && g.y>=g.top && g.y<=g.bottom
+  : g.dir === 'down' ? Math.abs(g.y-g.top)<.6 && g.x>=g.left && g.x<=g.right
+  : g.dir === 'up' ? Math.abs(g.y-g.bottom)<.6 && g.x>=g.left && g.x<=g.right : false;
+const forwardEnd=await endpoint(page.locator('.edges > path').first());
+is(landsOnTarget(forwardEnd),
+   `a forward curve terminates exactly on its target's left port (${forwardEnd.x.toFixed(1)}px)`);
+
+console.log('\n── reverse and same-column edges use the correct ports ──');
+await jumpTo('mig-1-0');
+const reversePath=page.locator('.edges > path[data-from="n"][data-to="d"]');
+is(await reversePath.count() === 1, 'the authored reverse edge is rendered');
+const reverseEnd=await endpoint(reversePath);
+is(reverseEnd.dir === 'left' && landsOnTarget(reverseEnd),
+   'a reverse curve points left and terminates on the target\'s right port');
+const vertical=await page.evaluate(() => edgePath({x:0,y:0},{x:0,y:90},102,56));
+is(vertical.dir === 'down' && vertical.ty === 90 && vertical.tx === 51,
+   'same-column nodes connect bottom-to-top instead of drawing a sideways loop');
 
 console.log('\n── diagrams reach their own left edge on a small phone ──');
 for (const W of [375, 360]) {
@@ -555,7 +874,7 @@ for (const W of [375, 360]) {
 }
 
 console.log('\n── spot_bottleneck is answerable without a pointer ──');
-await jumpTo('cp5-2-4');
+await jumpTo('cp1-2-3');
 await page.locator('#stage .vn').nth(2).focus();
 await page.keyboard.press('Enter');
 await page.waitForTimeout(80);

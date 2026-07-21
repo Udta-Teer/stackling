@@ -31,10 +31,11 @@ content/*.json  ── the source of truth (lessons + exercises)
 
 ## Exercise types
 
-Eleven types drive all content (defined in `SPEC.md` §3.2, usage guidance in `CONTENT_MASTER.md` §4): `multiple_choice`, `fill_blank`, `match_pairs`, `order_steps`, `multi_select`, `build_diagram`, `spot_bottleneck`, `tradeoff_slider`, `estimate`, **`concept`**, **`simulate`**. Each is JSON-driven and has a matching renderer in `prototype/lesson.html`. Adding a new type means: define its JSON shape in the spec **and** add a renderer + a `check()` branch in the prototype.
+Twelve types drive all content (defined in `SPEC.md` §3.2, usage guidance in `CONTENT_MASTER.md` §4): `multiple_choice`, `fill_blank`, `match_pairs`, `order_steps`, `multi_select`, `build_diagram`, `spot_bottleneck`, `tradeoff_slider`, `estimate`, **`concept`**, **`simulate`**, and **`system_change`**. Each is JSON-driven and has a matching renderer in `prototype/lesson.html`. Adding a new type means defining its JSON shape, validator contract, renderer, and browser test.
 
 - **`concept`** — the only place we *teach* before testing. A claim-shaped `title`, an optional `viz`, a **hard-capped** `body` (360 chars) and optional `note` (220). Not graded: no `why`, no `answer`, no heart, no XP, and it never touches `total`, so it can't dilute accuracy. **The caps are load-bearing** — `goDeeper` died because an unbounded prose field is an invitation to ramble, and a concept card is the same shape. The validator enforces the cap and a max of 3 per lesson.
 - **`simulate`** — the learner drags one variable and watches load flow through the topology until something melts. `sim.input` enters and flows down `sim.chain`; `sim.absorb` removes the share the learner controls; `sim.capacity` decides what turns red. The validator **recomputes the threshold from the model and rejects an `answerRange` that disagrees with it**, so the answer key cannot drift from the physics the learner sees.
+- **`system_change`** — the learner changes an architecture and sees explicit before/after topology and measurements. Introductory instances may provide one guided action; decision labs provide 2–4 plausible changes, explain the remaining failure after a wrong choice, and allow revision without advancing. Every unit has at least one; foundational units 1–13 and design units 23–27 have at least two. The result must expose a causal mechanism, not merely swap labels. The course currently contains 50.
 
 ## Diagrams: one engine, `viz`
 
@@ -84,6 +85,6 @@ When the Expo app is scaffolded, add its `install / start / test / lint` command
 
 ## Business context (affects content/product decisions)
 
-- Pricing (recommended, under review): **$19/mo, $149/yr, 7-day free trial**. Positioning: "interview-grade system design, 10 minutes a day."
+- Pricing: **$9.99/mo, $79.99/yr, 7-day free trial**. Positioning: "interview-grade system design, 10 minutes a day."
 - **Launch at ~30% content** (Tiers 0–1 + Caching, Load balancing, Sharding, URL-shortener capstone ≈ 11 units), then keep shipping units.
 - Offline-first through early milestones; backend/auth/payments are v2.

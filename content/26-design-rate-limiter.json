@@ -2,10 +2,10 @@
   "unitId": "design-rate-limiter",
   "tier": 4,
   "title": "Design a Rate Limiter",
-  "subtitle": "Build the thing that protects everything else — as a service, at scale",
+  "subtitle": "Design distributed enforcement with explicit accuracy, latency, and failure policies",
   "objectives": [
     "Turn 'rate limit our API' into a specification with numbers and a failure policy",
-    "Design the counter store when the limiter itself must handle your full request volume",
+    "Design the shared bucket store when the limiter itself must handle your full request volume",
     "Make the check atomic, and decide what happens when the limiter is down",
     "Distribute limits across regions and reason about what exactness really costs"
   ],
@@ -17,7 +17,7 @@
         {
           "id": "drl-1-0",
           "type": "concept",
-          "title": "'Rate limit our API' is four questions, and the one people skip is how exact it must be",
+          "title": "A rate-limit specification defines identity, budget, enforcement, and failure policy",
           "viz": {
             "nodes": [
               {
@@ -49,21 +49,173 @@
             "edges": [
               {
                 "from": "c",
-                "to": "l"
+                "to": "l",
+                "kind": "request"
               },
               {
                 "from": "l",
-                "to": "a"
+                "to": "a",
+                "kind": "request"
               },
               {
                 "from": "l",
                 "to": "r",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
-          "body": "Ask for a rate limiter and you'll get a spec with three things. A fourth is almost never on the page: *how exact does this have to be?* 'Exactly 100, never 101' and 'roughly 100' are different systems at different prices — one buys a round trip on every request; the other doesn't. Unit 17 gave you the algorithm. Choosing what it may get wrong is the design.",
-          "note": "One honest observation: the limit number is nearly always invented. Somebody picked 1,000 because it's round. Fine, as long as you know it — *precision* of enforcement gets argued about far more than the number enforced."
+          "body": "Specify the key being limited, budget and time window, permitted burst, response on breach, required enforcement accuracy, and behavior when counter storage fails. These inputs determine the algorithm, state placement, and whether requests need shared coordination.",
+          "note": "An undocumented fail-open or fail-closed choice turns a counter-store outage into either uncontrolled traffic or a full API outage."
+        },
+        {
+          "id": "drl-change-1",
+          "type": "system_change",
+          "prompt": "Three API servers each enforce 100 req/min in local memory, so one client can send 300. Move the counter to one shared atomic store.",
+          "actionLabel": "Use a shared counter",
+          "beforeStatus": "EFFECTIVE CLIENT LIMIT · 300 req/min across three servers",
+          "afterStatus": "EFFECTIVE CLIENT LIMIT · 100 req/min across the fleet",
+          "result": "The fleet began enforcing one limit",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "300 req/min",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "100 allowed",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "100 allowed",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Server C",
+                "sub": "100 allowed",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "c",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "100 req/min",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "API fleet",
+                "sub": "3 servers",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Shared counter",
+                "sub": "atomic 100",
+                "col": 2,
+                "kind": "cache"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "An atomic shared counter gives every server the same view of the client's usage, so the limit applies across the fleet. It adds a network operation to the request path and the counter store must handle the resulting traffic."
+        },
+        {
+          "id": "design-rate-limiter-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Three API servers each enforce 100 req/min in local memory, so one client can send 300. Move the counter to one shared atomic store. Place API fleet, Shared counter. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "100 req/min",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "sub": "3 servers",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "r",
+                "sub": "atomic 100",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "r",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "API fleet",
+            "Shared counter",
+            "Every request",
+            "Rate limiter"
+          ],
+          "answer": {
+            "a": "API fleet",
+            "r": "Shared counter"
+          },
+          "why": "The completed diagram contains these directed flows: Client → API fleet; API fleet → Shared counter. That topology is the evidence for the answer: An atomic shared counter gives every server the same view of the client's usage, so the limit applies across the fleet. It adds a network operation to the request path and the counter store must handle the resulting traffic.",
+          "connectEdges": true
         },
         {
           "id": "drl-1-1",
@@ -76,7 +228,7 @@
             "How many servers you have"
           ],
           "answer": 1,
-          "why": "Those four answers determine the whole design, and the fourth is the one people skip: 'exactly 100, never 101' and 'roughly 100' are different systems with different costs. Unit 17 gave you the algorithms; this unit is about the fact that the limiter is now a service that must survive your entire traffic volume."
+          "why": "Identity, resource scope, time window, and required precision determine the counter key and enforcement mechanism. Exact global limits require more coordination than approximate local limits, so the acceptable overshoot must be specified before choosing storage and topology."
         },
         {
           "id": "drl-1-2",
@@ -89,7 +241,7 @@
             "It's stateless"
           ],
           "answer": 1,
-          "why": "Every other component in this course served a slice of traffic; the limiter serves all of it, and it runs before you've decided whether the request is even worth serving. That inverts the usual reasoning — a protective component that fails takes down the thing it protects, so its own availability budget must exceed its dependents'."
+          "why": "A front-door limiter evaluates every request before downstream work. Its latency is added to every request, and a fail-closed outage can reject all traffic, so it needs high availability and an explicit behavior when its state store is unavailable."
         },
         {
           "id": "drl-1-3",
@@ -98,7 +250,7 @@
           "answer": 500000,
           "tolerance": 1000,
           "unit": "checks/sec",
-          "why": "Every request is checked, so the limiter's load is exactly your total traffic — 500,000/sec, with no cache to soften it and no way to sample. That number is why the naive 'just use Redis' answer needs examining: it means half a million round trips per second to one store."
+          "why": "At 500,000 incoming requests/sec, exact enforcement performs 500,000 counter decisions/sec because checks cannot be sampled without missing violations. This rate must be distributed, batched, or filtered locally if one shared store cannot sustain the operations and network round trips."
         },
         {
           "id": "drl-1-4",
@@ -111,7 +263,7 @@
             "You can"
           ],
           "answer": 1,
-          "why": "A limiter check is fundamentally a read-modify-write, so unit 10's rule bites: replicas can't help because a stale read defeats the entire purpose. This is the same asymmetry as the write bottleneck in unit 15 — the only real options are to shard the counters or to stop being exact."
+          "why": "An exact limiter updates shared state for each accepted request, and a stale replica can admit traffic after the authoritative count has reached the limit. Read replicas therefore do not remove the authoritative update bottleneck; independent counter keys can be sharded, or enforcement can accept bounded approximation."
         },
         {
           "id": "drl-1-5",
@@ -124,7 +276,7 @@
             "Queue it until capacity frees up"
           ],
           "answer": 1,
-          "why": "The limiter's job isn't only to refuse, it's to teach clients to stop asking — a client that can read its remaining quota never trips the limit at all, which costs you nothing. Queueing is the wrong instinct entirely: holding a rejected request consumes exactly the resources you were trying to protect."
+          "why": "`429 Too Many Requests` identifies a limit breach, while quota and `Retry-After` headers let cooperative clients reduce or schedule future requests. Queueing over-limit requests retains connections and memory and delays work the system has already decided it cannot serve."
         },
         {
           "id": "drl-1-6",
@@ -132,23 +284,23 @@
           "prompt": "Spec so far: token bucket, 1,000 requests/minute per API key, 429 on breach. What's still missing?",
           "choices": [
             "The programming language",
-            "The failure policy: when the counter store is unreachable, do you allow everything or block everything? That decision exists whether or not you make it",
+            "The failure policy: when the bucket store is unreachable, do you allow everything or block everything? That decision exists whether or not you make it",
             "The number of servers",
             "The cache size"
           ],
           "answer": 1,
-          "why": "The store will be unreachable sometimes, and your code will do something — so 'we never decided' just means you'll discover your default during an incident. Fail-open lets a flood through exactly when you're already fragile; fail-closed turns a limiter outage into a total API outage. Choosing deliberately is the difference between a tradeoff and a surprise."
+          "why": "When the bucket store is unavailable, fail-open preserves API availability but may admit abusive load, while fail-closed preserves the limit but can turn a limiter failure into an API outage. The specification must choose based on the harm the limit is intended to prevent."
         }
       ]
     },
     {
       "id": "drl-2",
-      "title": "The counter store",
+      "title": "The shared bucket store",
       "exercises": [
         {
           "id": "drl-2-0",
           "type": "concept",
-          "title": "A limit is only a limit if there is one counter behind it",
+          "title": "A shared token bucket refills and consumes atomically per limit key",
           "viz": {
             "nodes": [
               {
@@ -183,20 +335,23 @@
             "edges": [
               {
                 "from": "c",
-                "to": "s1"
+                "to": "s1",
+                "kind": "request"
               },
               {
                 "from": "c",
-                "to": "s2"
+                "to": "s2",
+                "kind": "request"
               },
               {
                 "from": "c",
-                "to": "s3"
+                "to": "s3",
+                "kind": "request"
               }
             ]
           },
-          "body": "Your 50 API servers are interchangeable — that's the property that let them scale in the first place. But a counter in each one's local memory isn't a count. It's 50 separate fragments of one, and each server enforces its own fragment against the whole limit, having never heard of the other 49. Unit 5's question, with a sharp edge on it.",
-          "note": "And the failure is silent. Nothing throws, no alert fires, your dashboard shows limits being enforced — the only party who ever learns the real number is the customer you were supposed to be stopping."
+          "body": "Store `tokens` and `last_refill_time` for each client key. One atomic operation computes refill from elapsed time, caps tokens at bucket capacity, and consumes one token only when available. All API servers call that same logical bucket.",
+          "note": "Hash-sharding distributes independent keys, but one extremely hot key still concentrates all of its atomic operations on one shard."
         },
         {
           "id": "drl-2-1",
@@ -209,12 +364,12 @@
             "It depends on the algorithm"
           ],
           "answer": 1,
-          "why": "This is unit 17's multiplication and unit 5's diagnosis: the counter is state, and state kept locally on interchangeable machines means each holds a fragment of the truth. Notice it fails silently — nothing errors, your dashboard shows limits being enforced, and clients quietly get 50× what you promised."
+          "why": "Each of 50 servers independently permits up to 1,000 requests because none sees the others' counters. A client distributed across the fleet can therefore receive up to 50,000 requests per window unless the budget is divided or the state is shared."
         },
         {
           "id": "drl-2-2",
           "type": "build_diagram",
-          "prompt": "You need one shared count across all 50 API servers. Add the piece.",
+          "prompt": "You need one shared token bucket per API key across all 50 servers. Add the piece.",
           "viz": {
             "nodes": [
               {
@@ -241,63 +396,115 @@
             "edges": [
               {
                 "from": "a",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
                 "from": "a",
                 "to": "b",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
           "palette": [
-            "Redis (shared counters)",
+            "Redis (shared token buckets)",
             "A read replica",
             "A message queue"
           ],
           "answer": {
-            "h": "Redis (shared counters)"
+            "h": "Redis (shared token buckets)"
           },
-          "why": "One shared, fast, atomic store is the only way 50 servers can agree on a count — and Redis fits because the operation is a single-key increment, which unit 7 identified as the cleanest key-value case there is. A replica can't help (stale reads defeat the check) and a queue is asynchronous, which is useless when you must decide right now."
+          "why": "A shared bucket makes every API server observe the same tokens and refill timestamp before admission. A fast key-value store can run the single-key check-and-consume atomically; stale replica reads or asynchronous queue processing cannot enforce the boundary at request time."
         },
         {
           "id": "drl-2-3",
           "type": "multiple_choice",
-          "prompt": "Your code does: GET count, check it's under the limit, `INCR`, allow. What's the bug?",
+          "prompt": "Your token-bucket code reads tokens and the last-refill time, computes a refill, then writes the result. What's the bug?",
           "choices": [
-            "GET is too slow",
-            "It's check-then-act: two concurrent requests both read 99, both decide they're fine, and both increment — you allowed 101",
-            "`INCR` isn't durable",
+            "Reading two fields is too slow",
+            "It's check-then-act: concurrent requests can both observe the same token and both consume it",
+            "Tokens must be stored in every API server",
             "Nothing"
           ],
           "answer": 1,
-          "why": "This is unit 6's race living inside the mechanism meant to enforce limits, and it looks perfectly correct until traffic is concurrent — which is the only condition a rate limiter ever operates under. The check and the increment must be one atomic operation, or the limit is decorative at exactly the moment it matters."
+          "why": "Concurrent requests can read the same token balance and refill timestamp before either writes, so both may spend one remaining token. Refill calculation, capacity capping, admission, and conditional consumption must be one serialized operation for that key."
         },
         {
           "id": "drl-2-4",
           "type": "multiple_choice",
-          "prompt": "So how do you make the check atomic?",
+          "prompt": "So what must one atomic server-side token-bucket operation do?",
           "choices": [
-            "Use a database transaction per request",
-            "Do it in one operation at the store: increment and read the new value in a single atomic call, or run a small script server-side so the whole check happens in one round trip",
-            "Lock the key first",
-            "Retry on conflict"
+            "Increment a fixed-window counter, even for rejected requests",
+            "Load tokens and refill time, add elapsed-time refill up to capacity, consume only if a token exists, then save and return the decision",
+            "Read from a replica, then update the leader later",
+            "Reset the bucket whenever a request is rejected"
           ],
           "answer": 1,
-          "why": "Push the decision to where the data lives so there's no window between reading and acting — an atomic increment returns the new count, and you compare against the limit afterwards. A transaction per request at 500,000/sec would be absurd overhead, and taking a lock adds another round trip plus a lock to clean up when a client dies holding it."
+          "why": "A script or equivalent single-key transaction uses elapsed time to refill continuously, caps the balance at burst capacity, and decrements only an allowed request. Rejected traffic therefore cannot drive the balance below zero or extend denial, and concurrent requests cannot spend the same token. Expiry is optional cleanup after the bucket has remained full and idle, not the limiter's refill mechanism."
         },
         {
           "id": "drl-2-5",
-          "type": "multiple_choice",
-          "prompt": "500,000 checks/sec is too much for one Redis instance. What do you do?",
-          "choices": [
-            "Add Redis replicas",
-            "Shard the counters by key — hash the API key to pick an instance, so each client's counter lives on exactly one node and the load spreads",
-            "Batch the checks",
-            "Cache the counts"
+          "type": "build_diagram",
+          "prompt": "Peak load is 500,000 checks/sec. One bucket shard safely handles 100,000 checks/sec. Build a six-shard limiter: five shards cover peak load and one provides headroom. Each API key must map to one primary shard before the gateway sends an allowed request to the backend.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "g",
+                "label": "API Gateway",
+                "col": 0,
+                "kind": "gw"
+              },
+              {
+                "id": "h1",
+                "sub": "map API key to one primary",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "6 × 100k checks/sec",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "label": "Backend",
+                "sub": "allowed only",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "g",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Deterministic Key Router",
+            "Six-Shard Token-Bucket Cluster",
+            "Read Replica",
+            "Message Queue"
           ],
-          "answer": 1,
-          "why": "Unit 15 applies cleanly here because the workload is perfectly partitionable: a client's counter is only ever touched by that client's requests, so different keys never need to meet. And the shard key picks itself — it's the same key you're limiting on, which is exactly unit 15's rule about sharding by what your hot query filters on."
+          "answer": {
+            "h1": "Deterministic Key Router",
+            "h2": "Six-Shard Token-Bucket Cluster"
+          },
+          "why": "Five shards provide the stated 500,000-check peak capacity and the sixth adds 20% headroom. The router deterministically maps one API key to one primary shard, which atomically refills and consumes that key's bucket. The bucket cluster returns an allow/deny decision to the gateway; it does not forward the application request. Only after `ALLOW` does the gateway call the backend. Consistent hashing is optional when membership changes frequently, not a requirement for ordinary deterministic partitioning."
         },
         {
           "id": "drl-2-6",
@@ -305,12 +512,12 @@
           "prompt": "A single enormous customer sends 200,000 requests/second by themselves. What breaks?",
           "choices": [
             "Nothing — they're limited",
-            "Their counter is one key on one shard, so that shard takes 200,000 ops/sec — the celebrity problem, and sharding can't split a single key",
+            "Their bucket is one key on one shard, so that shard takes 200,000 ops/sec — the celebrity problem, and key sharding cannot split one hot bucket",
             "The limit is bypassed",
             "Redis rejects them"
           ],
           "answer": 1,
-          "why": "Hashing distributes keys, not load, and one key is indivisible — so your hottest customer concentrates on one node no matter how many you add. The escape is to give that key sub-counters (limit/N on each of N shards, chosen at random per request), which trades a little exactness for a load you can actually spread."
+          "why": "Key-based sharding keeps one customer's bucket on one node, so a 200,000 requests/sec customer can overload that shard. Splitting the customer's budget into leased sub-buckets spreads operations, but lease size and rebalancing determine the bound on temporary underuse or overshoot."
         }
       ]
     },
@@ -321,7 +528,7 @@
         {
           "id": "drl-3-0",
           "type": "concept",
-          "title": "Exactness is bought with a network hop on every request you were going to serve anyway",
+          "title": "Exact shared enforcement adds a counter-store dependency to every request",
           "viz": {
             "nodes": [
               {
@@ -354,20 +561,23 @@
             "edges": [
               {
                 "from": "r",
-                "to": "l"
+                "to": "l",
+                "kind": "request"
               },
               {
                 "from": "l",
-                "to": "s"
+                "to": "s",
+                "kind": "data"
               },
               {
                 "from": "l",
-                "to": "a"
+                "to": "a",
+                "kind": "request"
               }
             ]
           },
-          "body": "An exact check means asking a shared store, and asking is a network hop — unit 4's ladder prices one datacenter round trip at roughly 5,000 RAM reads. That's the price. The interesting question is who ends up paying it, and how often. Because exactness isn't free-and-obviously-right: it's a purchase, and its worth depends on what being wrong would cost you.",
-          "note": "And the bill gets stranger the further apart your servers are. Everything above assumed the shared store is next door. Put an ocean between them and 'exact' stops being merely expensive and starts being absurd."
+          "body": "Before admitting a request, the gateway sends an atomic check-and-update to shared storage and waits for the result. This adds one store round trip to allowed and rejected traffic, and the store's latency and availability become part of the API's critical path.",
+          "note": "A globally exact budget adds cross-region coordination; partitioning budget among regions reduces latency while allowing bounded enforcement error."
         },
         {
           "id": "drl-3-1",
@@ -380,7 +590,7 @@
             "0.5ms on writes only"
           ],
           "answer": 1,
-          "why": "Exactness is bought with a round trip you pay universally, and unit 4's ladder says that hop costs roughly 5,000 RAM reads — so you've made every request meaningfully slower to catch the rare one that's over. Whether that's worth it depends entirely on what being wrong costs, which is the question this whole lesson turns on."
+          "why": "A synchronous 0.5 ms counter round trip adds approximately 0.5 ms to every request on the serial path, including requests far below the limit. That latency and store load are justified only when the cost of limit error requires exact shared enforcement."
         },
         {
           "id": "drl-3-2",
@@ -393,19 +603,19 @@
             "Cache the decision"
           ],
           "answer": 1,
-          "why": "A client sending 50,000/sec doesn't need precise accounting to be refused, so the local check kills the flood for free and the expensive path only sees traffic where precision changes the answer. That's a broadly reusable shape — a cheap approximate filter in front of an expensive exact one — and it's what unit 5's rate-limit slider was pointing at."
+          "why": "A local approximate limiter can reject traffic that is far above the threshold without consulting shared state. Requests near the boundary continue to the exact shared check, reducing round trips while preserving precision where the decision could change."
         },
         {
           "id": "drl-3-3",
           "type": "tradeoff_slider",
-          "prompt": "You're limiting a paid API where every request over the plan is billable revenue. Slide toward your design.",
+          "prompt": "A contractual spend cap says this customer must never exceed 100,000 admitted requests/day. Slide toward your enforcement design.",
           "leftLabel": "Local approximate (fast, can overshoot)",
           "rightLabel": "Shared exact (precise, hop per request)",
           "answerRange": [
             60,
             100
           ],
-          "why": "When the limit IS the billing boundary, overshooting means giving away product or overcharging a customer — both are real money and one is a support incident. That justifies the round trip, exactly as unit 5 argued. Run the same question on a generous free tier and you'd slide the other way, because there the only cost of overshoot is a bit of capacity nobody missed."
+          "why": "A hard contractual cap makes over-admission a correctness failure, so the admission path needs an exact coordinated quota or preallocated sub-budgets whose total never exceeds 100,000. Billing still needs a separate durable usage ledger: an ephemeral limiter can protect a boundary, but it is not authoritative financial metering."
         },
         {
           "id": "drl-3-4",
@@ -418,7 +628,7 @@
             "Retry until Redis returns"
           ],
           "answer": 1,
-          "why": "There's no universal answer because the two failures are asymmetric in ways that depend on the limit's purpose — failing closed on a courtesy limit turns a Redis blip into a full outage, while failing open on an abuse control invites exactly the flood you built it for. Retrying is the worst option: you add latency to every request during an incident and still have to decide."
+          "why": "For a courtesy limit, fail-open may preserve the more important service availability. For an abuse boundary or a limit protecting a costly resource, fail-closed may prevent unacceptable load or spend; repeated synchronous retries add latency and load while postponing the same policy decision."
         },
         {
           "id": "drl-3-5",
@@ -426,25 +636,25 @@
           "prompt": "You run in three regions. A client's limit is 1,000/minute globally. Should the counter be global?",
           "choices": [
             "Yes — the limit is global, so the counter must be",
-            "Usually not: a global counter means every request pays a cross-region round trip, so most systems give each region a share and accept some imprecision",
+            "Usually not: fixed regional shares keep checks local and never exceed the allocated total, but skewed traffic can strand unused capacity",
             "Yes, using consensus",
             "No — limits should be per-region by policy"
           ],
           "answer": 1,
-          "why": "A truly global counter needs cross-region coordination on every request, which is unit 20's warning and unit 4's physics — you'd add 100ms+ to every call to enforce a number to the digit. Splitting the budget per region keeps the check local, and the imprecision runs the opposite way from what you'd guess: give each of 3 regions 333/min, and a client sending all 900 of their requests to one region gets cut off at 333 while their budget in the other two sits unused. Lopsided traffic under-serves rather than over-serves, and the total can never exceed 1,000. Real systems soften that by letting regions borrow unused budget or rebalancing shares from observed demand. You'd only exceed the global limit the other way around — if each region enforced the full 1,000 and the traffic were evenly spread, a client could get 3,000."
+          "why": "A single exact global bucket adds cross-region coordination to each request. Fixed shares such as 400, 300, and 300 requests/minute sum to exactly 1,000, so they cannot overshoot but can reject in a busy region while another region has unused tokens. Borrowing or delayed reconciliation improves utilization only by introducing a quantified overshoot risk or coordination step."
         },
         {
           "id": "drl-3-6",
           "type": "multiple_choice",
-          "prompt": "What's the honest way to describe a per-region split to a customer?",
+          "prompt": "Traffic is uneven across three regions. Which regional design honestly describes its tradeoff?",
           "choices": [
-            "Say it's exactly 1,000",
-            "Publish it as approximately 1,000 per minute — because a limit you enforce approximately should be documented approximately, or the first support ticket will be about your own spec",
-            "Don't mention it",
-            "Tell them limits are per-region"
+            "Three fixed shares overshoot the global allocation whenever traffic is uneven",
+            "Fixed shares preserve the 1,000 total but may underuse it; independent full allowances can overshoot by up to 2,000; borrowing needs a stated bound",
+            "Delayed reconciliation makes a limit exact at request time",
+            "Any regional design behaves like one global atomic bucket"
           ],
           "answer": 1,
-          "why": "If your enforcement is approximate, an exact promise is a bug you wrote into the docs — and someone will measure it. Saying 'approximately 1,000' is both honest and useful: it tells clients not to build logic that depends on the exact boundary, which is the behaviour you wanted anyway."
+          "why": "If three fixed shares sum to 1,000, aggregate admissions cannot exceed 1,000, but a hot region can reject while tokens sit idle elsewhere. Giving every region the full 1,000 can admit 3,000 before reconciliation, an overshoot of 2,000. Leasing or borrowing can trade between those outcomes only with an explicit lease size, coordination rule, and published bound."
         }
       ]
     },
@@ -455,7 +665,7 @@
         {
           "id": "drl-4-0",
           "type": "concept",
-          "title": "A request count only means something while requests cost the same",
+          "title": "Cost-weighted limits charge requests in resource units",
           "viz": {
             "nodes": [
               {
@@ -490,20 +700,158 @@
             "edges": [
               {
                 "from": "c",
-                "to": "l"
+                "to": "l",
+                "kind": "request"
               },
               {
                 "from": "l",
-                "to": "a"
+                "to": "a",
+                "kind": "request"
               },
               {
                 "from": "l",
-                "to": "b"
+                "to": "b",
+                "kind": "request"
               }
             ]
           },
-          "body": "Your limiter counts requests, which quietly assumes a request is a unit of something. Look at what's behind the door, though. The endpoints your clients call are not interchangeable, not remotely, and the limiter can't see any of it, because it's counting the one thing every request has in common. Whether that's fine depends on a number you haven't checked.",
-          "note": "And cost-weighting has a trap of its own: you must charge before you serve, which means pricing a request you haven't run yet. Sometimes the only honest move is to charge on the way out and settle the difference after."
+          "body": "Assign each operation a token weight based on expected CPU, database, bandwidth, or external-service cost. Admission subtracts that weight from the caller's budget, so an expensive report consumes more capacity than a cached lookup even though both are one HTTP request.",
+          "note": "If actual cost is unknown before execution, reserve an estimate during admission and reconcile the difference after completion."
+        },
+        {
+          "id": "drl-change-2",
+          "type": "system_change",
+          "prompt": "A single image export consumes about as much compute as 20 profile reads, but both currently cost one token. Protect capacity using work-based prices.",
+          "actionLabel": "Charge weighted tokens",
+          "beforeStatus": "LIMIT · export = 1 token · profile read = 1 token",
+          "afterStatus": "LIMIT · export = 20 tokens · profile read = 1 token",
+          "result": "Expensive operations now consume proportionate capacity from the budget",
+          "viz": {
+            "nodes": [
+              {
+                "id": "e",
+                "label": "Image exports",
+                "sub": "heavy",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "p",
+                "label": "Profile reads",
+                "sub": "light",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Request counter",
+                "sub": "each costs 1",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "e",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "p",
+                "to": "l",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "e",
+                "label": "Image export",
+                "sub": "20 tokens",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "p",
+                "label": "Profile read",
+                "sub": "1 token",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Weighted bucket",
+                "sub": "compute budget",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "e",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "p",
+                "to": "l",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Request counts protect capacity only when requests have similar cost. Weighted tokens approximate CPU, database, or downstream work. Measure real resource use and revise weights as implementations change."
+        },
+        {
+          "id": "design-rate-limiter-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A single image export consumes about as much compute as 20 profile reads, but both currently cost one token. Protect capacity using work-based prices. Place Weighted bucket. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "e",
+                "label": "Image export",
+                "sub": "20 tokens",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "p",
+                "label": "Profile read",
+                "sub": "1 token",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "sub": "compute budget",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "e",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "p",
+                "to": "l",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Weighted bucket",
+            "Every request",
+            "Rate limiter"
+          ],
+          "answer": {
+            "l": "Weighted bucket"
+          },
+          "why": "The completed diagram contains these directed flows: Image export → Weighted bucket; Profile read → Weighted bucket. That topology is the evidence for the answer: Request counts protect capacity only when requests have similar cost. Weighted tokens approximate CPU, database, or downstream work. Measure real resource use and revise weights as implementations change."
         },
         {
           "id": "drl-4-1",
@@ -516,7 +864,7 @@
             "The cached endpoint shouldn't be limited"
           ],
           "answer": 1,
-          "why": "Counting requests is only meaningful while requests are roughly interchangeable, which is exactly unit 17's warning and unit 12's round-robin problem in a different costume. The fix is to charge by cost — expensive endpoints deduct more tokens — so the budget tracks the resource you're actually protecting rather than a number that happens to be easy to count."
+          "why": "One report request can consume much more CPU or database time than one cached lookup, so equal request counts do not represent equal resource use. Weighted tokens charge expensive endpoints more and align the enforced budget with the constrained resource."
         },
         {
           "id": "drl-4-2",
@@ -533,7 +881,7 @@
             1,
             2
           ],
-          "why": "It must be more available than what it protects, fast enough to disappear into the request, and explicit about its own failure — those follow from sitting in front of 100% of traffic. Durability is the one it doesn't need: losing counters means a brief window of unlimited traffic, and counters rebuild within a window, so it's derived state in unit 5's sense."
+          "why": "Because the limiter is on the critical path, it needs low latency, high availability, and a defined store-failure policy. Window counters are derived and expire quickly, so durable recovery is often less important than continued enforcement or a controlled fail-open behavior."
         },
         {
           "id": "drl-4-3",
@@ -546,7 +894,7 @@
             "In the client SDK"
           ],
           "answer": 1,
-          "why": "A rejection that happens after you've parsed a body, authenticated, and queried the database has already spent everything you were trying to save. The awkward part is that limiting by API key needs identity, so you want authentication early too — which is why gateways typically do both, cheaply, before any real work begins."
+          "why": "Rejecting at an edge gateway avoids body parsing and downstream application or database work. If the limit key depends on identity, the gateway must perform enough inexpensive authentication to derive that identity before applying the counter."
         },
         {
           "id": "drl-4-4",
@@ -559,7 +907,7 @@
             "A backlog"
           ],
           "answer": 1,
-          "why": "Giving many clients an identical instruction about time schedules a thundering herd, and the clients did exactly what you asked — this is unit 17's trap and it's the same shape as unit 20's split votes. Jitter the value you hand out so retries spread across an interval, because any time you make clients agree on a moment, you've built a stampede."
+          "why": "An identical `Retry-After: 60` aligns 10,000 clients on the same retry instant, creating another traffic spike. Adding random jitter to the delay spreads attempts across an interval while still communicating when capacity is expected to return."
         },
         {
           "id": "drl-4-5",
@@ -572,7 +920,7 @@
             "A better algorithm"
           ],
           "answer": 1,
-          "why": "Per-client limits answer 'is this client being unfair?' and say nothing about 'can we serve this much in total' — every client can be perfectly compliant while the sum exceeds your fleet. That's unit 17's composition problem at the top level, and it's why real front doors have both: fairness limits per client, and a global shed valve that doesn't care whose request it is."
+          "why": "A per-client limit enforces fairness independently, so the sum of many compliant clients can still exceed fleet capacity. A separate global concurrency or traffic limit sheds aggregate load when the service is saturated, regardless of which clients generated it."
         },
         {
           "id": "drl-4-6",
@@ -580,12 +928,324 @@
           "prompt": "Summarize the rate limiter design.",
           "choices": [
             "A counter in Redis with a TTL",
-            "An atomic check on sharded counters, run at the edge before you spend anything — with a local approximate filter in front, a deliberate failure policy, cost-weighted charging, and a global shed valve behind it",
+            "An atomic token-bucket check on sharded shared state, run before backend work — with deliberate failure, regional-budget, hotspot, and overload policies",
             "A token bucket per user",
             "A middleware that counts requests"
           ],
           "answer": 1,
-          "why": "The algorithm was the easy part; what makes it a system is that it sees every request, so its own latency, availability, and failure mode become everyone's. Every hard decision came back to one question this course has asked since unit 5 — where does the counter live — and each answer traded exactness against latency, availability, and the cost of being wrong."
+          "why": "A distributed token bucket stores tokens and refill time per limit key and updates them atomically before admitting work. Key sharding distributes customers, while regional budgets, hot-key handling, cost-weighted tokens, overload shedding, and fail-open or fail-closed behavior define the tradeoffs among precision, latency, availability, and backend protection."
+        }
+      ]
+    },
+    {
+      "id": "drl-5",
+      "title": "Review the complete limiter",
+      "exercises": [
+        {
+          "id": "drl-5-0",
+          "type": "concept",
+          "title": "The limiter is a control-plane decision on the request path, not a proxy for backend work",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client request",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g",
+                "label": "Gateway",
+                "sub": "derive limit key",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Bucket shard",
+                "sub": "atomic consume",
+                "col": 2,
+                "kind": "storage"
+              },
+              {
+                "id": "s",
+                "label": "Backend",
+                "sub": "only if allowed",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "g",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "b",
+                "kind": "data"
+              },
+              {
+                "from": "g",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "body": "The gateway derives a policy key such as tenant, API key, endpoint class, and region. Consistent routing sends that key to one authoritative bucket shard, which atomically refills and consumes tokens. An allow decision returns to the gateway; the gateway—not the bucket store—continues the request to the backend.",
+          "note": "Sharding aggregate checks does not split one hot key. A tenant that exceeds one shard's capacity needs hierarchical limits, admission before expensive parsing, or an explicitly partitionable policy."
+        },
+        {
+          "id": "drl-review-change",
+          "type": "system_change",
+          "prompt": "Every request waits on a global counter store in Virginia. European API latency gains 90ms, even though limits permit bounded regional overshoot.",
+          "actionLabel": "Allocate regional token budgets",
+          "choices": [
+            "Keep the global hop for every request",
+            "Lease bounded token budgets to regional limiters and reconcile usage",
+            "Disable limits in Europe"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "The design preserves exactness but violates the accepted latency tradeoff.",
+            "Regional leases bound total overshoot while moving ordinary decisions near traffic.",
+            "Disabling enforcement creates unbounded exposure rather than a stated tradeoff."
+          ],
+          "beforeStatus": "EU REQUEST · +90ms global counter round trip",
+          "afterStatus": "EU REQUEST · local atomic consume · bounded leased budget",
+          "result": "Latency improves while overshoot remains explicitly bounded",
+          "viz": {
+            "nodes": [
+              {
+                "id": "e",
+                "label": "EU gateway",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "v",
+                "label": "Virginia counter",
+                "sub": "90ms RTT",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "e",
+                "to": "v",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "g",
+                "label": "Global allocator",
+                "sub": "leases budgets",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "e",
+                "label": "EU limiter",
+                "sub": "local budget",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "u",
+                "label": "US limiter",
+                "sub": "local budget",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "g",
+                "to": "e",
+                "kind": "data"
+              },
+              {
+                "from": "g",
+                "to": "u",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "When the requirement permits bounded inaccuracy, leasing partitions the global budget rather than pretending independent regional limits remain global. Lease size controls the maximum unused or overspent capacity during delay and partition."
+        },
+        {
+          "id": "design-rate-limiter-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Every request waits on a global counter store in Virginia. European API latency gains 90ms, even though limits permit bounded regional overshoot. Place EU limiter, US limiter. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "g",
+                "label": "Global allocator",
+                "sub": "leases budgets",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "e",
+                "sub": "local budget",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "u",
+                "sub": "local budget",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "g",
+                "to": "e",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "u",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "EU limiter",
+            "US limiter",
+            "Every request",
+            "Rate limiter"
+          ],
+          "answer": {
+            "e": "EU limiter",
+            "u": "US limiter"
+          },
+          "why": "The completed diagram contains these directed flows: Global allocator → EU limiter; Global allocator → US limiter. That topology is the evidence for the answer: When the requirement permits bounded inaccuracy, leasing partitions the global budget rather than pretending independent regional limits remain global. Lease size controls the maximum unused or overspent capacity during delay and partition."
+        },
+        {
+          "id": "drl-5-1",
+          "type": "match_pairs",
+          "prompt": "Match each limiter record field to the decision it supports.",
+          "pairs": [
+            {
+              "left": "Limit key",
+              "right": "Identifies the principal and policy bucket being charged"
+            },
+            {
+              "left": "Token balance",
+              "right": "Represents currently spendable capacity"
+            },
+            {
+              "left": "Last refill time",
+              "right": "Computes elapsed replenishment inside the atomic operation"
+            },
+            {
+              "left": "Policy version",
+              "right": "Prevents stale configuration from silently applying the wrong budget"
+            }
+          ],
+          "why": "An atomic bucket operation needs identity, balance, and elapsed-time state. Versioning connects runtime counters to the policy that created them, which matters during gradual configuration rollout and rollback."
+        },
+        {
+          "id": "drl-5-2",
+          "type": "multi_select",
+          "prompt": "A design review finds per-server counters, read-then-write token updates, one token for every endpoint, and immediate retries after `429`. Which failures follow? Select all.",
+          "choices": [
+            "Clients multiply their limit by the server count",
+            "Concurrent checks overspend the same tokens",
+            "Expensive operations remain underpriced",
+            "Rejected clients can synchronize into another traffic spike"
+          ],
+          "answer": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "why": "Each defect violates a different part of enforcement: shared identity, atomic consumption, cost modelling, and retry behavior. A rate limiter protects capacity only when the whole request path and client response are designed together."
+        },
+        {
+          "id": "drl-5-3",
+          "type": "build_diagram",
+          "prompt": "Build the allowed-request path: one gateway derives the key, one bucket shard decides, and backend work starts only after allow.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "atomic decision",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "allowed branch",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Gateway · derive policy key",
+            "Authoritative bucket shard",
+            "Backend service",
+            "Bucket store as request proxy"
+          ],
+          "answer": {
+            "h1": "Gateway · derive policy key",
+            "h2": "Authoritative bucket shard",
+            "h3": "Backend service"
+          },
+          "why": "The gateway sends a small decision request to the one shard responsible for the key. An allow result returns to the gateway, which then invokes the backend. The bucket store is authoritative for admission state but never carries application traffic."
+        },
+        {
+          "id": "xfer-drl",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "An AI endpoint allows 100 requests/minute, but one request costs 1 token and another costs 100,000. What should admission consume?",
+          "choices": [
+            "Database rows",
+            "Cost-weighted tokens based on protected work",
+            "Exactly one token per HTTP request",
+            "Only response status codes"
+          ],
+          "answer": 1,
+          "why": "Request count is not a useful capacity proxy when work varies by five orders of magnitude. Weighted tokens align admission with the constrained compute or spend budget."
         }
       ]
     }

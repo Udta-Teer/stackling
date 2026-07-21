@@ -2,7 +2,7 @@
   "unitId": "consensus",
   "tier": 3,
   "title": "Consensus & Leader Election",
-  "subtitle": "How machines that can't trust the network agree on one answer",
+  "subtitle": "Reach one ordered decision despite delayed messages, crashes, and leadership changes",
   "objectives": [
     "Explain why agreement is hard when messages can be lost, delayed, or duplicated",
     "Describe how majority quorums make split-brain impossible rather than unlikely",
@@ -17,9 +17,182 @@
         {
           "id": "cons-1-0",
           "type": "concept",
-          "title": "You cannot tell a dead machine from a slow one — every hard part of consensus grows from that",
-          "body": "You send a message and hear nothing back. Is the peer dead? Slow? Was your message lost, or was its reply? From the outside these are *identical*, and no cleverness makes silence speak: a reply you're still waiting for and a reply that will never come look exactly the same — right up until one of them arrives, or doesn't.",
-          "note": "Consensus squeezes one decision out of that fog anyway. Before you read a single algorithm, ask what it could honestly promise — and what nothing could promise while a message is still allowed to vanish."
+          "title": "A timeout suspects failure but cannot prove that a remote node stopped",
+          "body": "In an asynchronous network, a missing reply can mean the peer crashed, the request was lost, the response was lost, or either message is delayed. A timeout converts that uncertainty into a local suspicion so the protocol can retry or start an election; it does not establish the peer's state.",
+          "note": "Consensus protocols preserve safety despite false suspicions. Progress can pause during prolonged delay because agreement cannot depend on distinguishing delay from failure."
+        },
+        {
+          "id": "cons-change-1",
+          "type": "system_change",
+          "prompt": "A leader acknowledges a write before any follower stores it. Require a majority to store the log entry before acknowledging.",
+          "actionLabel": "Wait for a majority",
+          "beforeStatus": "LEADER FAILURE · acknowledged write is lost · 1 of 3 copies stored it",
+          "afterStatus": "LEADER FAILURE · committed write survives · 2 of 3 copies stored it",
+          "result": "The acknowledged write survived leader loss",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "ack received",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "only copy",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "f1",
+                "label": "Follower A",
+                "sub": "no entry",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "f2",
+                "label": "Follower B",
+                "sub": "no entry",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "f1",
+                "kind": "broken",
+                "label": "not replicated"
+              },
+              {
+                "from": "l",
+                "to": "f2",
+                "kind": "broken",
+                "label": "not replicated"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "ack after quorum",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "label": "Leader",
+                "sub": "entry stored",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "f1",
+                "label": "Follower A",
+                "sub": "entry stored",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "f2",
+                "label": "Follower B",
+                "sub": "may lag",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "f1",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "In a three-node consensus group, storing an entry on a majority means at least two nodes have it before acknowledgment. Election rules must also prevent a candidate missing committed entries from becoming leader; majority storage alone is not the entire protocol."
+        },
+        {
+          "id": "consensus-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: A leader acknowledges a write before any follower stores it. Require a majority to store the log entry before acknowledging. Place Leader, Follower A, Follower B. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "sub": "ack after quorum",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "l",
+                "sub": "entry stored",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "f1",
+                "sub": "entry stored",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "f2",
+                "sub": "may lag",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "f1",
+                "kind": "replication",
+                "label": "quorum copy"
+              },
+              {
+                "from": "l",
+                "to": "f2",
+                "kind": "optional",
+                "label": "may lag"
+              }
+            ]
+          },
+          "palette": [
+            "Leader",
+            "Follower A",
+            "Follower B",
+            "Writes",
+            "Follower"
+          ],
+          "answer": {
+            "l": "Leader",
+            "f1": "Follower A",
+            "f2": "Follower B"
+          },
+          "why": "The completed diagram contains these directed flows: Client → Leader; Leader → Follower A. That topology is the evidence for the answer: In a three-node consensus group, storing an entry on a majority means at least two nodes have it before acknowledgment. Election rules must also prevent a candidate missing committed entries from becoming leader; majority storage alone is not the entire protocol.",
+          "connectEdges": true
         },
         {
           "id": "cons-1-1",
@@ -32,7 +205,7 @@
             "They'd need a database"
           ],
           "answer": 1,
-          "why": "Voting is trivial when everyone reliably hears everyone; the difficulty is that the network gives you no such promise, and silence is ambiguous. A node observing nothing cannot distinguish a dead peer from a slow one from a lost message — which is unit 10's 'dead or just slow?' being the fundamental obstacle rather than an annoyance."
+          "why": "A node cannot distinguish a failed peer from a slow peer or a lost message by observing silence. Consensus protocols must preserve one decision despite those ambiguous failures and differing views of which nodes are reachable."
         },
         {
           "id": "cons-1-2",
@@ -45,7 +218,7 @@
             "It does solve it"
           ],
           "answer": 1,
-          "why": "A timeout is a decision procedure for an undecidable question, so it doesn't remove the ambiguity — it converts it into a configurable error. This is the same shape as the failover timeout from unit 10 and the health check interval from unit 12, which is the point: these aren't three problems, they're one problem you keep meeting."
+          "why": "A timeout marks a peer as suspected after no response arrives within a chosen interval. Network delay, packet loss, pauses, and actual peer failure can all produce that observation. Short intervals reduce failure-detection time and increase false suspicions during transient delays; long intervals reduce false suspicions and extend failover time."
         },
         {
           "id": "cons-1-3",
@@ -58,7 +231,7 @@
             "Partitioning"
           ],
           "answer": 0,
-          "why": "One value, many machines, an unreliable network — and everyone must end up believing the same thing, or the disagreement becomes corruption."
+          "why": "Consensus makes nonfailed participants choose one value despite node or network failures. Agreement prevents different machines from committing incompatible leaders, log entries, or configuration state."
         },
         {
           "id": "cons-1-4",
@@ -71,7 +244,7 @@
             "The slower one gives up"
           ],
           "answer": 1,
-          "why": "This is unit 10's split brain, and it's the failure consensus exists to prevent: two authorities means two truths, and truths that diverged independently can't be reconciled by any rule you invent afterwards. Note it's worse than an outage — an outage stops and recovers, whereas divergence silently corrupts and you find out later."
+          "why": "Two leaders can accept conflicting operations and produce divergent histories, a failure called split brain. Consensus restricts leadership and commits to quorum-backed terms so only one authoritative history can advance."
         },
         {
           "id": "cons-1-5",
@@ -88,7 +261,7 @@
             1,
             2
           ],
-          "why": "Agreement, validity, and eventual termination are what these algorithms actually promise. Speed is not on the list, and can't be: the FLP result says that with even one possible failure and no timing assumptions, no algorithm can guarantee it always terminates — which is why real systems lean on timeouts and accept 'usually fast, occasionally stalls' as the honest deal."
+          "why": "Consensus requires agreement, validity of the chosen value, and termination under stated liveness assumptions. The Fischer-Lynch-Paterson result shows that deterministic consensus cannot guarantee termination in a fully asynchronous system with even one crash failure, so practical protocols rely on timing assumptions and may stall."
         },
         {
           "id": "cons-1-6",
@@ -96,12 +269,12 @@
           "prompt": "So why is 'agreement' the property worth paying for?",
           "choices": [
             "It makes the system faster",
-            "Because disagreement isn't a delay — it's divergent state that no later process can repair, so preventing it is worth waiting for",
+            "Because conflicting committed decisions can violate an invariant, such as granting one lock to two owners, while a delayed decision preserves safety",
             "It reduces storage",
             "It simplifies the code"
           ],
           "answer": 1,
-          "why": "A stalled decision costs you time and resolves; a wrong decision costs you your data's integrity and doesn't. That asymmetry justifies the entire expense of consensus — you're buying the impossibility of a failure that has no cleanup, using a currency (latency) that you can recover from."
+          "why": "Consensus prioritizes safety: nodes may delay a decision when they cannot establish quorum, but they must not commit incompatible values. Some divergent application data can be reconciled later; two simultaneously valid lock owners or incompatible committed log histories can already have triggered irreversible external actions."
         }
       ]
     },
@@ -112,9 +285,9 @@
         {
           "id": "cons-2-0",
           "type": "concept",
-          "title": "A majority cannot happen twice at once — that's arithmetic, not policy",
-          "body": "Require more than half the nodes to agree before anything counts. That one rule does something stronger than it looks. Split the cluster any way you like, and split brain doesn't become *unlikely*. It becomes impossible. Not by policy, not by trust, not by anyone behaving well. By counting. Do the arithmetic yourself and you have the whole idea.",
-          "note": "A trap in the counting: a majority means a majority of the *configured* members, not of the nodes still alive. Lowering the bar means a config change — which itself needs a quorum you no longer have."
+          "title": "Majority quorums intersect in at least one voting member",
+          "body": "For `N` configured voters, a majority contains more than `N/2` members. Any two majorities overlap, so disjoint sides of a partition cannot each form a majority under one configuration. In a crash-fault protocol, at most one side can continue quorum-gated work.",
+          "note": "The threshold is computed from configured membership, not reachable nodes. Removing failed voters requires a safely committed membership change."
         },
         {
           "id": "cons-2-1",
@@ -127,7 +300,7 @@
             "The rule is enforced by a coordinator"
           ],
           "answer": 1,
-          "why": "It's arithmetic doing the safety work: two groups that don't overlap can't both have more than half, so the majority rule makes two simultaneous leaders impossible rather than unlikely. That's the crucial word — impossible. The 2-node side isn't trusted to behave; it's mathematically unable to gather the votes."
+          "why": "Any two majorities of the same five-node membership overlap. The three-node side can obtain a majority, while the two-node side cannot, preventing both partition sides from independently electing leaders."
         },
         {
           "id": "cons-2-2",
@@ -140,7 +313,7 @@
             "It's a convention"
           ],
           "answer": 1,
-          "why": "Majority of 3 is 2, so 3 nodes survive 1 failure; majority of 4 is 3, so 4 nodes also survive only 1. You paid for another machine and bought exactly nothing in fault tolerance — and gave yourself one more thing that can break. Going 3 → 5 is what buys the second failure, which is why cluster sizes step by twos."
+          "why": "Three nodes require two votes and four nodes require three, so both configurations continue after only one unavailable node. Five nodes require three votes and therefore add tolerance for a second unavailable node."
         },
         {
           "id": "cons-2-3",
@@ -149,7 +322,7 @@
           "answer": 3,
           "tolerance": 0,
           "unit": "nodes",
-          "why": "Majority of 7 is 4, so as long as 4 remain you have a quorum — meaning 3 can fail. The general rule is that 2f+1 nodes tolerate f failures, which is why 3 tolerates 1 and 5 tolerates 2."
+          "why": "A seven-node cluster requires four votes for a majority, so it remains live with any four reachable nodes and tolerates three unavailable nodes. In general, `2f+1` voting nodes tolerate `f` unavailable nodes."
         },
         {
           "id": "cons-2-4",
@@ -162,7 +335,7 @@
             "No — committed writes are always lost during a failover"
           ],
           "answer": 1,
-          "why": "Overlap gets you halfway. Two majorities of the same set always share a member, so the electing group definitely contains someone holding every committed write — but that's a fact about the VOTERS, not the candidate. Without more, a node with a stale log could still collect a majority and be elected while missing committed entries. Raft closes the gap with an election restriction: a voter grants its vote only if the candidate's log is at least as up to date as its own, so the only candidate who can win is one that already has those writes. Overlap plus that rule is what makes committed data survive a leader dying — and the gap between them is exactly the kind of subtlety that makes hand-rolled consensus lose data."
+          "why": "Quorum overlap ensures the election voters include a node with every committed entry, but it does not ensure the candidate has those entries. Raft voters grant a vote only when the candidate's log is at least as up to date as their own, so a candidate missing committed history cannot win."
         },
         {
           "id": "cons-2-5",
@@ -175,7 +348,7 @@
             "A random group is elected"
           ],
           "answer": 1,
-          "why": "No group of 2 or 1 can reach 3, so nobody can be elected and nothing can be committed — the cluster is fully down while every node is perfectly healthy. That is CP behaving exactly as designed: it chose consistency, and this is what choosing consistency costs on a bad day. A system that stayed up here would be a system willing to fork its own history."
+          "why": "A five-node cluster requires three votes, and no partition group has three. Without a quorum, no leader can be elected and no entry can be committed, preserving one history by making writes unavailable."
         },
         {
           "id": "cons-2-6",
@@ -188,7 +361,7 @@
             "Only with encryption"
           ],
           "answer": 1,
-          "why": "The failure model matters as much as the algorithm: Raft and Paxos handle crash-stop faults, where a node either works correctly or stops, and that assumption is what makes them affordable. Tolerating malicious or arbitrarily buggy nodes needs Byzantine protocols with more nodes and more rounds — which is why they show up in blockchains, where participants genuinely aren't trusted, and almost never inside your own datacenter."
+          "why": "Raft and Paxos assume crash faults: a node follows the protocol until it stops or becomes unreachable. Byzantine faults allow arbitrary or malicious behavior and require Byzantine fault-tolerant protocols with additional replicas and communication rounds."
         }
       ]
     },
@@ -199,7 +372,7 @@
         {
           "id": "cons-3-0",
           "type": "concept",
-          "title": "Consensus buys you an order-giver, not an escape from the majority",
+          "title": "A consensus leader assigns one order to proposed operations",
           "viz": {
             "nodes": [
               {
@@ -233,20 +406,87 @@
             "edges": [
               {
                 "from": "w",
-                "to": "lead"
+                "to": "lead",
+                "kind": "request"
               },
               {
                 "from": "lead",
-                "to": "f1"
+                "to": "f1",
+                "kind": "request"
               },
               {
                 "from": "lead",
-                "to": "f2"
+                "to": "f2",
+                "kind": "request"
               }
             ]
           },
-          "body": "Without a leader, every write needs its own negotiation — several round trips spent settling whose write goes first. Notice what's expensive there: not the storing, the arguing. And notice exactly what a leader does and doesn't remove. It ends the argument about order. It does not excuse one write from reaching a majority. You still pay that, every time.",
-          "note": "And an order-giver comes with a ceiling: every write funnels through one machine, so the leader's capacity is the cluster's write capacity. More nodes buy durability and fault tolerance — never write throughput."
+          "body": "Clients send writes to the current leader. The leader appends each operation to its log, assigns its position, replicates the entry to followers, and commits it after the protocol's quorum rule is satisfied. Followers apply committed entries in that order.",
+          "note": "In a single-leader design, leader CPU, network, or storage often bounds write throughput. Additional followers primarily add fault tolerance and read capacity."
+        },
+        {
+          "id": "consensus-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: A consensus leader assigns one order to proposed operations",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "Writes",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lead",
+                "sub": "orders them",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "f1",
+                "sub": "must ack",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "f2",
+                "sub": "must ack",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "lead",
+                "kind": "request"
+              },
+              {
+                "from": "lead",
+                "to": "f1",
+                "kind": "request"
+              },
+              {
+                "from": "lead",
+                "to": "f2",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Leader",
+            "Follower A",
+            "Follower B",
+            "Client",
+            "Candidate with stale log"
+          ],
+          "answer": {
+            "lead": "Leader",
+            "f1": "Follower A",
+            "f2": "Follower B"
+          },
+          "why": "Clients send writes to the current leader. The leader appends each operation to its log, assigns its position, replicates the entry to followers, and commits it after the protocol's quorum rule is satisfied. Followers apply committed entries in that order. In a single-leader design, leader CPU, network, or storage often bounds write throughput. Additional followers primarily add fault tolerance and read capacity."
         },
         {
           "id": "cons-3-1",
@@ -254,12 +494,12 @@
           "prompt": "Why elect a single leader at all, if consensus can decide any value?",
           "choices": [
             "Leaders are faster machines",
-            "Because running full consensus for every operation is expensive — elect once, and then one node can sequence writes cheaply until it fails",
+            "Because one leader proposes a single log order, so followers validate and replicate that order instead of negotiating competing orders for each entry",
             "It's required by the network",
             "To reduce storage"
           ],
           "answer": 1,
-          "why": "Consensus is the expensive part, so you spend it rarely — on 'who decides?' — and then the leader orders operations by itself, turning per-write agreement into per-write replication. This is unit 10's single-leader design earning its keep: one writer removes conflicts by construction, and now you know how the leader gets chosen safely."
+          "why": "Consensus elects one leader and establishes its term. The leader assigns log order, then replicates each entry to a majority before commitment; writes still require quorum replication, while the leader provides a single proposed order."
         },
         {
           "id": "cons-3-2",
@@ -268,11 +508,11 @@
           "steps": [
             "Followers hear nothing from the leader for a timeout",
             "One follower becomes a candidate and increments the term",
-            "It requests votes from every other node",
-            "Nodes grant a vote if they haven't already voted in that term",
+            "It requests votes with its last log term and index",
+            "A node grants at most one vote in the term, and only if the candidate's log is at least as up to date as its own",
             "With a majority, the candidate becomes leader and starts sending heartbeats"
           ],
-          "why": "Silence starts it, a term number labels the attempt, and a majority ends it. The heartbeat is what keeps the peace: as long as followers hear from the leader they never start an election, so the leader's continued existence is asserted continuously rather than assumed."
+          "why": "A follower starts an election after missing heartbeats, increments the term, and includes its last log term and index in each vote request. A voter grants at most one vote in that term and rejects a candidate with an older log. That election restriction prevents a candidate missing committed history from winning a majority."
         },
         {
           "id": "cons-3-3",
@@ -285,7 +525,7 @@
             "Numbering the log entries"
           ],
           "answer": 1,
-          "why": "Terms give you an ordering of leadership epochs without needing a wall clock anyone agrees on — the exact problem unit 19 flagged with last-write-wins. A deposed leader that wakes up still believing it's in charge is carrying an old term number, so every node it contacts can tell instantly that it's behind and refuse it."
+          "why": "A term is a monotonically increasing logical leadership epoch. Nodes reject messages from older terms and update themselves when they observe a newer one, so a delayed former leader cannot continue authoritatively after a later election."
         },
         {
           "id": "cons-3-4",
@@ -298,20 +538,27 @@
             "They take turns"
           ],
           "answer": 1,
-          "why": "Identical timeouts make nodes act in unison, which is exactly what causes repeated split votes — the same synchronization trap as unit 17's clients all obeying one `Retry-After`. Randomizing breaks the symmetry cheaply: someone times out first, requests votes while everyone else is still waiting, and the round resolves."
+          "why": "Identical election timeouts make followers become candidates together and split available votes. Randomized timeouts usually let one follower request votes before the others, increasing the chance that one candidate obtains a majority in that term."
+        },
+        {
+          "id": "cons-3-fencing-concept",
+          "type": "concept",
+          "title": "A fencing token lets the resource reject a stale leader",
+          "body": "A paused leader can outlive its lease: token 5 pauses, the lease expires, and a new leader receives token 6. The protected resource remembers the highest token accepted. When token 5 resumes, the resource rejects its write because 5 is older than 6.",
+          "note": "The resource that receives the side effect must compare tokens. Issuing tokens only at the lock service cannot stop a stale client from writing elsewhere."
         },
         {
           "id": "cons-3-5",
           "type": "multiple_choice",
-          "prompt": "A leader is deposed while paused, but doesn't know it. It wakes up and writes to shared storage. How do you stop it corrupting data?",
+          "prompt": "Storage has accepted fencing token 42. A delayed former leader sends a write with token 41. What must storage do?",
           "choices": [
-            "Trust its heartbeat",
-            "Fencing tokens: every leader gets a monotonically increasing number, storage remembers the highest it has seen, and a write carrying an older token is rejected",
-            "Kill the process first",
-            "Use a longer timeout"
+            "Accept it because token 41 was once valid",
+            "Reject it because 41 is lower than the highest accepted token 42",
+            "Ask the lock service whether process 41 is alive",
+            "Accept it if the write arrived within one timeout"
           ],
           "answer": 1,
-          "why": "You can't prevent a paused leader from waking up and acting, so the protection must live at the resource rather than rely on the leader behaving. Fencing makes the storage itself the arbiter: it has seen token 6, so a write stamped 5 is provably from a deposed leader and gets refused. This is unit 10's fencing made concrete — and note the resource must participate, since a lock service alone cannot stop a client that's stopped listening."
+          "why": "Accepting token 42 proves that newer authority exists. The protected resource must reject every lower token, so a paused leader cannot apply a stale write after its lease expires even when that process never learned it was replaced."
         },
         {
           "id": "cons-3-6",
@@ -324,7 +571,7 @@
             "They're rejected permanently"
           ],
           "answer": 1,
-          "why": "No leader means nobody may order writes, so an election is a small planned outage measured in the election timeout — typically hundreds of milliseconds to seconds. That's the price of single-leader safety, and it's why timeout tuning is a real tradeoff: shorter means faster recovery and more spurious elections during blips, longer means fewer false alarms and a longer write outage when a leader genuinely dies."
+          "why": "Writes pause from leader loss until a new leader wins an election and can establish log authority. Shorter election timeouts reduce this outage but cause more unnecessary elections during delay spikes; longer timeouts reverse that tradeoff."
         }
       ]
     },
@@ -335,9 +582,9 @@
         {
           "id": "cons-4-0",
           "type": "concept",
-          "title": "The right amount of consensus to implement yourself is none",
-          "body": "Raft reads like something you could build in a weekend. It isn't. The bugs live in interleavings you'd never think to test — a node pausing at exactly the wrong instant, a message arriving after you assumed it couldn't. And they don't crash anything, which is the horror. They quietly fork your data, and you find out months later, from a customer.",
-          "note": "So the real decision was never \"which algorithm\". It's \"does this even need agreement?\" — and the test is what two different answers would actually cost you. Most data fails that test, which is the good news."
+          "title": "Production consensus requires durable protocol state and tested recovery logic",
+          "body": "Production Raft and Paxos implementations must preserve agreement across crashes, delayed or reordered messages, elections, and membership changes. They persist terms, votes, and log entries before replying at specific protocol steps. A missed persistence or recovery rule can create two committed histories.",
+          "note": "Use a maintained consensus service or library when conflicting decisions would violate correctness. Application code must still handle timeouts and stale leaders safely."
         },
         {
           "id": "cons-4-1",
@@ -350,7 +597,7 @@
             "Fine, if you write tests"
           ],
           "answer": 1,
-          "why": "Raft is understandable to read and brutal to implement correctly, because the bugs live in rare interleavings — a node pausing at exactly the wrong moment, a message arriving after you assumed it couldn't. Those don't show up in tests; they show up as divergent data in production months later. Mature implementations have absorbed years of exactly those, which is what you're actually buying."
+          "why": "Consensus safety depends on handling rare combinations of delayed messages, restarts, partial persistence, and concurrent elections. Mature implementations have extensive testing and production fixes for these interleavings, while a subtle local bug can create divergent committed state."
         },
         {
           "id": "cons-4-2",
@@ -367,32 +614,144 @@
             1,
             2
           ],
-          "why": "Leadership, locks, and membership share one property: two different answers is a catastrophe, so paying for agreement is worth it. Page views are the opposite — a count that's briefly off by three costs nothing, so coordinating every increment would buy a guarantee nobody needed. The test is simply whether disagreement corrupts something or merely annoys someone."
+          "why": "Leadership, lock ownership, and cluster membership require one authoritative value because conflicting answers permit unsafe concurrent actions. Page-view increments can merge after temporary disagreement, so per-increment consensus adds latency without protecting a required invariant."
         },
         {
           "id": "cons-4-3",
-          "type": "multiple_choice",
-          "prompt": "Why is running consensus across regions usually a bad idea?",
-          "choices": [
-            "Regions can't communicate",
-            "Every decision needs a majority to reply, so a cross-region quorum means every write waits on a round trip of ~100ms or more — the speed of light becomes your write latency",
-            "It's not supported",
-            "Regions have different clocks"
-          ],
-          "answer": 1,
-          "why": "Consensus is round trips, and a round trip across the planet is unit 4's physics rather than a tuning problem — a cross-continent quorum makes every write cost hundreds of milliseconds, forever. That's why most systems keep the consensus group inside one region and replicate asynchronously across them, accepting the failure modes of unit 10 in exchange for writes that don't wait on an ocean."
+          "type": "estimate",
+          "prompt": "A 3-voter cluster has its leader in Virginia. Follower round-trip times are 12ms to Ohio and 80ms to Frankfurt. Ignoring disk and client time, what is the fastest network wait for the leader to replicate a write to a majority?",
+          "answer": 12,
+          "tolerance": 0,
+          "unit": "ms",
+          "why": "A majority of three is two voters, and the leader already supplies one vote, so the fastest quorum needs Ohio's acknowledgement after one 12 ms round trip; it need not wait for Frankfurt. Replica placement therefore sets commit latency. Cross-region voters may still be justified when the required failure domain includes an entire region."
         },
         {
           "id": "cons-4-4",
-          "type": "tradeoff_slider",
-          "prompt": "You need a distributed lock so only one worker runs a nightly job. Slide toward your approach.",
-          "leftLabel": "Real consensus service (etcd/ZooKeeper)",
-          "rightLabel": "A row in your existing database",
-          "answerRange": [
-            55,
-            100
+          "type": "build_diagram",
+          "prompt": "Two workers may start the same nightly job. Build the authority path that prevents a paused former holder from applying a stale external effect.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "workers",
+                "label": "Job Workers",
+                "sub": "compete",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "claim",
+                "sub": "lease + token",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "fence",
+                "sub": "check authority",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "target",
+                "label": "Effect Target",
+                "sub": "one accepted writer",
+                "col": 3,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "workers",
+                "to": "claim",
+                "kind": "request"
+              },
+              {
+                "from": "claim",
+                "to": "fence",
+                "kind": "request"
+              },
+              {
+                "from": "fence",
+                "to": "target",
+                "kind": "data"
+              }
+            ]
+          },
+          "palette": [
+            "Consensus-backed Claim",
+            "Fencing Check at Target",
+            "Best-effort Status Row",
+            "Long Worker Timeout"
           ],
-          "why": "For one nightly job, a conditional insert or update in the database you already run gives you mutual exclusion with a component you already operate — and if two workers ever both ran, you'd rerun a job rather than lose money. Reach for a dedicated consensus service when the lock protects something where double-execution is genuinely unacceptable, and you're willing to run and understand another distributed system to get it."
+          "answer": {
+            "claim": "Consensus-backed Claim",
+            "fence": "Fencing Check at Target"
+          },
+          "why": "The consensus-backed claim grants one lease with a monotonically increasing token, and the effect target accepts only tokens at least as new as the highest it has seen. If the target ignores fencing, a paused worker can resume after its lease expires and write alongside the new holder even though the lock service elected only one current owner."
+        },
+        {
+          "id": "consensus-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Two workers may start the same nightly job. Build the authority path that prevents a paused former holder from applying a stale external effect.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "workers",
+                "label": "Job Workers",
+                "sub": "compete",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "claim",
+                "sub": "lease + token",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "fence",
+                "sub": "check authority",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "target",
+                "sub": "one accepted writer",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "workers",
+                "to": "claim",
+                "kind": "request"
+              },
+              {
+                "from": "claim",
+                "to": "fence",
+                "kind": "request"
+              },
+              {
+                "from": "fence",
+                "to": "target",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Consensus-backed Claim",
+            "Fencing Check at Target",
+            "Effect Target",
+            "Client",
+            "Leader"
+          ],
+          "answer": {
+            "claim": "Consensus-backed Claim",
+            "fence": "Fencing Check at Target",
+            "target": "Effect Target"
+          },
+          "why": "The completed diagram contains these directed flows: Job Workers → Consensus-backed Claim; Consensus-backed Claim → Fencing Check at Target; Fencing Check at Target → Effect Target. That topology is the evidence for the answer: The consensus-backed claim grants one lease with a monotonically increasing token, and the effect target accepts only tokens at least as new as the highest it has seen. If the target ignores fencing, a paused worker can resume after its lease expires and write alongside the new holder even though the lock service elected only one current owner."
         },
         {
           "id": "cons-4-5",
@@ -405,7 +764,7 @@
             "Only if the lock service is CP"
           ],
           "answer": 1,
-          "why": "A lock is a lease, and a lease expires on the service's clock rather than yours — so a long garbage-collection pause can leave you holding an expired lock while feeling certain. This is the famous gap: correctness has to be enforced where the write lands, via a fencing token, because no amount of asking the lock service can tell you whether you were frozen since you last asked."
+          "why": "A garbage-collection pause can outlast a lock lease, allowing another client to acquire the lock while the paused client still believes it owns it. A monotonically increasing fencing token lets the protected resource reject writes from the expired holder."
         },
         {
           "id": "cons-4-6",
@@ -418,7 +777,21 @@
             "It removes the need for replication"
           ],
           "answer": 1,
-          "why": "Consensus buys you the one thing nothing else can — a decision that cannot fork — and charges round trips and unavailability when a majority is unreachable. Everything in this unit followed from the same fact you met in unit 10 and again in 18: you cannot tell dead from slow, so agreement must be constructed from majorities rather than assumed from silence."
+          "why": "Consensus constructs one durable decision through quorum intersection, ordered terms, and log rules despite ambiguous failures. It adds coordination round trips and cannot make progress when a required majority is unreachable."
+        },
+        {
+          "id": "xfer-consensus",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A scheduler lease expires, but the paused old scheduler wakes and sends a job after a new scheduler took over. What protects the worker?",
+          "choices": [
+            "Trust the old scheduler's clock",
+            "Use a longer job name",
+            "Let both schedulers run",
+            "Reject commands carrying an older fencing token"
+          ],
+          "answer": 3,
+          "why": "A monotonically increasing fencing token lets the worker recognize newer authority and reject delayed commands from an older lease holder."
         }
       ]
     }

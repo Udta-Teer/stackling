@@ -2,7 +2,7 @@
   "unitId": "indexes",
   "tier": 1,
   "title": "Indexes",
-  "subtitle": "How the database jumps instead of scanning — and what it charges you",
+  "subtitle": "Accelerate reads with ordered access paths while accounting for write and storage cost",
   "objectives": [
     "Explain what an index is and why it turns a scan into ~20 steps",
     "Describe why databases use B-trees, and what sortedness buys you",
@@ -17,7 +17,7 @@
         {
           "id": "idx-1-0",
           "type": "concept",
-          "title": "Sorted data can be searched; unsorted data can only be read",
+          "title": "A B-tree index maps ordered key values to row locations",
           "viz": {
             "nodes": [
               {
@@ -42,16 +42,150 @@
             "edges": [
               {
                 "from": "q",
-                "to": "i"
+                "to": "i",
+                "kind": "request"
               },
               {
                 "from": "i",
-                "to": "t"
+                "to": "t",
+                "kind": "data"
               }
             ]
           },
-          "body": "Ten million rows in no order hide everything: to know whether your value is in there, you must look at all of them. Sortedness changes the question. Check the middle of a sorted list and whichever half you aren't in stops existing. Check the middle of what's left. Every step deletes half the candidates.",
-          "note": "Keeping values sorted is what makes them searchable, and nothing keeps itself sorted. Every row you insert has to be threaded into the right place in that order — by someone, at some cost. Lesson 3 is the invoice."
+          "body": "A common B-tree index stores ordered values from one or more columns with row locations. A lookup traverses the tree and follows matching locations. Hash, inverted, and spatial indexes organize keys differently for other query patterns.",
+          "note": "Because an index is derived from the table, affected `INSERT`, `UPDATE`, and `DELETE` operations must also maintain its entries."
+        },
+        {
+          "id": "idx-change-1",
+          "type": "system_change",
+          "prompt": "A tenant dashboard filters by `tenant_id` and sorts by `created_at`. Replace two separate indexes with one composite index in query order.",
+          "actionLabel": "Add `(tenant_id, created_at)` index",
+          "beforeStatus": "QUERY WORK · filter many tenant rows, then sort them",
+          "afterStatus": "QUERY WORK · seek to one tenant's ordered range and read the first page",
+          "result": "Filtering and ordering now use one index walk",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Dashboard query",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "i1",
+                "label": "tenant_id index",
+                "sub": "filter only",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "s",
+                "label": "Sort",
+                "sub": "extra work",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "i1",
+                "kind": "data"
+              },
+              {
+                "from": "i1",
+                "to": "s",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Dashboard query",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "i",
+                "label": "Composite index",
+                "sub": "tenant + time",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "r",
+                "label": "First page",
+                "sub": "already ordered",
+                "col": 2
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "i",
+                "kind": "data"
+              },
+              {
+                "from": "i",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "With equality on `tenant_id` followed by ordering on `created_at`, the composite index stores each tenant's rows together in time order. Reversing the columns would not provide the same efficient tenant-specific range."
+        },
+        {
+          "id": "indexes-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A tenant dashboard filters by `tenant_id` and sorts by `created_at`. Replace two separate indexes with one composite index in query order. Place Composite index, First page. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Dashboard query",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "i",
+                "sub": "tenant + time",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "r",
+                "sub": "already ordered",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "i",
+                "kind": "request"
+              },
+              {
+                "from": "i",
+                "to": "r",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Composite index",
+            "First page",
+            "`WHERE email = …`",
+            "Index on `email`"
+          ],
+          "answer": {
+            "i": "Composite index",
+            "r": "First page"
+          },
+          "why": "The completed diagram contains these directed flows: Dashboard query → Composite index; Composite index → First page. That topology is the evidence for the answer: With equality on `tenant_id` followed by ordering on `created_at`, the composite index stores each tenant's rows together in time order. Reversing the columns would not provide the same efficient tenant-specific range.",
+          "connectEdges": true
         },
         {
           "id": "idx-1-1",
@@ -64,7 +198,7 @@
             "Nothing you couldn't get by reading"
           ],
           "answer": 1,
-          "why": "That's literally what a database index is: a sorted structure mapping values to locations, so you go straight to what you want instead of reading everything. Notice three properties of that book index, because all three matter — it's SEPARATE from the content, it's SORTED (the content isn't), and it's SMALLER than the book. Those are exactly the properties that make a database index work."
+          "why": "The book index is a separate sorted mapping from each term to the pages containing it. Sorting supports a fast term lookup, and the stored page numbers direct the reader to the relevant pages. The work then scales with locating the term and visiting its matches."
         },
         {
           "id": "idx-1-2",
@@ -72,34 +206,38 @@
           "prompt": "So what IS a database index?",
           "choices": [
             "A faster copy of the whole table",
-            "A separate, sorted data structure mapping column values to row locations",
+            "A derived access structure that organizes keys for supported query patterns",
             "A cache of recent query results",
             "A compressed version of the table"
           ],
           "answer": 1,
-          "why": "It's a separate structure holding one (or a few) columns, kept sorted, with pointers to where the full rows live — maintained automatically by the database. Redundant and derived should ring a bell from unit 5: an index is rebuildable state containing nothing that isn't already in the table, which is precisely why you can `DROP` an index and rebuild it without losing a single byte of data."
+          "why": "A database index is a derived access structure maintained as table rows change. A B-tree orders keys, a hash index groups hash values, and inverted or spatial indexes organize different lookup relationships; sortedness is one mechanism, not the definition of every index."
         },
         {
           "id": "idx-1-3",
           "type": "multiple_choice",
-          "prompt": "Finding a value among 1 million unsorted rows takes up to 1 million checks. Using a sorted index structure, roughly how many steps?",
+          "prompt": "A B-tree page can choose among roughly 400 child pages. Reaching one key among 1 million entries takes about 3 page levels instead of scanning up to 1 million rows. What follows?",
           "choices": [
-            "1 million",
-            "About 1,000",
-            "About 20",
-            "Exactly 1"
+            "Both approaches scale the same because they search the same table",
+            "The index sharply reduces lookup work when the predicate matches its key",
+            "The index removes all storage reads",
+            "The scan becomes faster as the table grows"
           ],
-          "answer": 2,
-          "why": "Each step halves the remaining search space, so it's log₂(1,000,000) ≈ 20 steps — twenty, versus a million. And it gets better as you grow, which is the genuinely magical part: a BILLION rows is only ~30 steps, so doubling your data adds exactly ONE step. That's why indexed lookups stay fast forever while scans fall off a cliff — they scale completely differently."
+          "answer": 1,
+          "why": "With fan-out near 400, three B-tree levels can address tens of millions of key positions, so a matching predicate eliminates most ranges with each page read. The engine may still fetch the table row after reaching the leaf; the example describes page levels, not binary-tree comparisons."
         },
         {
           "id": "idx-1-4",
-          "type": "estimate",
-          "prompt": "Roughly how many steps does an index need to find one row among 1 billion? (It's log₂ of a billion.)",
-          "answer": 30,
-          "tolerance": 5,
-          "unit": "steps",
-          "why": "2³⁰ ≈ 1.07 billion, so about 30 steps — a billion rows, thirty comparisons. Sit with the gap: 30 versus 1,000,000,000. This isn't an optimization, it's a different category of thing, and almost every 'the database got slow' story is really 'we started scanning where we used to jump'."
+          "type": "multiple_choice",
+          "prompt": "With fan-out near 400, growing from 1 million to 1 billion entries adds roughly one B-tree page level: about 3 to about 4. What does that show?",
+          "choices": [
+            "Balanced-index lookup work grows much more slowly than the row count",
+            "Every index lookup always takes exactly 4 page reads",
+            "A billion-row table occupies only 50% more storage",
+            "A full scan also grows from 3 to 4 checks"
+          ],
+          "answer": 0,
+          "why": "The table grows by a factor of 1,000 while the approximate B-tree height grows by one page level because each internal page chooses among hundreds of children. Exact height depends on page size and key width; the point is high fan-out and logarithmic growth, not a 20-step binary tree."
         },
         {
           "id": "idx-1-5",
@@ -112,7 +250,7 @@
             "join"
           ],
           "answer": 0,
-          "why": "Full table scan = read every row and check it. That's the default when no index can serve your query."
+          "why": "A full table scan reads rows and evaluates the predicate against each one. The planner uses this path when no usable index exists or when an index would cost more than sequentially scanning the table."
         },
         {
           "id": "idx-1-6",
@@ -125,7 +263,7 @@
             "Indexes must be backed up separately or data is lost"
           ],
           "answer": 0,
-          "why": "No data lives only in an index, so you can drop one and rebuild it without losing a byte. One caveat to carry, though: a `UNIQUE` index isn't pure optimization, because it also enforces a rule — drop it and you lose no data but you do lose the guarantee, which is how a duplicate-signup race gets back in. Postgres will simply refuse if a constraint depends on it. Operationally that's liberating — you can tune performance by adding and removing indexes without risking data — and it's also exactly why teams add too many of them. They feel free. The next lesson is about the bill."
+          "why": "An ordinary index is derived from table columns, so the database can reconstruct it by scanning the table. Dropping it removes the access path, not the rows. An index that backs a `UNIQUE` constraint also enforces an invariant, so the database may require the constraint to be removed before that index can be dropped."
         }
       ]
     },
@@ -136,7 +274,7 @@
         {
           "id": "idx-2-0",
           "type": "concept",
-          "title": "The B-tree's shape was dictated by the disk, not by your data",
+          "title": "A B-tree packs many sorted keys into each storage page",
           "viz": {
             "nodes": [
               {
@@ -185,32 +323,146 @@
             "edges": [
               {
                 "from": "r",
-                "to": "a"
+                "to": "a",
+                "kind": "request"
               },
               {
                 "from": "r",
-                "to": "b"
+                "to": "b",
+                "kind": "request"
               },
               {
                 "from": "a",
-                "to": "w"
+                "to": "w",
+                "kind": "request"
               },
               {
                 "from": "a",
-                "to": "x"
+                "to": "x",
+                "kind": "request"
               },
               {
                 "from": "b",
-                "to": "y"
+                "to": "y",
+                "kind": "request"
               },
               {
                 "from": "b",
-                "to": "z"
+                "to": "z",
+                "kind": "request"
               }
             ]
           },
-          "body": "A disk hands you a whole page — say 8KB — however little of it you asked for. So on disk, the thing you're spending isn't comparisons, it's *reads*, and a read costs the same whether you use one byte of the page or all 8,192. Any structure that spends a read to learn a single fact is throwing away a whole page of answers it already paid for.",
-          "note": "In RAM none of this would matter: a binary tree is perfectly good there, because a comparison is the only thing you spend. Move the same structure onto a disk and the arithmetic changes completely."
+          "body": "Each internal B-tree node contains many separator keys and pointers to child pages. One page read therefore chooses among hundreds of subtrees. A leaf page stores ordered index keys and row locations. High fan-out keeps the tree shallow, so a lookup reaches a leaf with only a few page reads.",
+          "note": "Range queries seek to the first matching leaf entry once, then scan adjacent ordered entries for the remaining rows."
+        },
+        {
+          "id": "idx-change-2",
+          "type": "system_change",
+          "prompt": "A query filters `tenant_id = 42` and sorts by newest `created_at`, but the index contains only `created_at`. Match the index order to the query.",
+          "actionLabel": "Use `(tenant_id, created_at)`",
+          "choices": [
+            "Use `INDEX(created_at, tenant_id)`",
+            "Use separate indexes on each column",
+            "Use `INDEX(tenant_id, created_at)`"
+          ],
+          "answer": 2,
+          "choiceFeedback": [
+            "Starting with the timestamp range mixes entries from every tenant before the tenant filter can narrow them.",
+            "The optimizer may combine indexes, but that does not directly provide one tenant's rows in timestamp order.",
+            "The equality prefix isolates the tenant, then the second column supplies timestamp order."
+          ],
+          "beforeStatus": "QUERY · scans timestamps across every tenant",
+          "afterStatus": "QUERY · seeks tenant 42 · reads newest matching entries",
+          "result": "The index prefix now matches the equality filter before the range order",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Tenant 42 query",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "i",
+                "label": "INDEX(created_at)",
+                "sub": "all tenants mixed",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "i",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "q",
+                "label": "Tenant 42 query",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "i",
+                "label": "INDEX(tenant_id, created_at)",
+                "sub": "seek then ordered scan",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "i",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Putting the equality column first groups one tenant's entries together; `created_at` then preserves the required order inside that group. Reversing the columns cannot efficiently isolate one tenant after starting a broad timestamp range."
+        },
+        {
+          "id": "indexes-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A query filters `tenant_id = 42` and sorts by newest `created_at`, but the index contains only `created_at`. Match the index order to the query. Place Tenant 42 query, INDEX(tenant_id, created_at). Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "q",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "i",
+                "sub": "seek then ordered scan",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "q",
+                "to": "i",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Tenant 42 query",
+            "INDEX(tenant_id, created_at)",
+            "`WHERE email = …`",
+            "Index on `email`"
+          ],
+          "answer": {
+            "q": "Tenant 42 query",
+            "i": "INDEX(tenant_id, created_at)"
+          },
+          "why": "The completed diagram contains these directed flows: Tenant 42 query → INDEX(tenant_id, created_at). That topology is the evidence for the answer: Putting the equality column first groups one tenant's entries together; `created_at` then preserves the required order inside that group. Reversing the columns cannot efficiently isolate one tenant after starting a broad timestamp range."
         },
         {
           "id": "idx-2-1",
@@ -223,20 +475,67 @@
             "Binary trees can't stay sorted"
           ],
           "answer": 1,
-          "why": "Disks read in pages (say 8KB), so a binary tree would cost one disk read per comparison — brutal. A B-tree is wide and shallow: each node is a page holding hundreds of keys, so even a billion rows is only ~3–4 disk reads deep. This is a gorgeous example of a data structure shaped by hardware: in RAM a binary tree is perfectly fine, but on disk — where a read costs ~100µs (unit 4's ladder) — you must minimize READS rather than comparisons. The B-tree exists because disks read blocks, not bytes."
+          "why": "A B-tree node is sized to hold many keys in one storage page. Each page read can therefore choose among hundreds of child ranges, producing a wide, shallow tree and reducing random page reads compared with a binary tree that branches only twice per node."
         },
         {
           "id": "idx-2-2",
-          "type": "multiple_choice",
-          "prompt": "You create an index on the `email` column. What does the index actually store?",
-          "choices": [
-            "A complete copy of every row",
-            "The email values, kept sorted, each with a pointer to where the full row lives",
-            "Only a list of emails, with no way back to the row",
-            "A hash of the entire row"
+          "type": "build_diagram",
+          "prompt": "Build a non-covering B-tree lookup for `WHERE email = 'x@y.com'`. The executor narrows through internal pages, finds a locator at the leaf, then fetches the full row.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "query",
+                "label": "Query Executor",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "query",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "B-tree Internal Pages",
+            "Leaf Entry + Row Locator",
+            "Table Row",
+            "Write-Ahead Log",
+            "Cached Query Result"
           ],
-          "answer": 1,
-          "why": "Sorted values plus pointers — that's why it's small (one column, not the whole row) and why it can find you the row once it locates the value. That pointer matters more than it looks: finding the value in the index is fast, but then fetching the actual row is a separate, random read. Hold that thought, because it explains the planner's behaviour in the next lesson."
+          "answer": {
+            "h1": "B-tree Internal Pages",
+            "h2": "Leaf Entry + Row Locator",
+            "h3": "Table Row"
+          },
+          "why": "The executor follows separator keys through internal B-tree pages, finds the email and row locator in a leaf, then fetches the table row because the index does not cover every requested column. If no suitable index exists, the database may scan the full table, making lookup work and latency grow with row count."
         },
         {
           "id": "idx-2-3",
@@ -249,7 +548,7 @@
             "It scans, but quickly"
           ],
           "answer": 1,
-          "why": "Sortedness is what gives you ranges: find the start, then read sequentially, and you never search again. This is why sorted beats hashed for most database work — a hash index is O(1) for `= value` but completely useless for `> value` or `ORDER BY`, because hashing deliberately destroys order. B-trees give you equality AND ranges AND sorting from one structure, which is why they're the default everywhere."
+          "why": "Because `created_at` keys are ordered, the engine navigates to the first key in last week's range and scans adjacent index entries until the range ends. A hash index discards key order, so it can support equality but cannot traverse a date interval in order."
         },
         {
           "id": "idx-2-4",
@@ -270,10 +569,10 @@
             },
             {
               "left": "Index lookup",
-              "right": "Jump via a sorted structure"
+              "right": "Follow the chosen access structure"
             }
           ],
-          "why": "Different structures make different promises, and the B-tree's sortedness is what makes it the versatile default. Hash indexes aren't useless — for pure key-value equality lookups they're faster and smaller — they're just too narrow to be a default, because real queries want ranges and ordering sooner or later."
+          "why": "A B-tree preserves key order, supporting equality, ranges, and ordered traversal. A hash index maps a complete key to a bucket for equality lookup but provides no useful ordering. A full scan checks every row, while an index lookup follows the chosen access structure."
         },
         {
           "id": "idx-2-5",
@@ -286,20 +585,20 @@
             "The rows come back in random order"
           ],
           "answer": 1,
-          "why": "An index doesn't just find rows — it can hand them over already in order, eliminating an expensive sort. Sorting a large result set can dominate a query's cost, and if it doesn't fit in memory it spills to disk and collapses; a surprising share of 'nothing changed, but it got slow' incidents are a query that quietly started sorting on disk as the data grew."
+          "why": "A compatible B-tree scan emits entries in `created_at` order, so the executor can satisfy `ORDER BY created_at` without a separate sort. This matters when the result would exceed sort memory, because an external sort writes and merges temporary runs on storage."
         },
         {
           "id": "idx-2-6",
           "type": "multiple_choice",
-          "prompt": "What's the essential property that makes an index fast?",
+          "prompt": "What makes an index useful for a particular query?",
           "choices": [
             "It's stored in RAM",
-            "It's sorted, so the database can eliminate most of the data with each step instead of checking rows one by one",
+            "Its access structure can prune most candidates for that query instead of checking every row",
             "It's compressed",
             "It's written in C"
           ],
           "answer": 1,
-          "why": "Order is the whole trick: sortedness lets you discard half — or in a B-tree, the vast majority — of the remaining candidates at every step. Which is also the clue to every index's limitation: an index can only help when your query aligns with the order it's stored in, so ask it a question that doesn't match its ordering and it may as well not exist. That's the theme of lesson 4."
+          "why": "An index is useful when its organization matches the query and eliminates most candidates: B-trees use ordered ranges, hash indexes use buckets, and inverted indexes map terms to documents. No one property such as sortedness explains every index family."
         }
       ]
     },
@@ -310,7 +609,7 @@
         {
           "id": "idx-3-0",
           "type": "concept",
-          "title": "An index is a copy, and copies don't keep themselves true",
+          "title": "Each index adds maintenance work to table writes",
           "viz": {
             "nodes": [
               {
@@ -344,37 +643,112 @@
             "edges": [
               {
                 "from": "w",
-                "to": "t"
+                "to": "t",
+                "kind": "data"
               },
               {
                 "from": "w",
-                "to": "i1"
+                "to": "i1",
+                "kind": "request"
               },
               {
                 "from": "w",
-                "to": "i2"
+                "to": "i2",
+                "kind": "request"
               },
               {
                 "from": "w",
-                "to": "i3"
+                "to": "i3",
+                "kind": "request"
               }
             ]
           },
-          "body": "An index is a copy of a column, kept in sorted order. Nothing about that is free after you create it: the order has to stay true through every `INSERT`, `UPDATE`, and `DELETE`, which means threading each new entry into exactly the right place — sometimes splitting a full page to make room. The database does this silently, on every write.",
-          "note": "Nobody notices this bill, because the query you sped up is the one you were watching. The index you added has a name and a ticket; the writes it taxed are spread thinly across everything else you do."
+          "body": "An `INSERT` adds an entry to every applicable index. A `DELETE` removes entries, and an `UPDATE` changes each index whose key or row locator changed. For a B-tree, maintenance may dirty several pages and split a full page while preserving key order.",
+          "note": "On a write-heavy table, index maintenance can become the throughput bottleneck even while the indexed reads remain fast."
+        },
+        {
+          "id": "indexes-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Each index adds maintenance work to table writes",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "One `INSERT`",
+                "sub": "reaches all of them",
+                "col": 0
+              },
+              {
+                "id": "t",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "i1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "i2",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "i3",
+                "label": "idx `status`",
+                "col": 1
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "t",
+                "kind": "request"
+              },
+              {
+                "from": "w",
+                "to": "i1",
+                "kind": "request"
+              },
+              {
+                "from": "w",
+                "to": "i2",
+                "kind": "request"
+              },
+              {
+                "from": "w",
+                "to": "i3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "`users` table",
+            "idx `email`",
+            "idx `created_at`",
+            "`WHERE email = …`",
+            "Index on `email`"
+          ],
+          "answer": {
+            "t": "`users` table",
+            "i1": "idx `email`",
+            "i2": "idx `created_at`"
+          },
+          "why": "An `INSERT` adds an entry to every applicable index. A `DELETE` removes entries, and an `UPDATE` changes each index whose key or row locator changed. For a B-tree, maintenance may dirty several pages and split a full page while preserving key order. On a write-heavy table, index maintenance can become the throughput bottleneck even while the indexed reads remain fast."
         },
         {
           "id": "idx-3-1",
           "type": "multiple_choice",
-          "prompt": "You add 5 indexes to a table to make reads fast. What happens to writes?",
+          "prompt": "You add 5 indexes to a table, then `INSERT` one row containing entries for all five. What happens?",
           "choices": [
             "Nothing — indexes only affect reads",
-            "Every `INSERT`, `UPDATE`, and `DELETE` must now update all 5 indexes too, so writes get slower",
+            "The `INSERT` must add an entry to all 5 indexes, increasing write work",
             "Writes get faster too",
             "Only `INSERT`s are affected"
           ],
           "answer": 1,
-          "why": "An index is a copy that must be kept in sync, so every write to the table pays to maintain every index on it. This is the central tradeoff of the unit: indexes buy read speed with write speed and disk, and a table with 15 indexes can be several times slower to write than the same table with two. There is no free lookup — you're moving the cost, not removing it."
+          "why": "This `INSERT` creates one entry in each of the five applicable indexes, adding page changes and log records. An `UPDATE` affects only indexes whose key or row locator changes, and some engines can avoid extra index maintenance for eligible updates."
         },
         {
           "id": "idx-3-2",
@@ -391,7 +765,7 @@
             1,
             2
           ],
-          "why": "Writes, disk, and memory pressure — reads on that column get FASTER, which is the entire point of paying the other three. The memory one is quietly important: your indexes compete with your data for the database's cache, so enough unnecessary indexes and you evict the hot data you actually needed. A pile of 'harmless' indexes can slow down reads they have nothing to do with."
+          "why": "Every index consumes disk, adds maintenance work to affected writes, and competes with table pages and other indexes for buffer-cache memory. Reads that match the index may improve; unrelated reads can degrade if unused index pages displace hotter data."
         },
         {
           "id": "idx-3-3",
@@ -399,12 +773,12 @@
           "prompt": "A team adds an index on every column, 'just in case.' Result?",
           "choices": [
             "Every query is now fast",
-            "Writes crawl, disk balloons, the planner has more ways to choose wrong — and most of those indexes are never used at all",
+            "Writes slow down, disk use grows, and many workload-irrelevant indexes receive maintenance without helping the measured queries",
             "No measurable effect",
             "The database refuses"
           ],
           "answer": 1,
-          "why": "Unused indexes are pure cost: maintained on every single write, read by nobody — 'just in case' is a bill you pay forever for a benefit you never collect. Real databases track index usage statistics, so finding and dropping dead indexes is a classic, high-value, low-risk cleanup. It's common to find tables where half the indexes have never been used since the day they were created."
+          "why": "An index on every column adds write maintenance, disk use, and cache pressure even when no query uses most of those access paths. Additional candidates can also complicate planning. Index-usage statistics and representative query plans are needed before safely removing an index."
         },
         {
           "id": "idx-3-4",
@@ -417,7 +791,7 @@
             "Indexes don't work on text columns"
           ],
           "answer": 1,
-          "why": "The index gives you a pointer, then you pay a random read to fetch each row — doing that for 90% of the table is far slower than just reading the table straight through. It's sequential-vs-random again, the same physics behind unit 6's write-ahead log, and the planner is right while your intuition is wrong. It also reveals the rule governing lesson 4: an index only helps when it's SELECTIVE — when it narrows to a small fraction of the table."
+          "why": "The predicate's estimated matching fraction is 90%, so the index would return nearly one locator per table row. Following those locators can cause many random table-page accesses; a sequential scan reads each table page once and is often cheaper. In common optimizer terminology, 90% matching is poorly selective."
         },
         {
           "id": "idx-3-5",
@@ -425,12 +799,12 @@
           "prompt": "Which is cheaper to use as an indexed primary key: an auto-incrementing id, or a random UUID?",
           "choices": [
             "They're identical",
-            "The auto-incrementing id — new values always append at the end of the index, while random UUIDs scatter writes across the whole structure",
+            "The increasing id usually inserts near the B-tree's right edge, while random UUIDs scatter inserts across many pages",
             "The random UUID — randomness spreads load evenly",
             "Neither can be indexed"
           ],
           "answer": 1,
-          "why": "Sequential ids append to one hot spot at the end of the index; random UUIDs land anywhere, forcing the B-tree to split pages all over and destroying cache locality. This is a famous, real performance problem — random UUID primary keys can dramatically slow inserts on large tables — and it's exactly why UUIDv7 (time-ordered) was standardized: you keep global uniqueness but restore write locality. A great example of a 'neutral' id choice quietly being a storage decision."
+          "why": "Increasing identifiers usually insert near the right edge of a B-tree, preserving locality and making page behavior predictable. Random universally unique identifiers (UUIDs) insert throughout the tree, increasing cache misses, page splits, and index fragmentation; time-ordered UUID schemes can recover locality while retaining distributed generation."
         },
         {
           "id": "idx-3-6",
@@ -442,7 +816,7 @@
             0,
             35
           ],
-          "why": "Write-heavy and read-rarely means indexes are almost pure cost — you'd pay on every one of billions of writes to speed up a query someone runs twice a year. Same rule as the social feed, pointed the other way: put the work where the traffic isn't. Here the traffic is writes, so keep the write path lean and accept that the rare investigation takes a slow scan. That's the correct trade, not a compromise."
+          "why": "Every audit append pays the maintenance cost of each index, while rare investigations collect the read benefit infrequently. Keeping only indexes required for ingestion or common operational queries protects write throughput; occasional scans can be accepted or run on an analytical copy."
         }
       ]
     },
@@ -453,9 +827,9 @@
         {
           "id": "idx-4-0",
           "type": "concept",
-          "title": "An index is only worth using when it eliminates almost everything",
-          "body": "*Selectivity* is the fraction of rows a lookup matches, and low is what you want. One row in ten million is superb. Matching most of the table is worse than useless: the index gives you a pointer per matching row, and following nearly all of them means jumping randomly around the disk — when the planner could read the whole table straight through, faster.",
-          "note": "Selectivity belongs to the query, not the column. The same index can be brilliant for one value in a column and worthless for another — so \"should I index this?\" has no answer until you say what you'll ask of it."
+          "title": "The query planner uses an index when its estimated cost is lower",
+          "body": "For each plan, the database estimates how many rows a predicate will match and the I/O needed to fetch them. An index is effective when it narrows the result to a small fraction of the table. If most rows match, many pointer-driven row fetches can cost more than one sequential table scan.",
+          "note": "Skewed or stale statistics can produce a bad row-count estimate, causing the planner to choose an index scan or table scan with the higher actual cost."
         },
         {
           "id": "idx-4-1",
@@ -468,12 +842,12 @@
             "It makes the query fail"
           ],
           "answer": 1,
-          "why": "An index earns its keep by NARROWING, and matching 95% of the table narrows nothing — so you pay the write cost for essentially no read benefit. Rule of thumb: index high-cardinality columns (many distinct values — `email`, `user_id`), because indexing a boolean is usually cargo cult. But note the subtlety: the SAME column can be worth indexing for the opposite query, since `WHERE is_active = false` matches only 5% of rows and is highly selective. Selectivity is a property of the QUERY, not just the column — and if that rare case is all you ever query, a partial index (one defined with its own `WHERE` clause so it physically contains only those 5% of rows) is smaller still."
+          "why": "`is_active = true` returns 95% of the table, so an index lookup would visit almost every row and usually costs more than one sequential scan. `is_active = false` selects 5% of the rows, where targeted index access can be cheaper. A partial index containing only inactive rows further reduces index size and write-maintenance cost for that query."
         },
         {
           "id": "idx-4-2",
           "type": "multiple_choice",
-          "prompt": "You have a composite index on `(last_name, first_name)`. Which query can use it?",
+          "prompt": "Assume a conventional B-tree plan with skip scan disabled. Which query can efficiently bound a contiguous range in `(last_name, first_name)`?",
           "choices": [
             "`WHERE first_name = 'Ada'`",
             "`WHERE last_name = 'Lovelace'`",
@@ -481,12 +855,12 @@
             "Neither"
           ],
           "answer": 1,
-          "why": "A composite index sorts by the first column, then the second — exactly like a phone book sorted by last name, then first. You can find all the Lovelaces instantly; you cannot find all the Adas, because they're scattered across every last name. This is the leftmost prefix rule, one of the most misunderstood things in databases: an index on `(a, b, c)` serves queries on `a`, on `(a, b)`, and on `(a, b, c)` — but NOT on `b` alone, `c` alone, or `(b, c)`. Column ORDER is a real design decision, not a formality."
+          "why": "The B-tree is ordered by `last_name`, then `first_name`, so `last_name = 'Lovelace'` bounds one contiguous range. With skip scan disabled, `first_name` alone cannot directly bound one range, though an engine may still scan the index or use skip scan when its cost model and data distribution favor it."
         },
         {
           "id": "idx-4-3",
           "type": "multi_select",
-          "prompt": "Given an index on `(a, b, c)`, which queries can use it? Select all.",
+          "prompt": "With a conventional B-tree range scan and skip scan disabled, which predicates can directly bound a contiguous range in `(a, b, c)`? Select all.",
           "choices": [
             "`WHERE a = 1`",
             "`WHERE a = 1 AND b = 2`",
@@ -498,7 +872,7 @@
             1,
             3
           ],
-          "why": "Leftmost prefix: you must start at `a`. Anything beginning with `a` can use the index; `b` on its own can't, because the index isn't sorted by `b` — it's sorted by `b` only within each `a`. The practical consequence: one well-ordered composite index on `(a, b, c)` can replace separate indexes on `a` and on `(a, b)` — three queries served, one index maintained, which is how you get fast reads without drowning your writes."
+          "why": "The index is ordered by `a`, then `b`, then `c`, so the stated conventional scan directly bounds ranges from the leftmost prefixes `(a)`, `(a,b)`, and `(a,b,c)`. Later columns can still filter or cover a query, and engines that support skip scan may exploit `b` alone under favorable distributions."
         },
         {
           "id": "idx-4-4",
@@ -511,7 +885,7 @@
             "It can't — it always has to read the row"
           ],
           "answer": 1,
-          "why": "The index holds email values, and an email is all the query wants — so when every column a query needs is already in the index, the database can answer from the index alone and skip fetching the row. That's a covering index (an index-only scan), and it's a bigger deal than it sounds: you skip the random read to fetch the row, which is often the expensive half. It's why engineers sometimes add a column to an index purely so it can answer a whole query alone, without ever filtering on that column. One caveat worth carrying: Postgres still consults its visibility map and will fetch the row anyway if the page isn't marked all-visible, so 'index-only' is a best case rather than a promise."
+          "why": "The predicate and result both require only `email`, which is present in the index. This permits an index-only scan that avoids fetching the full row when the engine can establish row visibility from index-related metadata; otherwise it may still consult the table."
         },
         {
           "id": "idx-4-5",
@@ -524,7 +898,7 @@
             "You can't know for sure"
           ],
           "answer": 1,
-          "why": "Don't guess — ask. `EXPLAIN` shows the plan: whether you got a sequential scan or an index lookup, and what it estimates the cost to be. This is arguably the highest-leverage database skill for an average engineer, because a huge share of 'the database is slow' turns out to be one missing index and `EXPLAIN` finds it in about ten seconds. Learning to read a query plan pays for itself in a week."
+          "why": "`EXPLAIN` reports the optimizer's chosen operators, such as a sequential scan or index scan, along with estimated rows and costs. `EXPLAIN ANALYZE` also executes the query and reports actual timing and row counts, which helps detect estimation errors."
         },
         {
           "id": "idx-4-6",
@@ -537,7 +911,7 @@
             "`(created_at, user_id, status)`"
           ],
           "answer": 1,
-          "why": "Equality columns first (`user_id`, `status`) to narrow hard, then the sort column (`created_at`) — the index jumps to user 42's open rows, and they're already in `created_at` order, so the sort step disappears too. The general recipe: equality columns first, then your range/sort column. Get it backwards — `(created_at, user_id, status)` — and it's nearly useless here, because you'd have to scan every date to find user 42. Same columns, opposite outcome."
+          "why": "With `(user_id, status, created_at)`, the two equality predicates identify one contiguous index range, and entries inside it are already ordered by `created_at`. Starting with `created_at` would interleave many users and statuses across the requested time order, preventing the same direct narrowing."
         },
         {
           "id": "idx-4-7",
@@ -545,12 +919,26 @@
           "prompt": "What's the honest one-sentence summary of indexing?",
           "choices": [
             "Index every column so every query is fast",
-            "An index is a derived, sorted copy that trades write speed and disk for read speed — so index deliberately: for real queries, on selective columns, in the right order, and verify with `EXPLAIN`",
+            "An index is a derived access structure that trades write work and disk for supported reads — design it for real queries and verify with `EXPLAIN`",
             "Avoid indexes; they slow down writes",
             "Let the database figure it out automatically"
           ],
           "answer": 1,
-          "why": "Both extremes are wrong: indexes are a deliberate purchase, spending write throughput and disk to buy read latency, and it's only a good deal when the index actually serves a query you really run. Step back and notice this is unit 5's lesson wearing new clothes — an index is a derived copy that buys speed and costs consistency work. The only difference is the database does the syncing for you, and bills you on every write."
+          "why": "An index is derived data maintained on each affected write, so it trades write throughput, storage, and cache space for faster matching reads. Useful indexes align with real predicates and ordering, exclude enough rows to justify lookup, and are verified in the chosen plan with `EXPLAIN`."
+        },
+        {
+          "id": "xfer-index",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A marketplace query filters by `seller_id`, then returns that seller's newest listings by `created_at`. Which index most directly supports the access path?",
+          "choices": [
+            "`(created_at, seller_id)` only",
+            "An index on listing description",
+            "One separate index on every column",
+            "`(seller_id, created_at DESC)`"
+          ],
+          "answer": 3,
+          "why": "Equality on the leading seller key narrows one seller's range, and the second key already orders that range by creation time. Reversing the columns groups all sellers by time first."
         }
       ]
     }

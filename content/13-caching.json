@@ -2,7 +2,7 @@
   "unitId": "caching",
   "tier": 2,
   "title": "Caching",
-  "subtitle": "Keep the hot answers close — and pay for the second copy",
+  "subtitle": "Reduce repeated work with fast copies while controlling staleness and invalidation",
   "objectives": [
     "Explain why caching works at all — and why it's a bet on skewed traffic, not on cache size",
     "Wire a cache correctly: cache-aside, the write patterns, and local vs shared",
@@ -17,7 +17,7 @@
         {
           "id": "cache-1-0",
           "type": "concept",
-          "title": "A cache is a bet that you'll be asked the same question twice",
+          "title": "A cache stores reusable results on a faster read path",
           "viz": {
             "nodes": [
               {
@@ -44,16 +44,143 @@
             "edges": [
               {
                 "from": "a",
-                "to": "c"
+                "to": "c",
+                "kind": "data"
               },
               {
                 "from": "c",
-                "to": "d"
+                "to": "d",
+                "kind": "data"
               }
             ]
           },
-          "body": "A cache sits in front of expensive work — a slow database query, an API call, a disk read — and keeps a copy of the answer. Ask the same question again and it replies from memory instead of redoing the work. That is the entire mechanism. Notice what it is not: nothing got faster and no work got cheaper. You just stopped doing it.",
-          "note": "So the bet only pays off if the question really does repeat. Cache something asked once and you have bought a component, a failure mode and a whole new way to be wrong — for nothing."
+          "body": "A cache maps a lookup key to a previously computed value. A request checks that key first. A hit returns the stored value; a miss runs the database query or API call, returns its result, and may store a copy for later requests.",
+          "note": "Caching reduces backend work only when requests reuse keys. A workload with mostly unique keys produces misses while still paying the cache lookup and storage cost."
+        },
+        {
+          "id": "cache-change-1",
+          "type": "system_change",
+          "prompt": "A database receives 10,000 identical product reads per second but handles 2,000. Put a cache in the read path with a 90% hit rate.",
+          "actionLabel": "Add the cache",
+          "beforeStatus": "DATABASE LOAD · 10,000 / 2,000 reads/s · overloaded",
+          "afterStatus": "DATABASE LOAD · 1,000 / 2,000 reads/s · healthy",
+          "result": "Cache hits removed 9,000 repeated database reads",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Clients",
+                "sub": "10k reads/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "10k / 2k",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Clients",
+                "sub": "10k reads/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "c",
+                "label": "Cache",
+                "sub": "9k hits/s",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "1k / 2k",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "c",
+                "kind": "data"
+              },
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "At a 90% hit rate, only 10% of 10,000 reads reach the database, reducing its load to 1,000 reads/s. Correctness still requires an expiry or invalidation policy when product data changes."
+        },
+        {
+          "id": "caching-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A database receives 10,000 identical product reads per second but handles 2,000. Put a cache in the read path with a 90% hit rate. Place Cache, Database. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Clients",
+                "sub": "10k reads/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "c",
+                "sub": "9k hits/s",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "1k / 2k",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "c",
+                "kind": "request"
+              },
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Cache",
+            "Database",
+            "App Server",
+            "5 callers"
+          ],
+          "answer": {
+            "c": "Cache",
+            "d": "Database"
+          },
+          "why": "The completed diagram contains these directed flows: Clients → Cache; Cache → Database. That topology is the evidence for the answer: At a 90% hit rate, only 10% of 10,000 reads reach the database, reducing its load to 1,000 reads/s. Correctness still requires an expiry or invalidation policy when product data changes.",
+          "connectEdges": true
         },
         {
           "id": "cache-1-1",
@@ -66,7 +193,7 @@
             "Ask users to refresh less often"
           ],
           "answer": 1,
-          "why": "Nothing about that query got cheaper — you just stopped running it 9,999 times. That's the whole idea: the fastest work is work you skip. Notice the other options scale the waste instead of removing it — a faster database runs the same pointless query faster, and more app servers generate more copies of it. And caching only pays off because the answer gets reused: if all 10,000 requests wanted different results, there'd be nothing to hand out."
+          "why": "Caching stores the query result after one execution and serves that copy to later requests, removing 9,999 repeated database executions while the result remains reusable. The benefit depends on repeated requests for the same answer; unique results would continue to miss."
         },
         {
           "id": "cache-1-2",
@@ -79,7 +206,7 @@
             "index"
           ],
           "answer": 0,
-          "why": "Store the answer, skip the work. It's worth seeing what a cache is NOT, since the other three are real things you'll meet: a replica (unit 10) is a full copy kept deliberately in sync, and an index (unit 8) makes the work itself cheaper. A cache does neither. It just remembers a result it happened to see, and it's allowed to forget it at any moment."
+          "why": "A cache records the output of previous work under a key. A later lookup for that key can return the stored output without repeating the database query or computation, and eviction may remove the entry when space or freshness policy requires it."
         },
         {
           "id": "cache-1-3",
@@ -92,7 +219,7 @@
             "Because 50,000 is enough for most databases"
           ],
           "answer": 1,
-          "why": "Real traffic is wildly lopsided: a handful of products — the front page, the viral one, today's deal — absorb a huge share of requests, and that hot set is small enough to fit. Caching is a bet on that skew, which means whether it works is a property of your TRAFFIC, not your cache. Flip it around to feel it: if all 50 million products were requested uniformly at random, a 50,000-item cache would hit about 0.1% of the time, and you'd have added a network hop, a config, and a staleness bug for nothing."
+          "why": "Request popularity is commonly skewed: a small hot set receives a large share of reads. If the 50,000 most-requested products fit, the cache can answer most traffic despite storing only 0.1% of the catalog; a uniform request distribution would produce little reuse."
         },
         {
           "id": "cache-1-4",
@@ -116,7 +243,7 @@
               "right": "~70 milliseconds"
             }
           ],
-          "why": "The jump that surprises people is the second one. A Redis lookup isn't fast because memory is fast — it's roughly 5,000× slower than the memory in your own process, because you're paying a network round trip (unit 4) and barely touching the memory at all. It only looks fast next to the thing it replaced. That gap is exactly why an in-process cache and a shared cache are two different tools rather than the same tool in two sizes."
+          "why": "Local memory avoids a network round trip and is measured in nanoseconds. A shared cache adds datacenter networking and protocol processing, an indexed solid-state-drive query adds storage and database work, and an intercontinental round trip is dominated by propagation distance. These orders of magnitude determine which saved operation makes caching valuable."
         },
         {
           "id": "cache-1-5",
@@ -124,7 +251,7 @@
           "prompt": "Which of these are good things to cache? Select all.",
           "choices": [
             "A product page that changes twice a year and is viewed a million times a day",
-            "A slow report that every user on the dashboard requests",
+            "The same shared dashboard report, requested with identical inputs by every user and allowed to be 5 minutes stale",
             "A user's current account balance, read to decide whether a transfer clears",
             "A 'trending now' feed that's expensive to compute and fine a minute out of date"
           ],
@@ -133,7 +260,7 @@
             1,
             3
           ],
-          "why": "The pattern is three conditions at once: expensive to produce, read far more than written, and tolerant of being slightly stale. The balance fails the third — and it fails for the reader's sake rather than because it changes often; unit 5 already settled that a balance is the one number the user came to see. But cacheability really is a property of the READ rather than of the data, and stock count shows it cleanly: '12 left' on a browse page can be a minute stale and nobody is harmed, while the same number checked at checkout must be exact or you've just oversold the item."
+          "why": "The product page, shared report, and trending feed reuse expensive results and tolerate their stated update frequency. A balance used to authorize a transfer requires the current source-of-truth value because a stale copy can approve spending unavailable funds; that read is unsuitable for this cache path."
         },
         {
           "id": "cache-1-6",
@@ -146,7 +273,7 @@
             "Nothing — it's a pure win"
           ],
           "answer": 0,
-          "why": "A cache is a copy, so unit 5's rule applies the moment you add one: truth now lives in two places, they can disagree, and you own the question of how wrong you'll let the copy get. Every hard part of this unit — invalidation, TTLs, the races in lesson 4 — is the bill for that one sentence. Caching gets pitched as free speed. It isn't: you bought latency with correctness, and the only question left is how much correctness you're spending."
+          "why": "The database remains the source of truth while the cache stores a derived copy. Writes can change the database before the cached value is updated or removed, so the two can disagree for a period defined by invalidation and expiry policy."
         }
       ]
     },
@@ -157,7 +284,7 @@
         {
           "id": "cache-2-0",
           "type": "concept",
-          "title": "In cache-aside, your application owns the cache — the database has never heard of it",
+          "title": "Cache-aside makes the application responsible for loading cached values",
           "viz": {
             "nodes": [
               {
@@ -184,16 +311,162 @@
             "edges": [
               {
                 "from": "a",
-                "to": "c"
+                "to": "c",
+                "kind": "data"
               },
               {
                 "from": "a",
-                "to": "d"
+                "to": "d",
+                "kind": "data"
               }
             ]
           },
-          "body": "The app asks the cache first. On a miss it reads the database itself, then writes the answer back into the cache itself. Both arrows start at the app — the database has no idea the cache exists. That is why cache-aside works with any store, and why every cache bug is yours: your code decides what to cache, for how long, and when to throw it away.",
-          "note": "Read-through looks identical on a whiteboard but is not: there the cache calls the database for you. Who makes that second call is the whole distinction."
+          "body": "For a cache-aside read, the application looks up a key in the cache. On a miss, it reads the database, stores the returned value under that key, and responds. Application code coordinates the cache and database as two independent dependencies.",
+          "note": "During normal operation, the database receives the cache-miss fraction. During a cache outage, direct reads make it absorb total request traffic."
+        },
+        {
+          "id": "cache-change-2",
+          "type": "system_change",
+          "prompt": "Five API servers miss the same expired product key simultaneously, causing five identical database reads. Collapse concurrent misses per server.",
+          "actionLabel": "Coalesce the cache miss",
+          "choices": [
+            "Increase the cache TTL forever",
+            "Use one in-flight load per key",
+            "Add a database read replica"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "An infinite TTL avoids expiry by accepting unbounded staleness; invalidation and cold keys still exist.",
+            "Single-flight coalescing makes concurrent callers in this process share one database load.",
+            "A replica adds read capacity, but all five identical reads still execute."
+          ],
+          "beforeStatus": "ONE EXPIRED KEY · 5 database reads from this server process",
+          "afterStatus": "ONE EXPIRED KEY · 1 database read · 5 callers share result",
+          "result": "Concurrent callers joined one in-flight load",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "5 callers",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "API process",
+                "sub": "5 misses",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "5 reads",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "5 callers",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Single-flight map",
+                "sub": "1 in-flight load",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "d",
+                "label": "Database",
+                "sub": "1 read",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "data"
+              },
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Request coalescing lets concurrent callers in one process await the same in-flight cache fill. In a multi-server fleet, each server may still issue one load unless coordination occurs at a shared layer."
+        },
+        {
+          "id": "caching-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Five API servers miss the same expired product key simultaneously, causing five identical database reads. Collapse concurrent misses per server. Place Single-flight map, Database. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "5 callers",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "sub": "1 in-flight load",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "1 read",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Single-flight map",
+            "Database",
+            "App Server",
+            "Cache"
+          ],
+          "answer": {
+            "a": "Single-flight map",
+            "d": "Database"
+          },
+          "why": "The completed diagram contains these directed flows: 5 callers → Single-flight map; Single-flight map → Database. That topology is the evidence for the answer: Request coalescing lets concurrent callers in one process await the same in-flight cache fill. In a multi-server fleet, each server may still issue one load unless coordination occurs at a shared layer."
         },
         {
           "id": "cache-2-1",
@@ -206,7 +479,7 @@
             "App writes the result into the cache",
             "App returns the result to the user"
           ],
-          "why": "The app orchestrates every step here, which is exactly what 'aside' means: in this pattern the cache is a dumb box that stores what it's told and never talks to the database itself. That buys a property worth noticing — if the cache is empty or dead, this path still works, it's just slow. Being able to degrade to 'merely slow' rather than 'broken' is a large part of why cache-aside dominates in practice."
+          "why": "In cache-aside, the application first looks up the key, queries the database after a miss, stores the returned value, and then responds. The cache does not fetch from the database itself, and an unavailable cache can be bypassed if the application and database have capacity for direct reads."
         },
         {
           "id": "cache-2-2",
@@ -219,7 +492,7 @@
             "bulk"
           ],
           "answer": 0,
-          "why": "Populate on demand. The upside is that you never spend memory on data nobody has asked for, so real traffic shapes the cache's contents with no guesswork from you — though note that's a weaker promise than it sounds, since anything that was popular once keeps its slot until eviction gets around to it. The downside is the mirror image of the upside: every item's first request is guaranteed to miss, so a freshly-started cache misses everything at once, which is why 'just restart the cache' is a sentence that has taken down real sites."
+          "why": "Lazy loading inserts an item only after a request misses and retrieves it from the source. This lets real demand select cached entries, while the first request for each absent item pays the source cost and a cold cache can send a large miss burst downstream."
         },
         {
           "id": "cache-2-3",
@@ -243,20 +516,58 @@
               "right": "Writes land in the cache and flush to the DB later"
             }
           ],
-          "why": "The two read patterns differ only in who does the fetching on a miss — the app or the cache — which is a question about where complexity lives, not about what the user experiences. The write patterns are the ones with teeth: write-through pays latency on every single write to keep the cache warm and avoid a first-read miss, while write-behind makes writes feel instant by acknowledging data that isn't durable yet. Note what write-through does NOT buy — correctness under concurrency. It's still update-on-write, so two writers can land in the cache in the opposite order they landed in the database, exactly as lesson 4 shows."
+          "why": "Cache-aside makes the application load misses, while read-through gives that responsibility to the cache layer. Write-through acknowledges after updating both cache and database, adding write latency; write-behind acknowledges from the cache and persists later, creating a durability window."
         },
         {
           "id": "cache-2-4",
-          "type": "multiple_choice",
-          "prompt": "Write-behind acknowledges a write as soon as it's in the cache, then flushes to the database a moment later. What did you just trade away?",
-          "choices": [
-            "Read speed",
-            "Durability — you told the user 'saved' while the only copy sat in memory that can vanish",
-            "The ability to cache reads",
-            "Nothing — the flush always succeeds eventually"
+          "type": "build_diagram",
+          "prompt": "Build the write-behind path. Place the component that acknowledges first and the durable authority that receives the write later.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "app",
+                "label": "App Write",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "first",
+                "sub": "1 · acknowledge quickly",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "later",
+                "sub": "2 · persist later",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "app",
+                "to": "first",
+                "kind": "request"
+              },
+              {
+                "from": "first",
+                "to": "later",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Write-Behind Cache",
+            "Database",
+            "Read Replica",
+            "Load Balancer"
           ],
-          "answer": 1,
-          "why": "You moved the acknowledgement earlier than the persistence, and everything in that window is a promise you can't keep. If the cache node dies before the flush, the data is gone AND the user was told it was saved — the worst pairing available, because nobody retries something they believe succeeded. This is unit 9's D in ACID, handed over deliberately in exchange for speed. Defensible for view counts and metrics; indefensible for an order."
+          "answer": {
+            "first": "Write-Behind Cache",
+            "later": "Database"
+          },
+          "why": "The write-behind cache acknowledges before asynchronously flushing the change to the database, which remains the durable authority. If the cache loses the pending entry or the flush fails after acknowledgement, the database never receives the write and the user loses data they were told was saved."
         },
         {
           "id": "cache-2-5",
@@ -286,12 +597,14 @@
             "edges": [
               {
                 "from": "a",
-                "to": "h1"
+                "to": "h1",
+                "kind": "request"
               },
               {
                 "from": "a",
                 "to": "h2",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
@@ -305,7 +618,7 @@
             "h1": "Cache",
             "h2": "Database"
           },
-          "why": "A cache goes on the read path, in front of whatever you want to do less of — that's the general shape, and it's why you'll see caches at every layer of a real system rather than at one 'correct' spot. The position is what makes it useful and dangerous at the same time: reads now consult a component that is explicitly allowed to be out of date."
+          "why": "The application must query the cache before the database so a hit can bypass the expensive database read. On a miss, the request continues to the database and the result can populate the cache for later reuse."
         },
         {
           "id": "cache-2-6",
@@ -318,7 +631,7 @@
             "Nothing changes"
           ],
           "answer": 0,
-          "why": "The code degrades correctly — a miss just means 'ask the database' — so nothing is logically broken. The trap is capacity. At a 95% hit rate your database was quietly serving 5% of reads, so losing the cache multiplies its load by twenty in an instant, and unless someone deliberately sized it for the uncached load, twenty times is not a margin much survives. The cache wasn't an optimization, it was load-bearing, and the database has no idea it was being protected. This is why 'the cache is just a speedup' is a dangerous thing to believe."
+          "why": "At a 95% hit rate, the database normally receives the 5% miss stream. Complete cache loss turns every read into a miss, increasing database read load from 5% to 100% of traffic, a 20-fold jump that can exceed its capacity even though cache-aside remains logically correct."
         },
         {
           "id": "cache-2-7",
@@ -331,7 +644,7 @@
             "There's no catch"
           ],
           "answer": 1,
-          "why": "In-process caching is genuinely appealing: roughly 5,000× faster per hit by lesson 1's ladder, with no network hop to fail. What you pay is consistency and warmth. N servers means N copies means N versions of the truth, so a user hitting refresh can bounce between two different answers depending on where the load balancer (unit 12) sends them. You also multiply memory by N, and every deploy throws all of it away at once. A shared cache trades a network hop for one answer everybody agrees on."
+          "why": "An in-process cache gives each app server an independent copy. Invalidations and warm-up therefore occur separately, so requests routed to different servers can observe different values and every restart begins cold; a shared cache adds a network hop but centralizes the cached entry."
         }
       ]
     },
@@ -342,7 +655,7 @@
         {
           "id": "cache-3-0",
           "type": "concept",
-          "title": "A cache doesn't reduce traffic — it splits it",
+          "title": "The miss rate determines how much read traffic reaches the backend",
           "viz": {
             "nodes": [
               {
@@ -370,16 +683,70 @@
             "edges": [
               {
                 "from": "a",
-                "to": "c"
+                "to": "c",
+                "kind": "data"
               },
               {
                 "from": "a",
-                "to": "d"
+                "to": "d",
+                "kind": "data"
               }
             ]
           },
-          "body": "10,000 reads a second arrive. At a 95% hit rate, 9,500 are answered from memory and 500 continue, unchanged — same query, same cost, just fewer of them. Whatever sits behind the cache only ever has to survive that leftover. So *is my cache good enough* was never a question about the cache. It's a question about what the leftover does to the thing behind it.",
-          "note": "A cache is smaller than the data behind it, often by a factor of a thousand — and everything else in this lesson follows from that one inconvenient ratio."
+          "body": "For read rate R and hit rate H, the cache answers R × H requests and the backend receives R × (1 − H) misses. At 10,000 reads/s and 95% hits, the cache serves 9,500 reads/s while the database still executes 500 reads/s.",
+          "note": "Backend capacity must cover the miss stream. Small hit-rate gains near 100% can sharply reduce backend load because that load scales with the remaining miss rate."
+        },
+        {
+          "id": "caching-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: The miss rate determines how much read traffic reaches the backend",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "App Servers",
+                "sub": "10k req/s",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "sub": "9.5k hits",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "500 misses",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "c",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Cache",
+            "Database",
+            "App Server",
+            "Clients"
+          ],
+          "answer": {
+            "c": "Cache",
+            "d": "Database"
+          },
+          "why": "For read rate R and hit rate H, the cache answers R × H requests and the backend receives R × (1 − H) misses. At 10,000 reads/s and 95% hits, the cache serves 9,500 reads/s while the database still executes 500 reads/s. Backend capacity must cover the miss stream. Small hit-rate gains near 100% can sharply reduce backend load because that load scales with the remaining miss rate."
         },
         {
           "id": "cache-3-sim",
@@ -409,12 +776,14 @@
             "edges": [
               {
                 "from": "a",
-                "to": "cache"
+                "to": "cache",
+                "kind": "data"
               },
               {
                 "from": "a",
                 "to": "db",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
@@ -442,9 +811,9 @@
           },
           "answerRange": [
             90,
-            92
+            90
           ],
-          "why": "90% exactly: 20,000 × 10% miss = 2,000, right on the edge. Now notice what the slider did on the way there — the number that reaches your database is set by the MISS rate, not the hit rate. Going 90% → 99% sounds like a 9-point tweak and is really 2,000 → 200: a 10× cut. Going 99% → 99.9% is another 10×. That is why hit rate is quoted in nines, and why the last fraction of a percent is worth fighting for while the first 50% is nearly free."
+          "why": "At a 90% hit rate, the 10% miss stream sends 2,000 of the 20,000 requests per second to the database, exactly its capacity. Raising the hit rate to 99% lowers the miss stream to 200 requests per second, so a nine-point hit-rate increase cuts database load by a factor of ten."
         },
         {
           "id": "cache-3-1",
@@ -457,7 +826,7 @@
             "The oldest item moves back to the database"
           ],
           "answer": 0,
-          "why": "A cache is finite on purpose — something that held everything wouldn't be a cache, it'd be a copy of your database with no durability guarantee. So it lives in a permanent state of deciding what to forget, and that decision is the entire game: identical hardware can give you a 60% hit rate or a 95% one depending purely on what it chooses to throw away."
+          "why": "Finite cache memory cannot retain every new entry. Eviction selects an existing entry to remove so the new one can be stored; the policy affects hit rate by deciding which values remain available for reuse."
         },
         {
           "id": "cache-3-2",
@@ -481,7 +850,7 @@
               "right": "An arbitrary victim"
             }
           ],
-          "why": "`LRU` is the default nearly everywhere because recency is a cheap and decent predictor of the near future. LFU beats it when popularity is stable, but it clings to items that were huge last month and are dead now, unless you age the counts. `TTL` is the odd one out and it's worth seeing why: `LRU` throws things out because you ran out of room, `TTL` throws them out because you stopped trusting them — space versus correctness, two different problems wearing the same clothes. Random sounds like a joke and isn't: it needs no bookkeeping and performs respectably."
+          "why": "Least recently used (`LRU`) removes the entry with the oldest access, least frequently used (LFU) removes the lowest access count, time to live (`TTL`) expires entries after a freshness interval, and random chooses without access history. `LRU` and LFU manage capacity using reuse signals; `TTL` primarily bounds staleness."
         },
         {
           "id": "cache-3-3",
@@ -494,16 +863,20 @@
             "The cache rejects the job's reads"
           ],
           "answer": 1,
-          "why": "`LRU` assumes recently-used predicts soon-to-be-used, and a sequential scan violates that assumption perfectly: every item it touches is maximally recent and minimally likely to be needed again. So the scan flushes your hot set, users start hitting the database, and the cache sits there full of garbage. That's cache pollution, and it's why a batch job can take down a site it never queries — the damage is entirely collateral. The fixes are to keep scans off the cache path, or to use a policy that makes an item earn its place with a second access."
+          "why": "A sequential scan marks each one-time item as recently used, so `LRU` evicts frequently reused products to admit scan entries. This cache pollution replaces the hot set with values unlikely to be requested again, collapsing the hit rate until normal traffic rebuilds the set."
         },
         {
           "id": "cache-3-4",
-          "type": "estimate",
-          "prompt": "A cache hit takes 1ms. A miss costs 100ms all-in. At a 95% hit rate, what's the average read latency in milliseconds?",
-          "answer": 6,
-          "tolerance": 2,
-          "unit": "ms",
-          "why": "0.95 × 1ms + 0.05 × 100ms = 5.95ms. Now look at where that number came from: the 5% that miss contribute 5ms of the 5.95, so about 84% of your average latency is produced by one request in twenty. That's the shape of every cache — the misses own the average and the hits are nearly irrelevant to it, which is why tuning the hit path is almost always the wrong place to spend your afternoon."
+          "type": "multiple_choice",
+          "prompt": "A cache has a 95% hit rate. Hits contribute 0.95ms to the average read latency, while the 5% of requests that miss contribute 5ms, for a 5.95ms total. What should you optimize first?",
+          "choices": [
+            "The 1ms hit path, because it handles most requests",
+            "The miss rate or 100ms miss path, because misses contribute about 84% of the average latency",
+            "Both paths contribute equally",
+            "Neither path affects average latency"
+          ],
+          "answer": 1,
+          "why": "Misses contribute 5ms of the 5.95ms average, about 84%, even though they are only 5% of requests. Reducing the miss rate or the 100ms miss cost therefore has much more leverage on average latency than making the 1ms hit path slightly faster."
         },
         {
           "id": "cache-3-5",
@@ -516,7 +889,7 @@
             "Because 99% is a round number"
           ],
           "answer": 1,
-          "why": "Always read the miss rate, not the hit rate — 'hit rate' is a vanity framing that squashes the entire interesting range into a sliver at the top. Said properly, 90 → 99 removed 90% of your remaining misses, so your database's read load dropped 10×. In this lesson's numbers the average read falls from 10.9ms to 1.99ms. And the logic keeps going: 99% → 99.9% is another 10× cut, which is exactly why teams up here fight over fractions of a percent that sound absurd from the outside."
+          "why": "A 90% hit rate leaves a 10% miss rate, while a 99% hit rate leaves a 1% miss rate. Database reads follow misses, so the change sends one tenth as many requests to the database even though the hit rate rose by only nine percentage points."
         },
         {
           "id": "cache-3-6",
@@ -533,7 +906,7 @@
             1,
             2
           ],
-          "why": "Three things decide hit rate: whether the hot set fits, whether entries survive long enough to be reused, and whether anything is polluting the cache. A faster network makes each hit cheaper — that's hit LATENCY, a different axis entirely, and it does nothing to the rate. Keep them separate, because 'the cache is slow' and 'the cache is missing' have opposite fixes and the second is nearly always the bigger number. Note the second option isn't free either: every extra second of `TTL` is another second you've agreed to be wrong."
+          "why": "More memory keeps a larger hot set, a longer `TTL` gives entries more time to be reused, and excluding scans prevents one-time reads from evicting hot entries. Faster networking reduces hit latency but does not change whether a lookup finds its key; longer expiry also increases the permitted staleness window."
         },
         {
           "id": "cache-3-7",
@@ -546,7 +919,7 @@
             "That the cache holds 60 seconds of data"
           ],
           "answer": 1,
-          "why": "A `TTL` is a correctness decision wearing a performance costume: you're stating the maximum lag you'll tolerate between the source of truth and what users see. That's what makes it the pragmatic escape from invalidation (lesson 4) — rather than tracking every change perfectly, you promise to be wrong for at most 60 seconds. And it's a ceiling, not a schedule: with lazy loading nothing refreshes on a timer, the entry simply expires, and the next reader — whenever they show up, in a second or an hour — pays to rebuild it."
+          "why": "A 60-second time to live (`TTL`) keeps a cached copy eligible for 60 seconds after storage, so a source update can remain hidden until that interval ends. Expiry marks the entry ineligible. With lazy loading, the first read after expiry fetches the source value and repopulates the cache."
         }
       ]
     },
@@ -557,7 +930,7 @@
         {
           "id": "cache-4-0",
           "type": "concept",
-          "title": "Your data flows into cache keys, and nothing in your system can trace it back",
+          "title": "Correct cache invalidation needs dependency mapping and race control",
           "viz": {
             "nodes": [
               {
@@ -598,24 +971,28 @@
             "edges": [
               {
                 "from": "w",
-                "to": "k1"
+                "to": "k1",
+                "kind": "data"
               },
               {
                 "from": "w",
-                "to": "k2"
+                "to": "k2",
+                "kind": "data"
               },
               {
                 "from": "w",
-                "to": "k3"
+                "to": "k3",
+                "kind": "data"
               },
               {
                 "from": "w",
-                "to": "k4"
+                "to": "k4",
+                "kind": "data"
               }
             ]
           },
-          "body": "Your code turns source data into cached values all day: read the product row, render the page, store it under a key. That derivation only ever runs forwards. Nothing records which rows fed which keys — no index, no log, no foreign key. There is a list, it lives in one engineer's head, and it was accurate once.",
-          "note": "And the list decays. Every new feature reading that row adds a key, and nothing links the new read to the old invalidation code — so a cache that was right on Tuesday is wrong by Friday, and nobody touched the caching."
+          "body": "A source row may feed several cached keys, so writes must identify every dependent key. A concurrent miss can also read old data and repopulate the cache after invalidation. Leases, version checks, or equivalent ordering prevent stale resurrection; a time-to-live bounds residual failures.",
+          "note": "An omitted dependency or lost ordering signal can serve stale data silently. A time-to-live limits the stale window but does not establish correctness."
         },
         {
           "id": "cache-4-1",
@@ -628,7 +1005,7 @@
             "It requires taking the cache offline"
           ],
           "answer": 1,
-          "why": "Deleting a key is trivial; the hard part is the question that comes before it. One product's price changing might invalidate the product page, three category listings, a search result, and a homepage module — and nothing in your system tells you that. What makes it vicious is the failure mode: a missed invalidation throws no error and appears in no log. It just serves a wrong answer, confidently, until something else happens to evict it. Bugs that page you are easy. Bugs that quietly lie for a week are hard."
+          "why": "One source value may contribute to several cache keys, such as a product page, category listing, search result, and homepage module. An update must identify and invalidate every affected derived value. Any missed dependency continues serving a syntactically valid stale response, which makes the defect difficult to detect."
         },
         {
           "id": "cache-4-2",
@@ -641,20 +1018,20 @@
             "Both, for safety"
           ],
           "answer": 1,
-          "why": "Deleting is safe precisely because it isn't a claim about anything — it says 'I don't know', and the next reader rebuilds from the source of truth. Updating asserts a value, so two concurrent writers can land their updates in the cache in the opposite order they landed them in the database, leaving the cache permanently disagreeing with the DB and no error raised anywhere. You also pay to compute a value that may never be read. Delete is the humbler operation, and humility buys a lot here."
+          "why": "Deleting marks the cached answer absent, so the next read rebuilds it from the source of truth. Updating can compute an unused value and allows concurrent writers to place cache updates in a different order from database commits, leaving a stale value resident."
         },
         {
           "id": "cache-4-3",
           "type": "multiple_choice",
-          "prompt": "One extremely popular key — your homepage feed, 10,000 requests/sec — hits its `TTL` and expires. What happens in the next instant?",
+          "prompt": "A homepage key receives 10,000 requests/sec, takes 200ms to rebuild, and just expired. Without request coalescing or a lock, how many rebuilds can overlap?",
           "choices": [
-            "The cache rebuilds it automatically before anyone notices",
-            "All 10,000 requests miss at once, and every one of them runs the expensive rebuild against the database simultaneously",
-            "One request rebuilds it and the rest wait",
-            "The requests queue up behind the first one"
+            "About 200",
+            "About 2,000",
+            "Exactly 10,000",
+            "Only one"
           ],
           "answer": 1,
-          "why": "Nothing coordinates them. Each request independently checks the cache, sees nothing, and does exactly what it was told: go rebuild it. So a query your database saw zero times per second now arrives 10,000 times in the same instant — and the more popular the key, the harder the hit, which means your best-cached content is your biggest liability. This is a cache stampede (or thundering herd), and it's a favourite way for a site to die at a moment when nothing was wrong: no traffic spike, no deploy, no failure. Just a timer expiring."
+          "why": "Concurrency is arrival rate multiplied by rebuild time: 10,000 requests/second × 0.2 seconds = about 2,000 overlapping rebuilds. Requests arriving during that window independently see the miss, creating a cache stampede; coalescing or a per-key lock lets one rebuild run while others wait."
         },
         {
           "id": "cache-4-4",
@@ -671,7 +1048,7 @@
             1,
             2
           ],
-          "why": "The first two attack the herd directly: let exactly one request through, and either make the rest wait or hand them slightly-stale data — usually the nicer option, since nobody experiences a stall at all. Jitter attacks a related killer, where keys cached together (everything warmed at deploy, say) expire together, turning one expiry into a synchronized fleet-wide miss. Shortening the `TTL` makes both problems worse: more stampedes, and no reduction in the size of any one herd. Facebook's memcache team hit this hard enough at scale to invent leases for it, described in their 2013 paper."
+          "why": "A per-key lock lets one request rebuild while peers wait, and serving stale data lets peers respond while one refresh runs. Jitter randomizes expiries so many keys do not create synchronized miss bursts. Shorter `TTL` values increase expiry frequency without limiting how many requests race after one expiry."
         },
         {
           "id": "cache-4-5",
@@ -684,19 +1061,16 @@
             "A's write fails"
           ],
           "answer": 1,
-          "why": "Neither request did anything wrong. A read a value that was true when it read it and wrote it back a moment later; B wrote and dutifully invalidated. But B's invalidation landed in the gap between A's read and A's write, so it deleted nothing, and then A resurrected a dead value on top of it. The cache is now confidently wrong and no future event will correct it — only the `TTL` will, which is why even a perfectly-invalidated cache still needs one as a backstop. This is the race Facebook's leases exist to close: A takes a lease on the miss, B's write voids it, and A's stale set gets rejected. Take the general lesson too — a cache plus a database is two copies with no coordination between them, so you're doing distributed systems now whether you signed up for it or not."
+          "why": "Request A read V1 before request B committed V2. B's deletion occurred while the key was absent, then A populated the cache with its older result, leaving V1 cached over database value V2. A version check or lease can reject A's stale population; otherwise expiry provides the eventual backstop."
         },
         {
           "id": "cache-4-6",
-          "type": "tradeoff_slider",
-          "prompt": "You're picking a `TTL` for a product's price, shown on a page viewed a million times a day. Slide toward your choice.",
-          "leftLabel": "Long `TTL` (fewer misses, more staleness)",
-          "rightLabel": "Short `TTL` (fresher, more load)",
-          "answerRange": [
-            45,
-            85
-          ],
-          "why": "Prices are the classic case where staleness has a bill attached — show $8, charge $10, and you have a support problem and possibly a legal one — so this leans short. But the question is a little bit of a trap: `TTL` is your worst tool here. A price change is an EVENT you already know about, so invalidate on the write and the cache is correct within milliseconds no matter what the `TTL` says, which frees the `TTL` to do what it's genuinely good at — backstopping the invalidations you'll inevitably miss, including the race in the previous exercise. Reach for a very long `TTL` only when you're confident invalidation is airtight, and a very short one only when you can't detect the change at all and you're reduced to polling."
+          "type": "estimate",
+          "prompt": "A cached product price must be no more than 60 seconds stale even if write-triggered invalidation fails. What is the longest safe `TTL`?",
+          "answer": 60,
+          "tolerance": 0,
+          "unit": "seconds",
+          "why": "A 60-second time to live bounds staleness to 60 seconds after a missed invalidation; any longer value violates the freshness service-level objective. With 200 active cache nodes, this TTL would average about 200 ÷ 60 = 3.3 refreshes per second when each node refreshes independently."
         },
         {
           "id": "cache-4-7",
@@ -709,7 +1083,21 @@
             "It removes the need for a fast database"
           ],
           "answer": 1,
-          "why": "Caching is the highest-leverage move in this tier — a 95% hit rate takes 20× the read load off your database for the price of some memory — and it's sold as free speed, which is the lie. Look at what you actually took on: a second copy of the truth (unit 5), a race you can't reliably test your way out of, a component whose loss multiplies your database load 20× at the worst possible moment, and a class of bug that never raises an error. Cache when the read is expensive, reused, and tolerant of being stale — and when you do, decide out loud how wrong you'll let it be, because a `TTL` you didn't think about is still an answer to that question."
+          "why": "Caching reduces latency and backend read load when expensive results are reused and can tolerate bounded staleness. The cached copy introduces eviction, invalidation races, stampedes, and failure amplification: at a 95% hit rate, losing the cache raises database read traffic from 5% to 100%, a 20-fold increase."
+        },
+        {
+          "id": "xfer-cache",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "An authorization cache says Alice may read a report. Access is revoked in the database, but the cached decision lives for ten minutes. What is the failure?",
+          "choices": [
+            "Stale cached authorization permits access after revocation",
+            "The database becomes unavailable",
+            "The cache increases write durability",
+            "TLS expires"
+          ],
+          "answer": 0,
+          "why": "The cached copy outlives the authoritative policy change. Security-sensitive caches need bounded staleness and an invalidation or version strategy matching the revocation requirement."
         }
       ]
     }

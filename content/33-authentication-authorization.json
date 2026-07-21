@@ -1,0 +1,786 @@
+{
+  "unitId": "authentication-authorization",
+  "tier": 5,
+  "title": "Authentication & Authorization",
+  "subtitle": "Establish identity, enforce permissions, and contain compromised credentials",
+  "objectives": [
+    "Distinguish authentication, session management, and authorization",
+    "Choose between server-side sessions and signed access tokens from revocation and scaling requirements",
+    "Enforce permissions at the service that owns the protected resource",
+    "Design expiration, rotation, and service-to-service identity without exposing long-lived secrets"
+  ],
+  "lessons": [
+    {
+      "id": "auth-1",
+      "title": "Identity and sessions",
+      "exercises": [
+        {
+          "id": "auth-1-0",
+          "type": "concept",
+          "title": "Authentication establishes who is making the request",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "User",
+                "sub": "credential",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "i",
+                "label": "Identity service",
+                "sub": "verify",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "s",
+                "label": "Session",
+                "sub": "identity reference",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "i",
+                "kind": "request"
+              },
+              {
+                "from": "i",
+                "to": "s",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "Authentication verifies evidence such as a password, passkey, or identity-provider assertion and binds the successful result to an account. A session then carries that identity across later requests without repeating the primary credential.",
+          "note": "The application should store a password verifier produced by a password-hashing function with a unique salt, never the original password."
+        },
+        {
+          "id": "auth-change-1",
+          "type": "system_change",
+          "prompt": "Every API request currently sends the user's password to each backend service. Replace repeated password handling with a revocable server-side session.",
+          "actionLabel": "Issue a session cookie",
+          "choices": [
+            "Copy the password into every service",
+            "Issue a random session ID in a secure cookie",
+            "Put the password in a signed token"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Distributing the primary credential increases the number of systems that can expose it.",
+            "A random session ID lets services use an identity reference while the server retains revocation control.",
+            "A signature prevents modification but does not make a password safe to distribute."
+          ],
+          "beforeStatus": "CREDENTIAL EXPOSURE · password reaches 6 services per request",
+          "afterStatus": "CREDENTIAL EXPOSURE · password reaches identity service only at sign-in",
+          "result": "Later requests carry a revocable identity reference",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Client",
+                "sub": "password",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "6 services",
+                "sub": "all receive it",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Client",
+                "sub": "session cookie",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "API",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "s",
+                "label": "Session store",
+                "sub": "account + expiry",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "s",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "A high-entropy session identifier reveals no password and maps to server-controlled identity state. Deleting or expiring the session revokes subsequent requests; the cookie also needs Secure, HttpOnly, and an appropriate SameSite policy."
+        },
+        {
+          "id": "authentication-authorization-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Every API request currently sends the user's password to each backend service. Replace repeated password handling with a revocable server-side session. Place API, Session store. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Client",
+                "sub": "session cookie",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "s",
+                "sub": "account + expiry",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "s",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "API",
+            "Session store",
+            "User",
+            "Identity service"
+          ],
+          "answer": {
+            "a": "API",
+            "s": "Session store"
+          },
+          "why": "The completed diagram contains these directed flows: Client → API; API → Session store. That topology is the evidence for the answer: A high-entropy session identifier reveals no password and maps to server-controlled identity state. Deleting or expiring the session revokes subsequent requests; the cookie also needs Secure, HttpOnly, and an appropriate SameSite policy.",
+          "connectEdges": true
+        },
+        {
+          "id": "auth-1-1",
+          "type": "multiple_choice",
+          "prompt": "A user has successfully signed in. What should a session prove on the next request?",
+          "choices": [
+            "The user's password",
+            "That the request is associated with an authenticated account under a valid session",
+            "That every requested action is permitted",
+            "That the device cannot be compromised"
+          ],
+          "answer": 1,
+          "why": "A valid session associates the request with an authenticated identity. Authorization still evaluates whether that identity may perform the requested action; authentication does not prove device safety or grant every permission."
+        },
+        {
+          "id": "auth-1-2",
+          "type": "match_pairs",
+          "prompt": "Match each credential mechanism to the property it supplies.",
+          "pairs": [
+            {
+              "left": "Password hash",
+              "right": "Verifies a password without storing the original"
+            },
+            {
+              "left": "Session ID",
+              "right": "Opaque reference to server-controlled session state"
+            },
+            {
+              "left": "Signed access token",
+              "right": "Carries claims whose modification can be detected"
+            }
+          ],
+          "why": "Password hashing protects stored password verifiers, an opaque session ID points to state the server can revoke, and a signed token protects claim integrity. A signature does not encrypt the claims or prove that the presenting device is trustworthy."
+        },
+        {
+          "id": "auth-1-3",
+          "type": "multi_select",
+          "prompt": "Which controls reduce session-cookie theft or misuse? Select all that apply.",
+          "choices": [
+            "Send the cookie only over HTTPS",
+            "Prevent JavaScript access with HttpOnly",
+            "Use a suitable SameSite policy and CSRF defense",
+            "Make the session ID predictable so support can reproduce it"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Secure transport prevents network exposure, HttpOnly limits script access, and SameSite plus explicit anti-CSRF controls restrict cross-site submission. Session identifiers require enough entropy that an attacker cannot guess another user's value."
+        },
+        {
+          "id": "auth-1-4",
+          "type": "tradeoff_slider",
+          "prompt": "A banking dashboard must terminate access immediately when support disables an account. Choose the session design emphasis.",
+          "leftLabel": "Long-lived self-contained tokens",
+          "rightLabel": "Server-checked revocable sessions",
+          "answerRange": [
+            75,
+            100
+          ],
+          "why": "Immediate account disablement requires each protected request to consult revocable state or a mechanism with equivalent enforcement. Long-lived self-contained tokens remain valid until expiry unless the system adds a denylist, introspection, or short lifetimes."
+        }
+      ]
+    },
+    {
+      "id": "auth-2",
+      "title": "Permissions belong with the resource",
+      "exercises": [
+        {
+          "id": "auth-2-0",
+          "type": "concept",
+          "title": "Authorization evaluates an action on a resource for an authenticated principal",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Principal",
+                "sub": "user 42",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "z",
+                "label": "Policy check",
+                "sub": "edit document 9?",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Document 9",
+                "sub": "owner user 17",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "z",
+                "kind": "request"
+              },
+              {
+                "from": "z",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "Authorization combines the authenticated principal, requested action, resource attributes, and policy. The service that owns the resource must enforce the result because it has the authoritative ownership and state needed for the decision.",
+          "note": "A user interface may hide forbidden controls for usability, but client-side hiding is not an enforcement boundary."
+        },
+        {
+          "id": "auth-change-2",
+          "type": "system_change",
+          "prompt": "The web app hides the Delete button from viewers, but `DELETE /documents/9` succeeds when called directly. Move enforcement to the protected operation.",
+          "actionLabel": "Authorize in the document service",
+          "choices": [
+            "Obfuscate the endpoint URL",
+            "Check role and document ownership in the document service",
+            "Disable browser developer tools"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "An attacker can discover or replay an obfuscated endpoint.",
+            "The resource-owning service can reject the operation using authoritative policy and ownership data.",
+            "A server cannot rely on controlling tools on the user's device."
+          ],
+          "beforeStatus": "DIRECT API CALL · viewer deletes document 9",
+          "afterStatus": "DIRECT API CALL · 403 Forbidden · document remains",
+          "result": "The permission is enforced at the resource boundary",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Viewer",
+                "sub": "direct request",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "Document service",
+                "sub": "no policy check",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Document 9",
+                "sub": "deleted",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "d",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Viewer",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "Document service",
+                "sub": "role + owner check",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Document 9",
+                "sub": "protected",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "d",
+                "to": "r",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "why": "The document service must authorize every protected operation because requests can bypass the web interface. The check should use the authenticated principal and current resource state, then return a non-success response without performing the mutation."
+        },
+        {
+          "id": "authentication-authorization-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: The web app hides the Delete button from viewers, but `DELETE /documents/9` succeeds when called directly. Move enforcement to the protected operation. Place Document service, Document 9. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Viewer",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "sub": "role + owner check",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "r",
+                "sub": "protected",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "d",
+                "to": "r",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Document service",
+            "Document 9",
+            "User",
+            "Identity service"
+          ],
+          "answer": {
+            "d": "Document service",
+            "r": "Document 9"
+          },
+          "why": "The completed diagram contains these directed flows: Viewer → Document service; Document service → Document 9. That topology is the evidence for the answer: The document service must authorize every protected operation because requests can bypass the web interface. The check should use the authenticated principal and current resource state, then return a non-success response without performing the mutation."
+        },
+        {
+          "id": "auth-2-1",
+          "type": "match_pairs",
+          "prompt": "Match each authorization model to its decision inputs.",
+          "pairs": [
+            {
+              "left": "RBAC",
+              "right": "Permissions assigned through roles"
+            },
+            {
+              "left": "ABAC",
+              "right": "Policy evaluates principal, resource, action, and environment attributes"
+            },
+            {
+              "left": "ACL",
+              "right": "A resource lists principals or groups and their allowed actions"
+            }
+          ],
+          "why": "Role-based access control groups permissions into roles, attribute-based access control evaluates policy over request context, and an access-control list attaches allowed principals or groups to a resource. Systems often combine these models."
+        },
+        {
+          "id": "auth-2-2",
+          "type": "build_diagram",
+          "prompt": "Complete the authorization path. The gateway authenticates the token; the document service must use current ownership data before returning the document.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "g",
+                "label": "Gateway",
+                "sub": "authenticate",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "h1",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "g",
+                "kind": "request"
+              },
+              {
+                "from": "g",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Document Service · authorize action",
+            "Document Store · owner and state",
+            "CDN",
+            "Client-side role check"
+          ],
+          "answer": {
+            "h1": "Document Service · authorize action",
+            "h2": "Document Store · owner and state"
+          },
+          "why": "The gateway can establish identity, while the document service evaluates the action using current resource ownership and policy. Central authentication does not remove resource-specific authorization from downstream services."
+        },
+        {
+          "id": "auth-2-3",
+          "type": "multi_select",
+          "prompt": "A support agent may refund orders only in their assigned region and only below $500. Which facts belong in the authorization decision?",
+          "choices": [
+            "The agent's assigned region",
+            "The order's region",
+            "The refund amount",
+            "The color of the agent's browser"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "The policy compares principal attributes with resource and action attributes: assigned region, order region, and refund amount. Unrelated presentation details should not affect the permission decision."
+        },
+        {
+          "id": "auth-2-4",
+          "type": "multiple_choice",
+          "prompt": "A user's role changed from admin to viewer, but an access token still says `role=admin`. What determines how long the old permission can survive?",
+          "choices": [
+            "The token's remaining lifetime and any revocation or introspection mechanism",
+            "The database index count",
+            "The HTTP method",
+            "The user's screen size"
+          ],
+          "answer": 0,
+          "why": "A self-contained token carries the role snapshot until expiry unless protected services consult current state through introspection, versioning, or revocation. Token lifetime therefore bounds stale authorization when no online check exists."
+        }
+      ]
+    },
+    {
+      "id": "auth-3",
+      "title": "Credential lifetime and service identity",
+      "exercises": [
+        {
+          "id": "auth-3-0",
+          "type": "concept",
+          "title": "Short-lived credentials limit exposure; rotation preserves continuity",
+          "viz": {
+            "nodes": [
+              {
+                "id": "l",
+                "label": "Login",
+                "sub": "strong proof",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "label": "Refresh credential",
+                "sub": "narrow use",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "a",
+                "label": "Access token",
+                "sub": "short lifetime",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "l",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "r",
+                "to": "a",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "An access credential should live only as long as its exposure risk permits. A narrowly scoped refresh mechanism can obtain new short-lived access credentials, while rotation invalidates the previously used refresh value and detects replay.",
+          "note": "Credential rotation requires overlap or coordinated rollout for legitimate clients; replacing a secret everywhere at one instant is rarely reliable."
+        },
+        {
+          "id": "authentication-authorization-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Short-lived credentials limit exposure; rotation preserves continuity",
+          "viz": {
+            "nodes": [
+              {
+                "id": "l",
+                "label": "Login",
+                "sub": "strong proof",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "sub": "narrow use",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "sub": "short lifetime",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "l",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Refresh credential",
+            "Access token",
+            "User",
+            "Identity service"
+          ],
+          "answer": {
+            "r": "Refresh credential",
+            "a": "Access token"
+          },
+          "why": "An access credential should live only as long as its exposure risk permits. A narrowly scoped refresh mechanism can obtain new short-lived access credentials, while rotation invalidates the previously used refresh value and detects replay. Credential rotation requires overlap or coordinated rollout for legitimate clients; replacing a secret everywhere at one instant is rarely reliable."
+        },
+        {
+          "id": "auth-3-1",
+          "type": "order_steps",
+          "prompt": "Build a refresh-token rotation flow after an access token expires.",
+          "steps": [
+            "Client sends the refresh credential to the identity service",
+            "Identity service verifies validity, scope, and reuse status",
+            "One atomic rotation transaction marks the old refresh credential used and creates its replacement",
+            "Identity service returns the new access token and refresh credential",
+            "Client replaces the stored credential pair"
+          ],
+          "why": "Rotation treats each refresh credential as single-use. The old-token consumption and replacement creation must be one atomic state transition: two concurrent uses cannot create two successor chains, and a crash cannot consume the old token without recording the replacement. Later reuse can then trigger family revocation or another explicit compromise response."
+        },
+        {
+          "id": "auth-3-2",
+          "type": "multiple_choice",
+          "prompt": "Service A calls Service B with a shared secret embedded in both source repositories. What is the primary operational problem?",
+          "choices": [
+            "HTTP becomes slower",
+            "Compromise or rotation affects every holder, and the secret is difficult to attribute to one workload",
+            "The services cannot use JSON",
+            "The database becomes eventually consistent"
+          ],
+          "answer": 1,
+          "why": "A shared static secret has a broad blast radius, weak workload attribution, and difficult rotation. Workload identity can issue short-lived credentials to a specific service instance and let Service B authorize that principal and scope."
+        },
+        {
+          "id": "auth-3-3",
+          "type": "build_diagram",
+          "prompt": "Build a service-to-service identity path using short-lived workload credentials.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Service A",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "label": "Service B",
+                "sub": "authorize scope",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Workload identity · short-lived credential",
+            "Shared password in source code",
+            "User's browser cookie"
+          ],
+          "answer": {
+            "h1": "Workload identity · short-lived credential"
+          },
+          "why": "A workload identity system binds a short-lived credential to Service A's runtime identity. Service B validates the issuer, audience, expiry, and allowed scope instead of trusting a long-lived secret copied across deployments."
+        },
+        {
+          "id": "auth-3-4",
+          "type": "multi_select",
+          "prompt": "Which events should invalidate or restrict credentials? Select all that apply.",
+          "choices": [
+            "Account disabled",
+            "Password reset after suspected compromise",
+            "Refresh-token reuse detected",
+            "A harmless CSS deployment"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Account disablement, compromise recovery, and refresh-token replay all change the acceptable identity risk and should revoke or constrain credentials. An unrelated presentation deployment does not alter authentication state."
+        },
+        {
+          "id": "auth-3-5",
+          "type": "tradeoff_slider",
+          "prompt": "An internal reporting tool contains low-sensitivity data and must keep working through a brief identity-store outage. Choose the access-token emphasis.",
+          "leftLabel": "Very short life · frequent online renewal",
+          "rightLabel": "Longer life · more outage tolerance",
+          "answerRange": [
+            55,
+            75
+          ],
+          "why": "A moderately longer token lifetime can preserve access during a short identity-service outage, while increasing the window for stale permissions or stolen-token use. The acceptable point follows data sensitivity, revocation requirements, and outage objectives."
+        },
+        {
+          "id": "xfer-auth",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A document service verifies that a token is valid but never checks whether its subject may access document 42. What is missing?",
+          "choices": [
+            "Resource-level authorization",
+            "Authentication",
+            "TLS encryption",
+            "DNS resolution"
+          ],
+          "answer": 0,
+          "why": "Authentication establishes who presented the token. Authorization must still evaluate that identity, action, resource, ownership, and policy before returning document 42."
+        }
+      ]
+    }
+  ]
+}

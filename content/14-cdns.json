@@ -2,7 +2,7 @@
   "unitId": "cdns",
   "tier": 2,
   "title": "CDNs",
-  "subtitle": "You can't outrun light — so move the content closer",
+  "subtitle": "Serve cacheable responses near users and control edge freshness",
   "objectives": [
     "Explain why distance is a latency floor and what putting content at the edge buys",
     "Decide what belongs on a CDN and what doesn't, using cacheability rather than file type",
@@ -17,7 +17,7 @@
         {
           "id": "cdn-1-0",
           "type": "concept",
-          "title": "You cannot outrun the speed of light, so the only lever left is distance",
+          "title": "Network distance imposes a propagation-delay floor on latency",
           "viz": {
             "nodes": [
               {
@@ -37,12 +37,138 @@
             "edges": [
               {
                 "from": "u",
-                "to": "o"
+                "to": "o",
+                "kind": "request"
               }
             ]
           },
-          "body": "Light in fibre moves at about 200,000 km a second — roughly two thirds of its speed in vacuum, and not a setting anyone can change. That is about 10ms of round trip for every 1,000 km between your user and your server, paid before a single line of your code runs. Real routes bend around oceans and exchange points, so the true figure runs worse.",
-          "note": "Which makes distance the one term in your latency budget that no deploy touches. Drive your server's own time to zero and a far-away user cannot tell. The only way to shorten the trip is to shorten the trip."
+          "body": "Signals propagate through optical fibre at about 200,000 km/s. A 1,000 km one-way path therefore contributes about 10 ms to a round trip before routing, queueing, protocol handshakes, or application work. Serving the response from a nearby edge reduces that path length.",
+          "note": "Geographic distance is a latency lower bound. Real Internet routes are longer than straight-line distance and add router and exchange-point delay."
+        },
+        {
+          "id": "cdn-change-1",
+          "type": "system_change",
+          "prompt": "A product launch sends 50,000 static-image requests per second to an origin that handles 1,000. Cache 99% of image requests at CDN edges.",
+          "actionLabel": "Serve images from the CDN",
+          "beforeStatus": "ORIGIN LOAD · 50,000 / 1,000 req/s · overloaded",
+          "afterStatus": "ORIGIN LOAD · 500 / 1,000 req/s · healthy",
+          "result": "The edge absorbed 49,500 requests each second",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Global users",
+                "sub": "50k req/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "o",
+                "label": "Origin",
+                "sub": "50k / 1k",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "o",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Global users",
+                "sub": "50k req/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "e",
+                "label": "CDN edge",
+                "sub": "49.5k hits/s",
+                "col": 1,
+                "kind": "cdn"
+              },
+              {
+                "id": "o",
+                "label": "Origin",
+                "sub": "500 / 1k",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "e",
+                "kind": "request"
+              },
+              {
+                "from": "e",
+                "to": "o",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "A 99% CDN hit rate leaves 1% of 50,000 requests, or 500 req/s, for the origin. A cache miss still reaches the origin, so launch readiness depends on both hit rate and origin capacity."
+        },
+        {
+          "id": "cdns-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A product launch sends 50,000 static-image requests per second to an origin that handles 1,000. Cache 99% of image requests at CDN edges. Place CDN edge, Origin. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Global users",
+                "sub": "50k req/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "e",
+                "sub": "49.5k hits/s",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "o",
+                "sub": "500 / 1k",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "e",
+                "kind": "request"
+              },
+              {
+                "from": "e",
+                "to": "o",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "CDN edge",
+            "Origin",
+            "User",
+            "Your Server"
+          ],
+          "answer": {
+            "e": "CDN edge",
+            "o": "Origin"
+          },
+          "why": "The completed diagram contains these directed flows: Global users → CDN edge; CDN edge → Origin. That topology is the evidence for the answer: A 99% CDN hit rate leaves 1% of 50,000 requests, or 500 req/s, for the origin. A cache miss still reaches the origin, so launch readiness depends on both hit rate and origin capacity.",
+          "connectEdges": true
         },
         {
           "id": "cdn-1-1",
@@ -55,7 +181,7 @@
             "The database is slow"
           ],
           "answer": 1,
-          "why": "A Virginia–Sydney round trip is on the order of 200ms through fibre, so a 5ms server response is a rounding error next to the journey. This is the wall from unit 4: you can optimize your code to zero and the user still waits, because you're paying the speed of light. The only lever left is to stop making them cross the planet."
+          "why": "The request and response must traverse long network paths between Sydney and Virginia. Propagation and routing impose a round-trip latency far larger than the server's 5ms processing time, so optimizing the server cannot remove the distance-dependent floor."
         },
         {
           "id": "cdn-1-2",
@@ -68,7 +194,7 @@
             "DNS"
           ],
           "answer": 0,
-          "why": "Content Delivery Network — the name is literal. It's copies of your content, delivered from somewhere near the person asking for it."
+          "why": "A content delivery network (CDN) caches content on geographically distributed edge servers. When a nearby edge has a fresh cached object, it answers the request locally, reducing network distance, origin traffic, and response latency."
         },
         {
           "id": "cdn-1-3",
@@ -76,25 +202,62 @@
           "prompt": "So what does a CDN actually do about the Sydney problem?",
           "choices": [
             "It makes your Virginia server faster",
-            "It keeps a copy of your content in Sydney, so the user's request never crosses the ocean",
+            "On a cache hit, a Sydney edge returns its local copy without an origin round trip across the ocean",
             "It compresses the response so it travels faster",
             "It upgrades the user's connection"
           ],
           "answer": 1,
-          "why": "A CDN shortens the distance rather than speeding up the trip. The user hits an edge server a few milliseconds away that already has your logo, and the ocean crossing simply doesn't happen. Notice this is unit 5's lesson at planetary scale: a CDN is a cache, so it's a derived copy, and every consequence in this unit follows from that."
+          "why": "A Sydney edge can return its cached copy locally, removing the Virginia round trip from a cache hit. The edge copy is derived from the origin, so its freshness is controlled by cache policy and invalidation."
         },
         {
           "id": "cdn-1-4",
-          "type": "multiple_choice",
-          "prompt": "A CDN edge server in Sydney doesn't have the file a user asks for. What happens?",
-          "choices": [
-            "The user gets a 404",
-            "The edge fetches it from your origin server, serves it, and keeps a copy so the next Sydney user is fast",
-            "The request fails and retries",
-            "The CDN generates the file itself"
+          "type": "build_diagram",
+          "prompt": "A Sydney edge misses on `/logo.svg`. Complete the fetch path so this request reaches the authority and the next nearby request can hit a copy.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "user",
+                "label": "Sydney User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "edge",
+                "sub": "miss now, stores response",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "origin",
+                "sub": "authoritative bytes",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "user",
+                "to": "edge",
+                "kind": "request"
+              },
+              {
+                "from": "edge",
+                "to": "origin",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Sydney CDN Edge",
+            "Origin Server",
+            "User Database",
+            "Load Balancer"
           ],
-          "answer": 1,
-          "why": "That's a cache miss, and the first Sydney user waits while the edge crosses the ocean on their behalf. They still get something — their TLS handshake terminates at the nearby edge, and the edge reuses an already-warm connection to your origin, so a miss is meaningfully cheaper than going direct — but they get none of the *cache's* benefit. They're the one who warms it for everyone after them, which is why a CDN's value depends entirely on how often the next person asks for the same thing."
+          "answer": {
+            "edge": "Sydney CDN Edge",
+            "origin": "Origin Server"
+          },
+          "why": "The nearby edge checks its cache first; on this miss it fetches the authoritative object from the origin, returns it, and stores a copy under the response's cache policy. If the origin is unavailable during the miss and no permitted stale copy exists, this request fails even though later edge hits would not need the origin."
         },
         {
           "id": "cdn-1-5",
@@ -118,7 +281,7 @@
               "right": "The edge had to ask the origin"
             }
           ],
-          "why": "Edges are the copies, the origin is the truth, and every request is one of two outcomes. Almost every CDN decision you'll make is really about moving requests from the second column into the first."
+          "why": "An edge or point of presence (PoP) is a nearby CDN location, while the origin is the authoritative server. A hit is served from the edge copy; a miss requires an origin fetch and can populate that copy for subsequent requests."
         },
         {
           "id": "cdn-1-6",
@@ -131,7 +294,7 @@
             "Your database's storage"
           ],
           "answer": 1,
-          "why": "Every cache hit is a request your origin never sees, so a CDN is capacity relief as well as a speed win. For a site whose traffic is mostly images, scripts, and video, the CDN can absorb the overwhelming majority of requests — which means your origin only has to be sized for the small fraction that genuinely needs it."
+          "why": "A cache hit terminates at the edge, so it consumes no origin request capacity or origin egress for that response. When shared assets dominate traffic, a high edge hit ratio can remove most of that workload from the origin."
         }
       ]
     },
@@ -142,7 +305,7 @@
         {
           "id": "cdn-2-0",
           "type": "concept",
-          "title": "A stored copy is only worth storing if it gets handed out again",
+          "title": "An edge response is cacheable when requests can reuse one fresh representation",
           "viz": {
             "nodes": [
               {
@@ -181,25 +344,103 @@
             "edges": [
               {
                 "from": "u1",
-                "to": "e"
+                "to": "e",
+                "kind": "request"
               },
               {
                 "from": "u2",
-                "to": "e"
+                "to": "e",
+                "kind": "request"
               },
               {
                 "from": "u3",
-                "to": "e"
+                "to": "e",
+                "kind": "request"
               },
               {
                 "from": "e",
                 "to": "o",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
-          "body": "An edge holds one copy and hopes to serve it a thousand times — that ratio is the business model. Fetch once, deliver often, and the origin trip amortizes to nothing. Fetch once, deliver once, and you've added a hop and a component in exchange for nothing. Then a second question lands: how far behind the truth may this copy fall before someone is hurt?",
-          "note": "The two questions aren't equal partners. Fail the first and a CDN is merely pointless — a hop that saves nobody anything. Fail the second and it's actively wrong, and it's wrong in a few hundred places at once."
+          "body": "A content delivery network (CDN) stores an origin response under a cache key at an edge. Later requests reuse it only when they produce the same key and the stored response is still fresh. Shared assets and public pages usually provide reuse; personalized responses usually do not.",
+          "note": "A cache key that mixes users incorrectly can expose private data. A key fragmented by unnecessary variants sends most requests back to the origin."
+        },
+        {
+          "id": "cdns-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: An edge response is cacheable when requests can reuse one fresh representation",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u1",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "u2",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "u3",
+                "label": "User",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "e",
+                "sub": "1 copy",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "o",
+                "sub": "only on miss",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u1",
+                "to": "e",
+                "kind": "request"
+              },
+              {
+                "from": "u2",
+                "to": "e",
+                "kind": "request"
+              },
+              {
+                "from": "u3",
+                "to": "e",
+                "kind": "request"
+              },
+              {
+                "from": "e",
+                "to": "o",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Edge",
+            "Origin",
+            "Your Server",
+            "Global users"
+          ],
+          "answer": {
+            "e": "Edge",
+            "o": "Origin"
+          },
+          "why": "A content delivery network (CDN) stores an origin response under a cache key at an edge. Later requests reuse it only when they produce the same key and the stored response is still fresh. Shared assets and public pages usually provide reuse; personalized responses usually do not. A cache key that mixes users incorrectly can expose private data. A key fragmented by unnecessary variants sends most requests back to the origin."
         },
         {
           "id": "cdn-2-1",
@@ -212,7 +453,7 @@
             "A live chat message"
           ],
           "answer": 1,
-          "why": "The logo is the ideal case because it's identical for everyone and rarely changes, so one cached copy serves millions of people and being slightly stale costs nothing. The dashboard and balance are personal, and the chat message is live — caching any of them at the edge would show someone another person's data or the past."
+          "why": "The logo has identical bytes for every requester, changes rarely, and tolerates a stale copy, so one edge object can serve many users. Personalized dashboards and balances require per-user isolation, while live chat requires tighter freshness than this shared cache policy provides."
         },
         {
           "id": "cdn-2-2",
@@ -225,7 +466,7 @@
             "Whether it's compressed"
           ],
           "answer": 1,
-          "why": "Cacheability isn't about file type, it's about shared-ness and staleness tolerance. 'Static assets' is a rule of thumb that works only because images and scripts happen to be identical for everyone — but an HTML page that's the same for all logged-out visitors caches beautifully, while a personalized SVG cannot cache at all."
+          "why": "Edge caching is effective when many requests use the same cache key and response bytes, and when the response may remain stale for the configured interval. File type alone does not establish either property: shared HTML can cache safely, while personalized media may not."
         },
         {
           "id": "cdn-2-3",
@@ -242,7 +483,7 @@
             1,
             2
           ],
-          "why": "The bundle, the image, and the public post are identical for every visitor, so one copy serves everyone. The personalized page is different for each user — caching it at the edge risks the classic catastrophe of serving one user's page to another, which is how sites leak accounts to strangers."
+          "why": "The JavaScript bundle, product image, and public post can use shared cache entries because their responses are identical across users. A logged-in page varies by identity; caching it without a correctly partitioned private key can serve one user's content to another."
         },
         {
           "id": "cdn-2-4",
@@ -255,7 +496,7 @@
             "The user's browser decides"
           ],
           "answer": 1,
-          "why": "The origin sets the policy and the edge obeys it — `Cache-Control` max-age is you saying how long a copy stays fresh. This is the same mechanism from unit 2 doing a bigger job: the headers you send aren't decoration, they're instructions to every cache between you and the user, and setting them badly is how you end up either with no caching at all or with a mistake pinned in place for a year."
+          "why": "The origin's `Cache-Control` directives tell shared caches whether a response may be stored and how long it remains fresh. A `max-age` value defines the freshness interval, after which the edge must revalidate, refetch, or apply another permitted stale-response policy."
         },
         {
           "id": "cdn-2-5",
@@ -268,7 +509,7 @@
             "No, because you can always purge"
           ],
           "answer": 1,
-          "why": "A content-hashed filename makes the URL and the bytes inseparable, so that URL's content can never change and caching it forever is safe rather than reckless. Updating means shipping a new filename that nothing has cached, and the old one simply stops being referenced — which is why this pattern is everywhere in modern builds. You get permanent caching and instant updates at once, by never reusing a name."
+          "why": "A content hash in the filename changes whenever the bytes change. The URL therefore identifies immutable content, allowing a one-year freshness period; a new build publishes a new URL that has no stale cached representation."
         },
         {
           "id": "cdn-2-6",
@@ -281,7 +522,7 @@
             "It's personalized"
           ],
           "answer": 1,
-          "why": "Something has to be the entry point with a stable name, and that file is the pointer to everything else — cache it hard and users keep fetching the old bundle no matter how many times you deploy. So the shape is: a short-lived pointer naming immutable assets, giving you fast repeat loads and deploys that actually reach people."
+          "why": "`index.html` is a stable URL that points to the current content-hashed assets. If that pointer remains cached for a long time, clients continue requesting old asset names after deployment, so the pointer needs a short freshness interval even though the hashed assets can be cached for a year."
         }
       ]
     },
@@ -292,7 +533,7 @@
         {
           "id": "cdn-3-0",
           "type": "concept",
-          "title": "The edges are still obeying the instruction you gave them yesterday",
+          "title": "Freshness metadata controls when an edge contacts the origin again",
           "viz": {
             "nodes": [
               {
@@ -333,35 +574,130 @@
             "edges": [
               {
                 "from": "u",
-                "to": "e1"
+                "to": "e1",
+                "kind": "request"
               },
               {
                 "from": "u",
-                "to": "e2"
+                "to": "e2",
+                "kind": "request"
               },
               {
                 "from": "u",
-                "to": "e3"
+                "to": "e3",
+                "kind": "request"
               },
               {
                 "from": "e1",
                 "to": "o",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               },
               {
                 "from": "e2",
                 "to": "o",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               },
               {
                 "from": "e3",
                 "to": "o",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
-          "body": "`Cache-Control: max-age=86400` isn't a hint — it's you telling every edge this file is good for 24 hours, and they believe you. The instruction travelled with the copy. Change the file at your origin now and nothing in HTTP reaches back to correct them: a cache only ever learns by asking, and you told a few hundred of them not to ask for a day.",
-          "note": "Notice what you did when you typed that number: you signed a contract with a few hundred machines you don't administer, on behalf of every future version of the file. The copies aren't broken. They're obedient."
+          "body": "`Cache-Control: max-age=86400` marks a response fresh for 86,400 seconds. During that interval, an edge may serve its stored bytes without contacting the origin. Updating the origin does not notify those copies; they change after expiry, revalidation, purge, or a request for a new URL.",
+          "note": "A long freshness lifetime can keep an incorrect response active at many edges. Use versioned URLs for immutable assets or retain a reliable purge path for stable URLs."
+        },
+        {
+          "id": "cdns-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Freshness metadata controls when an edge contacts the origin again",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Users",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "e1",
+                "sub": "fresh for 24h",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "e2",
+                "sub": "fresh for 24h",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "e3",
+                "sub": "fresh for 24h",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "o",
+                "label": "Origin",
+                "sub": "file changed",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "e1",
+                "kind": "request"
+              },
+              {
+                "from": "u",
+                "to": "e2",
+                "kind": "request"
+              },
+              {
+                "from": "u",
+                "to": "e3",
+                "kind": "request"
+              },
+              {
+                "from": "e1",
+                "to": "o",
+                "dash": true,
+                "kind": "optional"
+              },
+              {
+                "from": "e2",
+                "to": "o",
+                "dash": true,
+                "kind": "optional"
+              },
+              {
+                "from": "e3",
+                "to": "o",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Edge A",
+            "Edge B",
+            "Edge fleet ×300",
+            "User",
+            "Your Server"
+          ],
+          "answer": {
+            "e1": "Edge A",
+            "e2": "Edge B",
+            "e3": "Edge fleet ×300"
+          },
+          "why": "`Cache-Control: max-age=86400` marks a response fresh for 86,400 seconds. During that interval, an edge may serve its stored bytes without contacting the origin. Updating the origin does not notify those copies; they change after expiry, revalidation, purge, or a request for a new URL. A long freshness lifetime can keep an incorrect response active at many edges. Use versioned URLs for immutable assets or retain a reliable purge path for stable URLs."
         },
         {
           "id": "cdn-3-1",
@@ -374,7 +710,7 @@
             "Only Sydney users see the typo"
           ],
           "answer": 1,
-          "why": "The edges have no idea anything changed — they hold a copy they were told is fresh for 24 hours, and they'll serve it confidently for 24 hours. This is unit 5's invalidation problem spread across 300 machines you don't control: the copy isn't wrong from the cache's point of view, it's doing exactly what you told it to."
+          "why": "Each edge considers its cached object fresh for the configured 24-hour interval and does not check the origin during that period. Updating the origin alone leaves those copies eligible, so users continue receiving the typo until expiry or explicit invalidation."
         },
         {
           "id": "cdn-3-2",
@@ -398,7 +734,7 @@
               "right": "Edge asks the origin: still current?"
             }
           ],
-          "why": "Four options with very different costs: waiting is free but slow, purging is fast but is an operation you must remember to run, versioning sidesteps the problem entirely, and revalidation trades a small origin request for confidence."
+          "why": "Time-to-live expiry waits for the freshness interval, purge actively removes cached objects, a versioned URL creates a new cache key, and revalidation asks the origin whether the existing object is current. Each mechanism trades origin work, operational action, and update latency differently."
         },
         {
           "id": "cdn-3-3",
@@ -406,12 +742,12 @@
           "prompt": "Why do versioned URLs beat purging as a default strategy?",
           "choices": [
             "Purging is slower to propagate",
-            "Purging is an action someone must remember to perform correctly every time, while a new filename makes staleness impossible by construction",
+            "A content-derived filename gives new bytes a new cache key, so an old object cannot answer a request for that new asset version",
             "CDNs charge for purges",
             "Versioned URLs are shorter"
           ],
           "answer": 1,
-          "why": "Purging is a process that depends on humans and pipelines doing the right thing under pressure, and the failure mode is silent — you think you shipped, users see the old thing. Versioned URLs remove the decision: a new build produces a new name, nothing has it cached, and there's no stale copy to hunt down. Prefer designs where the bad state can't exist over designs where you clean it up."
+          "why": "When immutable asset bytes change, a content-derived filename changes the cache key, so an old object cannot answer a request for the new asset URL. Purging requires a separate invalidation operation that can be missed or delayed. Clients with stale HTML may still request the old version, so the HTML pointer needs its own freshness policy."
         },
         {
           "id": "cdn-3-4",
@@ -424,7 +760,7 @@
             "Only for images"
           ],
           "answer": 1,
-          "why": "Some URLs are the product and can't be renamed — an article's link is shared, bookmarked, and indexed, so you can't ship a correction by shipping a new URL. That's exactly when purging earns its place: you accept the operational burden because the alternative, changing the address, would break the thing that makes it valuable."
+          "why": "A published article must preserve its stable bookmarked and indexed URL, so changing the cache key would change the public resource address. Purging invalidates the existing edge copies while keeping that URL intact, allowing the corrected origin response to repopulate them."
         },
         {
           "id": "cdn-3-5",
@@ -437,19 +773,16 @@
             "Fewer purges"
           ],
           "answer": 1,
-          "why": "Nobody waits on the origin — the edge answers instantly from its copy and refreshes afterwards, so the next visitor gets the update. You've decided this content's staleness costs less than its latency, which is the same question from unit 5 asked at the edge: what does being a few seconds behind actually cost here?"
+          "why": "`stale-while-revalidate` permits the edge to return an expired copy immediately while one background request refreshes it. The current requester avoids origin latency, while accepting that response's bounded staleness until the refreshed object replaces it."
         },
         {
           "id": "cdn-3-6",
-          "type": "tradeoff_slider",
-          "prompt": "You're serving a news homepage that updates every few minutes and gets enormous traffic. Slide toward your caching policy.",
-          "leftLabel": "Very short TTL (fresh, more origin load)",
-          "rightLabel": "Long TTL (fast + cheap, can be minutes stale)",
-          "answerRange": [
-            30,
-            70
-          ],
-          "why": "Neither extreme fits: no caching hands enormous traffic straight to your origin, and a long TTL means a breaking story sits invisible for an hour. A short TTL of seconds-to-a-minute collapses millions of requests into one origin fetch per interval while keeping the page current enough for news — and `stale-while-revalidate` makes even that refresh invisible to users."
+          "type": "estimate",
+          "prompt": "A news homepage may be at most 60 seconds stale. With a 60-second `TTL` and 240 active edge locations, about how many origin refreshes per second occur if each edge refreshes once per `TTL`?",
+          "answer": 4,
+          "tolerance": 0.5,
+          "unit": "refreshes/sec",
+          "why": "The freshness target caps the time to live at 60 seconds. At that value, 240 edge locations ÷ 60 seconds = about 4 origin refreshes per second, collapsing enormous viewer traffic into a small origin load; `stale-while-revalidate` can serve the old object while each refresh completes."
         }
       ]
     },
@@ -460,7 +793,7 @@
         {
           "id": "cdn-4-0",
           "type": "concept",
-          "title": "A CDN can only hit on a key it has already seen",
+          "title": "A CDN hit requires an exact cache-key match and a reusable response",
           "viz": {
             "nodes": [
               {
@@ -502,24 +835,28 @@
             "edges": [
               {
                 "from": "r1",
-                "to": "e"
+                "to": "e",
+                "kind": "request"
               },
               {
                 "from": "r2",
-                "to": "e"
+                "to": "e",
+                "kind": "request"
               },
               {
                 "from": "r3",
-                "to": "e"
+                "to": "e",
+                "kind": "request"
               },
               {
                 "from": "e",
-                "to": "o"
+                "to": "o",
+                "kind": "request"
               }
             ]
           },
-          "body": "An edge files a response under a key: your URL, every character of it, plus whatever your `Vary` header said also matters. The next request hits only if it builds that identical key — and only if the edge was permitted to file the response at all. Plenty of ordinary-looking habits break one of those two conditions, and none of them looks like a caching bug.",
-          "note": "And read the miss column, not the hit column. A hit ratio flatters — the number that actually bills you is how many requests still reach your origin, and that's a subtraction you have to do yourself."
+          "body": "An edge derives a cache key from the request URL and any request headers named by `Vary`. It serves a hit only when an unexpired stored response has the identical key and its cache policy permits reuse. Otherwise, the edge forwards the request toward the origin.",
+          "note": "Unique query parameters and broad `Vary` rules fragment one object into many keys. Each variant must be fetched and warmed separately, increasing origin traffic."
         },
         {
           "id": "cdn-4-1",
@@ -532,7 +869,7 @@
             "Hit ratio doesn't matter"
           ],
           "answer": 1,
-          "why": "For a static asset workload, mature CDN configurations typically run far higher, so 60% usually means something is defeating the cache — cache-busting query strings, missing headers, or `Vary` headers fragmenting one file into many variants. The number worth watching is what fraction of ORIGIN load you removed, because that's what the CDN was bought for."
+          "why": "A 60% hit ratio leaves 40% of requests reaching the origin. For immutable shared assets, repeated requests should normally reuse edge objects, so this ratio warrants checking cache keys, freshness headers, and response variation; the acceptable ratio still depends on which objects make up the misses."
         },
         {
           "id": "cdn-4-2",
@@ -545,20 +882,68 @@
             "The file serves stale forever"
           ],
           "answer": 1,
-          "why": "Every edge independently discovers the copy expired and independently goes to fetch it, so your origin gets hit by a synchronized stampede for a file it thought the CDN was handling. The defenses come in two parts, and you need both. Request coalescing at the edge collapses many waiting users into one origin fetch — but that's one fetch *per edge*, so 300 edges still means 300 fetches. Origin shielding is what closes it: a designated edge fronts the origin, and the other 299 ask it instead."
+          "why": "Each of the 300 edges can observe expiry and initiate its own origin fetch, producing up to 300 concurrent requests for one file. Per-edge request coalescing limits each location to one fetch, while an origin shield can further combine those edge misses before they reach the origin."
         },
         {
           "id": "cdn-4-3",
-          "type": "multiple_choice",
-          "prompt": "What is origin shielding?",
-          "choices": [
-            "A firewall in front of your origin",
-            "One designated edge that fronts the origin, so other edges fetch from it rather than all going to you",
-            "Encrypting traffic to the origin",
-            "A backup origin server"
+          "type": "build_diagram",
+          "prompt": "Build an origin-shield path. Many regional edge misses should converge on one cache layer before any request reaches the origin.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "e1",
+                "label": "Sydney Edge Miss",
+                "col": 0,
+                "kind": "cdn"
+              },
+              {
+                "id": "e2",
+                "label": "Frankfurt Edge Miss",
+                "col": 0,
+                "kind": "cdn"
+              },
+              {
+                "id": "shield",
+                "sub": "coalesces upstream misses",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "origin",
+                "sub": "authoritative content",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "e1",
+                "to": "shield",
+                "kind": "request"
+              },
+              {
+                "from": "e2",
+                "to": "shield",
+                "kind": "request"
+              },
+              {
+                "from": "shield",
+                "to": "origin",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Origin Shield",
+            "Origin Server",
+            "DNS Resolver",
+            "User Database"
           ],
-          "answer": 1,
-          "why": "It's a cache in front of your cache: a shield edge that other edges treat as the origin, turning 300 potential origin fetches into one. The cost is an extra hop for misses and one more thing that can be down — and it's the same hierarchy idea a CPU uses with L1 and L2, applied to the planet."
+          "answer": {
+            "shield": "Origin Shield",
+            "origin": "Origin Server"
+          },
+          "why": "Regional edges use the origin shield as their upstream cache, so concurrent misses for one object can collapse into one fetch before reaching the origin. If the shield is unavailable and no bypass path exists, it becomes a choke point for misses; even when healthy, a shield miss adds another hop before the origin responds."
         },
         {
           "id": "cdn-4-4",
@@ -567,7 +952,7 @@
           "choices": [
             "Appending a unique tracking parameter like ?t=1234 to asset URLs",
             "A `Vary` header that splits one file into many per-browser variants",
-            "Forgetting `Cache-Control`, so the CDN won't cache at all",
+            "Returning `Cache-Control: private, no-store` for a shared asset",
             "Serving the same file to every user"
           ],
           "answer": [
@@ -575,20 +960,20 @@
             1,
             2
           ],
-          "why": "Unique query strings make every request a distinct URL and therefore a guaranteed miss; an over-broad `Vary` shatters one cached object into dozens of near-identical copies that each have to be warmed; and no `Cache-Control` means the CDN often declines to cache at all. Serving everyone the identical file is the opposite — it's precisely the condition that makes caching work."
+          "why": "A unique query parameter creates a distinct cache key for each request, an over-broad `Vary` header partitions one response into many variants, and `private, no-store` explicitly forbids shared storage. Missing cache directives are not an unambiguous cache killer because CDN rules or heuristic caching may still store some responses."
         },
         {
           "id": "cdn-4-5",
           "type": "multiple_choice",
-          "prompt": "Your API returns per-user data and is slow. Will a CDN fix it?",
+          "prompt": "Your API returns different private data for each user and each user rarely repeats the same request. Will shared CDN caching fix the slow backend work?",
           "choices": [
             "Yes — CDNs speed everything up",
-            "No — the responses are unique per user, so there's nothing to share and every request goes to your origin anyway",
+            "Usually no — cross-user reuse is unsafe, and rare repeat requests give a private per-user cache little reuse",
             "Yes, with a long TTL",
             "Yes, if you purge often"
           ],
           "answer": 1,
-          "why": "A CDN's entire economics rest on many people wanting the identical bytes, and per-user responses have an audience of one — so you'd add a hop and cache nothing. A CDN can still terminate TLS closer to the user and hold a warm connection back to your origin, which helps a little, but the slow API needs the fixes from unit 4: less work, or the work done nearer the user."
+          "why": "A shared cache must never reuse one user's private response for another user. Identity-aware cache keys can permit private reuse for repeated requests from the same user; the prompt states that such reuse is rare. A CDN can still accelerate connection setup and transport, while the slow application work remains at the origin."
         },
         {
           "id": "cdn-4-6",
@@ -601,7 +986,7 @@
             "A database replication issue"
           ],
           "answer": 1,
-          "why": "There isn't one cache between you and a user, there's a chain — browser, possibly a corporate proxy, the edge, maybe a shield — and each holds its own copy on its own schedule. That's why 'it works for me' is meaningless during a cache incident and why versioned URLs are such a relief: with a new name, none of those layers has anything stale to serve."
+          "why": "Browsers, intermediary caches, CDN edges, and shields can each hold an independently fresh copy. Requests routed through different cache paths therefore see different versions until those entries expire, revalidate, or are invalidated; a versioned URL bypasses all old keys."
         },
         {
           "id": "cdn-4-7",
@@ -614,7 +999,21 @@
             "It only helps with images"
           ],
           "answer": 1,
-          "why": "It buys latency and origin relief for shared content, and charges you in staleness you now have to manage across hundreds of locations. Every rule in this unit came from the same source: a CDN is a copy, so unit 5's bill arrives — freshness, invalidation, and the question of what being out of date costs — just spread across the planet."
+          "why": "A CDN serves reusable content from nearby edge copies, reducing propagation latency and origin load. Because those copies are distributed and may remain fresh after the origin changes, the design must specify cache keys, freshness intervals, invalidation, and acceptable staleness."
+        },
+        {
+          "id": "xfer-cdn",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A CDN caches `/dashboard` without varying by identity. One user's account summary is served to another user. What design rule was violated?",
+          "choices": [
+            "A longer TTL prevents leaks",
+            "Private responses require no shared reuse or an identity-safe cache key",
+            "Every HTML response must be public",
+            "The origin needed more CPU"
+          ],
+          "answer": 1,
+          "why": "A shared cache reused a representation across identities that were not equivalent. Private data must bypass shared caching or use a key and policy that prevents cross-user reuse."
         }
       ]
     }

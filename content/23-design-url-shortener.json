@@ -2,7 +2,7 @@
   "unitId": "design-url-shortener",
   "tier": 4,
   "title": "Design a URL Shortener",
-  "subtitle": "The hello world of system design — and it's deeper than it looks",
+  "subtitle": "Design key generation, redirect storage, caching, partitioning, and analytics",
   "objectives": [
     "Turn a vague prompt into requirements and back-of-envelope numbers",
     "Design the key generation scheme, and defend it against the obvious alternatives",
@@ -17,7 +17,7 @@
         {
           "id": "urls-1-0",
           "type": "concept",
-          "title": "A design prompt is deliberately under-specified — your first move is to make it specific",
+          "title": "Requirements and workload estimates define the design envelope",
           "viz": {
             "nodes": [
               {
@@ -46,24 +46,153 @@
             "edges": [
               {
                 "from": "p",
-                "to": "r"
+                "to": "r",
+                "kind": "request"
               },
               {
                 "from": "p",
-                "to": "n"
+                "to": "n",
+                "kind": "request"
               },
               {
                 "from": "r",
-                "to": "d"
+                "to": "d",
+                "kind": "request"
               },
               {
                 "from": "n",
-                "to": "d"
+                "to": "d",
+                "kind": "request"
               }
             ]
           },
-          "body": "'Design a URL shortener' is not a spec. It's an invitation to guess, and guessing is where people lose. A shortener at 100 links a day and one at 100 million share a name and nothing else — different stores, different problems. So before you name a single technology, turn that sentence into something with numbers in it. Everything downstream follows.",
-          "note": "Estimation isn't a warm-up ritual — it's how you find out which problems are imaginary. Most of what gets over-built here is defence against a bottleneck the numbers would have ruled out in thirty seconds."
+          "body": "Convert the prompt into functional requirements, latency and availability targets, average and peak request rates, read:write ratio, record size, and retention period. These inputs determine throughput and storage bounds before any component is selected.",
+          "note": "Designing from averages alone can hide a peak-load bottleneck; record both sustained and burst traffic when capacity changes with either."
+        },
+        {
+          "id": "urls-change-1",
+          "type": "system_change",
+          "prompt": "A redirect service sends every lookup to a database capped at 10,000 reads/s while traffic reaches 116,000 reads/s. Cache 95% of mappings.",
+          "actionLabel": "Add a redirect cache",
+          "beforeStatus": "DATABASE READS · 116,000 / 10,000 per second · overloaded",
+          "afterStatus": "DATABASE READS · 5,800 / 10,000 per second · healthy",
+          "result": "Hot redirects stopped reaching the database",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Redirects",
+                "sub": "116k/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "Link store",
+                "sub": "116k / 10k",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Redirects",
+                "sub": "116k/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "c",
+                "label": "Mapping cache",
+                "sub": "110.2k hits/s",
+                "col": 1,
+                "kind": "cache"
+              },
+              {
+                "id": "d",
+                "label": "Link store",
+                "sub": "5.8k / 10k",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "c",
+                "kind": "data"
+              },
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "A 95% hit rate leaves 5% of 116,000 requests, or 5,800 reads/s, for the link store. Expiration, deletion, and abuse disabling still require cache invalidation or bounded TTLs."
+        },
+        {
+          "id": "design-url-shortener-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A redirect service sends every lookup to a database capped at 10,000 reads/s while traffic reaches 116,000 reads/s. Cache 95% of mappings. Place Mapping cache, Link store. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Redirects",
+                "sub": "116k/s",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "c",
+                "sub": "110.2k hits/s",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "d",
+                "sub": "5.8k / 10k",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "c",
+                "kind": "request"
+              },
+              {
+                "from": "c",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Mapping cache",
+            "Link store",
+            "'Design a URL shortener'",
+            "Requirements"
+          ],
+          "answer": {
+            "c": "Mapping cache",
+            "d": "Link store"
+          },
+          "why": "The completed diagram contains these directed flows: Redirects → Mapping cache; Mapping cache → Link store. That topology is the evidence for the answer: A 95% hit rate leaves 5% of 116,000 requests, or 5,800 reads/s, for the link store. Expiration, deletion, and abuse disabling still require cache invalidation or bounded TTLs.",
+          "connectEdges": true
         },
         {
           "id": "urls-1-1",
@@ -76,7 +205,7 @@
             "Pick a hashing algorithm"
           ],
           "answer": 1,
-          "why": "Every later decision is downstream of those numbers — a shortener at 100 links a day and one at 100 million are different systems, and you can't defend a cache or a shard without knowing the shape of the load. The read:write ratio in particular decides almost everything here, which is why it's worth extracting before you name a single technology."
+          "why": "Traffic volume, read-to-write ratio, record size, retention, and latency targets determine which resources can become bottlenecks. In particular, a high read-to-write ratio favors spending capacity on the redirect path and evaluating caches or read replicas before optimizing link creation."
         },
         {
           "id": "urls-1-2",
@@ -93,16 +222,20 @@
             1,
             2
           ],
-          "why": "Shorten, redirect, and optionally expire — that's the product. Collaborative editing is invented scope, and noticing what's NOT required is as valuable as listing what is: every requirement you accept has to be defended in the design, so smuggling in extras costs you real complexity for imaginary users."
+          "why": "The stated product requires creating a short mapping, resolving it during redirect, and optionally expiring it. Collaborative editing introduces permissions, concurrent updates, and versioning without supporting any stated requirement, so it should not shape this design."
         },
         {
           "id": "urls-1-3",
-          "type": "estimate",
-          "prompt": "100 million new links per day. Roughly how many writes per second on average?",
-          "answer": 1160,
-          "tolerance": 400,
-          "unit": "writes/sec",
-          "why": "There are ~86,400 seconds in a day, so 100M ÷ 86,400 ≈ 1,160/sec. That's a modest number — well within one well-tuned database — which is the first genuinely useful finding: the write path is not where the difficulty lives, and peaks will run several times the average, so size for maybe 3–5× this."
+          "type": "multiple_choice",
+          "prompt": "100 million new links per day averages about 1,160 writes/sec. A 5× peak is about 5,800 writes/sec. What does this estimate imply?",
+          "choices": [
+            "The write path requires global sharding immediately",
+            "A well-tuned database can plausibly handle the write rate; measure peaks before adding write complexity",
+            "Redirect reads will also be 5,800/sec",
+            "Each application server should keep its own link database"
+          ],
+          "answer": 1,
+          "why": "An estimated peak of 5,800 writes/sec is within the plausible range of a well-tuned database for small records, subject to measured storage and durability costs. The estimate does not justify global sharding by itself; it identifies redirect reads and long-term storage as separate dimensions to size."
         },
         {
           "id": "urls-1-4",
@@ -115,16 +248,20 @@
             "You need multiple regions"
           ],
           "answer": 1,
-          "why": "A 100:1 ratio means the redirect is the product and everything else is bookkeeping, so your effort belongs in serving reads cheaply — cache, replicas, and a CDN-friendly redirect. It also means unit 7's rule applies directly: put the work where the traffic isn't, and the traffic is reads."
+          "why": "At 100 redirects per link creation, read-path work is repeated far more often than write-path work. Reducing each redirect to a cache or indexed key lookup yields more capacity benefit than optimizing an already less frequent creation request."
         },
         {
           "id": "urls-1-5",
-          "type": "estimate",
-          "prompt": "Each link record is roughly 500 bytes. Storing 100 million links per day for 5 years — roughly how many terabytes?",
-          "answer": 91,
-          "tolerance": 30,
-          "unit": "TB",
-          "why": "100M × 500 bytes = 50GB/day; × 365 × 5 ≈ 91TB. Big enough that one machine's disk is a real question, small enough that it isn't frightening — which is exactly the kind of finding that decides whether unit 15's sharding is on the table or premature."
+          "type": "multiple_choice",
+          "prompt": "At 500 bytes per record, the system adds about 50 GB/day, 18 TB/year, and 91 TB over five years before replication and indexes. Which conclusion follows?",
+          "choices": [
+            "The data will always fit on one ordinary server",
+            "Storage partitioning may be needed over the retention period, even though the write rate is moderate",
+            "The redirect path needs no cache",
+            "Every record should be copied into application memory"
+          ],
+          "answer": 1,
+          "why": "A 91 TB primary dataset exceeds the practical local storage of many single database hosts, and replicas and indexes increase the physical footprint further. The moderate write rate and the large retained dataset are different constraints, so capacity planning should include partitioning or distributed storage without assuming the write path is overloaded."
         },
         {
           "id": "urls-1-6",
@@ -137,74 +274,116 @@
             "You need to shard by user"
           ],
           "answer": 1,
-          "why": "The arithmetic just told you which problems are real: 1,200 writes/sec doesn't justify exotic machinery, while 91TB means you'll be splitting data eventually and should choose a key that doesn't fight you. This is why estimation comes first — thirty seconds of division stopped you from designing for a bottleneck you don't have."
+          "why": "The supplied estimates show a moderate creation rate and a much larger long-term storage footprint. That combination supports a simple write path initially while requiring a key and storage layout that can be partitioned as retained mappings accumulate."
         }
       ]
     },
     {
       "id": "urls-2",
-      "title": "Generating the key",
+      "title": "Creating one short link",
       "exercises": [
         {
           "id": "urls-2-0",
           "type": "concept",
-          "title": "A short code is something you hand out, not something you compute from the URL",
+          "title": "Link creation is a conditional insert, not a hash function",
           "viz": {
             "nodes": [
               {
                 "id": "u",
-                "label": "Long URL",
+                "label": "POST /links",
+                "sub": "destination URL",
                 "col": 0
               },
               {
                 "id": "h",
-                "label": "Hash it",
-                "sub": "deterministic",
+                "label": "Generate candidate",
+                "sub": "random or allocated",
                 "col": 1
               },
               {
                 "id": "c",
-                "label": "Counter",
-                "sub": "next unused",
-                "col": 1
+                "label": "Insert mapping",
+                "sub": "UNIQUE(short_code)",
+                "col": 2,
+                "kind": "db"
               },
               {
                 "id": "s",
-                "label": "Short code",
-                "sub": "7 × base62",
-                "col": 2
+                "label": "201 Created",
+                "sub": "short URL",
+                "col": 3
               }
             ],
             "edges": [
               {
                 "from": "u",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
                 "from": "h",
-                "to": "s"
+                "to": "c",
+                "kind": "data"
               },
               {
                 "from": "c",
-                "to": "s"
+                "to": "s",
+                "kind": "data"
               }
             ]
           },
-          "body": "Two families. Hash the long URL and keep 7 characters: the code is now a *function* of the input. Or keep a counter and hand out the next number, written in base62: the code is an *identity* you assign. Notice what the diagram is missing — no arrow from the URL to the counter. The counter never looks at what you're shortening.",
-          "note": "Collisions get all the attention, but determinism is the objection with no escape: the same URL always yields the same code, so two customers shortening one link are handed the same one — sharing it, analytics and all."
+          "body": "The client sends `POST /links` with a destination URL. The service validates it, generates a candidate code, and attempts `INSERT(short_code, destination_url)`. A unique constraint is the authority on whether the code is free. A conflict generates another candidate; a successful commit returns the short URL.",
+          "note": "The generator proposes a code; the database proves uniqueness. Random generation needs collision retries. Allocated counters avoid collisions but add coordination and make codes easier to enumerate."
+        },
+        {
+          "id": "urls-2-create-flow",
+          "type": "order_steps",
+          "prompt": "Build the complete creation path for one short link. A concurrent writer may choose the same candidate code.",
+          "steps": [
+            "Validate the destination URL and creation policy",
+            "Generate one candidate short code",
+            "Attempt to insert `short_code → destination_url` under a unique constraint",
+            "If the insert conflicts, generate another candidate and retry within a bounded attempt budget",
+            "After the insert commits, return `201 Created` with the short URL"
+          ],
+          "why": "Validation precedes allocation so invalid or forbidden destinations consume no mapping. The insert—not an earlier read—is the uniqueness decision because two creators can observe an empty code simultaneously. Returning only after commit prevents issuing a short URL whose mapping does not exist."
+        },
+        {
+          "id": "urls-2-schema",
+          "type": "match_pairs",
+          "prompt": "Match each field in the authoritative link record to why the creation or redirect path needs it.",
+          "pairs": [
+            {
+              "left": "`short_code` · primary key",
+              "right": "Enforces uniqueness and serves the redirect lookup"
+            },
+            {
+              "left": "`destination_url`",
+              "right": "The value returned by a successful code lookup"
+            },
+            {
+              "left": "`owner_id`",
+              "right": "Authorizes management without changing redirect identity"
+            },
+            {
+              "left": "`expires_at`",
+              "right": "Lets resolution reject a mapping after its validity window"
+            }
+          ],
+          "why": "The redirect path is a primary-key lookup from `short_code` to `destination_url`, optionally checking expiry. Ownership belongs in the same authoritative record for management operations, while high-volume click events belong on an asynchronous analytics path rather than this hot row."
         },
         {
           "id": "urls-2-1",
           "type": "multiple_choice",
-          "prompt": "Your short code is 7 characters from [a-zA-Z0-9] — 62 possibilities per character. How many links can that address?",
+          "prompt": "A 7-character code using letters and digits provides about 3.5 trillion possible codes. At 100 million new links per day, five years adds about 183 billion links. What does this imply?",
           "choices": [
-            "About 62 million",
-            "62^7 ≈ 3.5 trillion",
-            "About 7 billion",
-            "About 500 million"
+            "The code space is too small within the first year",
+            "The code space has substantial headroom, but uniqueness still must be enforced",
+            "Every generated code will be unique without a database constraint",
+            "The code must encode the creation date"
           ],
           "answer": 1,
-          "why": "62^7 ≈ 3.5 trillion, which at 100M links/day is roughly 95 years of headroom — so 7 characters is a defensible choice you can justify with arithmetic rather than taste. That's the useful move: the length of the code is a capacity decision, and 6 characters (~57 billion) would run out in under two years at this rate."
+          "why": "Five years of links would consume roughly 183 billion of 3.5 trillion possible codes, leaving substantial address-space headroom. Capacity does not guarantee uniqueness: random generation can still choose an occupied code, so insertion needs a unique constraint and retry behavior."
         },
         {
           "id": "urls-2-2",
@@ -217,7 +396,7 @@
             "The output isn't URL-safe"
           ],
           "answer": 1,
-          "why": "Any function mapping unlimited inputs into 3.5 trillion outputs must collide eventually, and by the birthday paradox it starts happening far earlier than intuition suggests. So hashing doesn't remove the problem, it just means every insert needs a uniqueness check and a retry strategy — which is workable, and it's real complexity on the write path."
+          "why": "Truncating a hash maps many possible URLs into a finite code space, so distinct URLs can produce the same short code. The write path must detect an occupied code and derive a different candidate, for example by adding a salt or counter before hashing again."
         },
         {
           "id": "urls-2-3",
@@ -230,7 +409,7 @@
             "Better security"
           ],
           "answer": 1,
-          "why": "Uniqueness comes free from the counter rather than being checked for, so the write path has no collision logic at all — and base62 is purely a rendering of the same integer, not a hash. Codes also stay short early on, since link one is 'b' rather than seven random characters."
+          "why": "An atomic counter assigns each link a distinct integer, and base62 encoding only represents that integer with letters and digits. Because different counter values encode to different strings, the generator avoids random collisions while the counter remains unique."
         },
         {
           "id": "urls-2-4",
@@ -247,7 +426,7 @@
             1,
             2
           ],
-          "why": "Guessability is the serious one: sequential codes mean a scraper can walk your entire corpus, and 'unlisted' links stop being unlisted. It also leaks your growth rate, and the counter itself becomes something every server must agree on. What it never does is collide — that was the whole point."
+          "why": "Adjacent counter values produce enumerable codes, allowing a scraper to discover mappings by walking the sequence and infer creation volume. The shared counter also requires coordination across writers; collision risk is absent because the counter provides distinct values."
         },
         {
           "id": "urls-2-5",
@@ -260,19 +439,19 @@
             "Let each server keep its own counter"
           ],
           "answer": 1,
-          "why": "Range allocation amortizes the coordination: one agreement buys ten thousand IDs, so the shared counter is touched once per block instead of 1,200 times a second. This is a genuinely reusable trick — batch the coordination rather than eliminating it — and the cost is gaps in the sequence when a server dies holding an unused block, which nobody cares about."
+          "why": "Allocating a disjoint block of IDs lets each server generate many codes locally after one coordinated reservation. This reduces counter contention and round trips, while a crashed server can leave unused gaps; gaps do not violate uniqueness."
         },
         {
           "id": "urls-2-6",
           "type": "tradeoff_slider",
-          "prompt": "Your product promises that unlisted links can't be discovered by strangers. Slide toward your key scheme.",
-          "leftLabel": "Sequential counter (no collisions, enumerable)",
-          "rightLabel": "Random key + uniqueness check (unguessable, must retry)",
+          "prompt": "Your product promises that secret links resist discovery without authorization. Slide toward your key scheme.",
+          "leftLabel": "7-char code (short, enumerable or guessable)",
+          "rightLabel": "128-bit random token + rate limits (longer, far harder to guess)",
           "answerRange": [
-            60,
+            80,
             100
           ],
-          "why": "You just promised unguessability, and a sequential code makes enumeration trivial — so the counter's elegance is disqualified by the requirement rather than by engineering. Random keys plus a unique constraint cost you a retry when you draw an occupied one: by year five you've stored ~182 billion links in a 3.5-trillion space, so about 5% of inserts collide and redraw. Cheap, but a real loop rather than a rounding error. And note why redrawing works here but not for the truncated hash: the hash of a given URL is always the same value, so a collision recurs forever unless you add a salt or counter, whereas a random key just draws again and moves on. Same collision odds, very different escape route."
+          "why": "Seven base62 characters provide about 3.5 trillion values, but after 183 billion links exist a random guess hits an occupied code about 5% of the time. A secret link therefore needs a high-entropy capability token, such as at least 128 random bits, plus rate limiting; sensitive resources should also require authorization because obscurity alone is not access control."
         }
       ]
     },
@@ -283,7 +462,7 @@
         {
           "id": "urls-3-0",
           "type": "concept",
-          "title": "The mapping never changes, and that one fact hands you the entire read path",
+          "title": "Immutable key-value mappings support a cache-first redirect path",
           "viz": {
             "nodes": [
               {
@@ -302,24 +481,197 @@
               {
                 "id": "d",
                 "label": "Link store",
-                "sub": "every read",
+                "sub": "only on a miss",
+                "col": 2,
+                "kind": "db"
+              },
+              {
+                "id": "x",
+                "label": "Mapping cache",
+                "sub": "hot codes terminate here",
+                "col": 2,
+                "kind": "cache"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "x",
+                "kind": "data"
+              },
+              {
+                "from": "a",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "body": "For `GET /{code}`, the service looks up the code in a cache. On a miss, it reads the key-value store, caches the long URL, and returns the redirect. Repeated requests for a hot code terminate at the cache and consume no database read capacity.",
+          "note": "If destinations become editable, cached mappings require invalidation or versioning; otherwise redirects can continue serving an old destination."
+        },
+        {
+          "id": "urls-change-2",
+          "type": "system_change",
+          "prompt": "Redirects wait 320ms because every click writes analytics before returning the destination. Keep redirect latency independent of analytics processing.",
+          "actionLabel": "Queue the click event",
+          "beforeStatus": "REDIRECT · 320ms · blocked by analytics write",
+          "afterStatus": "REDIRECT · 20ms · analytics processes asynchronously",
+          "result": "The redirect path now performs only the work required to send the user onward",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Browser",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "label": "Redirect API",
+                "sub": "waits",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "a",
+                "label": "Analytics DB",
+                "sub": "300ms write",
                 "col": 2,
                 "kind": "db"
               }
             ],
             "edges": [
               {
-                "from": "c",
-                "to": "a"
+                "from": "u",
+                "to": "r",
+                "kind": "request"
               },
               {
-                "from": "a",
-                "to": "d"
+                "from": "r",
+                "to": "a",
+                "kind": "data"
               }
             ]
           },
-          "body": "A short code points at one long URL forever. Not usually, not mostly — forever. That one property is the most consequential fact in this design, and it's worth stopping to work out exactly what it buys you before you draw anything at all. So the question was never *how* to serve 116,000 redirects a second. It's what you'd have to give up to make them cheap.",
-          "note": "Immutability was a choice, not luck: you decided a code points at one URL for life rather than letting people re-target a link later. Shorteners that sell an editable destination hand this whole chapter back."
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Browser",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "label": "Redirect API",
+                "sub": "20ms response",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "q",
+                "label": "Click queue",
+                "sub": "durable event",
+                "col": 2,
+                "kind": "queue"
+              },
+              {
+                "id": "a",
+                "label": "Analytics worker",
+                "sub": "off path",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "q",
+                "kind": "event"
+              },
+              {
+                "from": "q",
+                "to": "a",
+                "kind": "event"
+              }
+            ]
+          },
+          "why": "The redirect response needs the destination mapping, not a completed analytics write. A durable queue removes analytics latency from the user path. The worker must tolerate duplicate events because queue delivery may repeat."
+        },
+        {
+          "id": "design-url-shortener-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: Redirects wait 320ms because every click writes analytics before returning the destination. Keep redirect latency independent of analytics processing. Place Redirect API, Click queue, Analytics worker. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Browser",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "sub": "20ms response",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "q",
+                "sub": "durable event",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "sub": "off path",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "q",
+                "kind": "request"
+              },
+              {
+                "from": "q",
+                "to": "a",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Redirect API",
+            "Click queue",
+            "Analytics worker",
+            "'Design a URL shortener'",
+            "Requirements"
+          ],
+          "answer": {
+            "r": "Redirect API",
+            "q": "Click queue",
+            "a": "Analytics worker"
+          },
+          "why": "The completed diagram contains these directed flows: Browser → Redirect API; Redirect API → Click queue; Click queue → Analytics worker. That topology is the evidence for the answer: The redirect response needs the destination mapping, not a completed analytics write. A durable queue removes analytics latency from the user path. The worker must tolerate duplicate events because queue delivery may repeat."
         },
         {
           "id": "urls-3-1",
@@ -341,19 +693,22 @@
               {
                 "id": "d",
                 "label": "Database",
-                "sub": "source of truth",
-                "col": 2,
+                "sub": "source of truth · miss only",
+                "col": 1,
                 "kind": "db"
               }
             ],
             "edges": [
               {
                 "from": "r",
-                "to": "h"
+                "to": "h",
+                "kind": "request"
               },
               {
-                "from": "h",
-                "to": "d"
+                "from": "r",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
@@ -365,7 +720,7 @@
           "answer": {
             "h": "Cache"
           },
-          "why": "Link mappings are perfect cache material: immutable once created, tiny, and massively skewed — a small number of links take most of the traffic. A cache in front of the database turns 116,000 database reads/sec into a few thousand, and the database keeps being the source of truth for everything that misses."
+          "why": "Short-code mappings are small, read frequently, and usually immutable, while request popularity is often skewed toward a limited set of links. A cache can serve those hot mappings without a database read, leaving the database authoritative for misses."
         },
         {
           "id": "urls-3-2",
@@ -373,12 +728,12 @@
           "prompt": "Why are these mappings unusually good cache candidates?",
           "choices": [
             "They're small",
-            "They never change: a short code maps to one long URL forever, so a cached entry can't go stale — which deletes unit 5's invalidation problem entirely",
+            "Generated destinations normally stay fixed, so update invalidation is rare; expiry, deletion, or abuse disabling still needs a TTL, invalidation, or tombstone",
             "They're requested rarely",
             "They're stored as text"
           ],
           "answer": 1,
-          "why": "Cache invalidation is hard because copies drift from a truth that keeps moving — and here the truth never moves, so the whole category of problem evaporates. Immutable data is the easiest thing in system design, which is worth noticing as a design lever: making data immutable, where you can, buys you caching for free."
+          "why": "Generated destinations are normally immutable, so ordinary reads do not create update-driven staleness. The cache still needs a correctness policy for expiry, deletion, and abuse disabling: use a bounded time to live (TTL), explicit invalidation, or a cached tombstone so a disabled code does not keep redirecting."
         },
         {
           "id": "urls-3-3",
@@ -386,12 +741,12 @@
           "prompt": "Should the redirect return 301 (permanent) or 302 (temporary)?",
           "choices": [
             "301 always — the mapping is permanent",
-            "It's a real tradeoff: 301 lets browsers cache the redirect so subsequent clicks never reach you at all, which is great for load and destroys your click analytics",
+            "It's a tradeoff: a cacheable 301 can let later navigations bypass the shortener, reducing load but making server-side click counts incomplete",
             "302 always — it's safer",
             "It doesn't matter"
           ],
           "answer": 1,
-          "why": "A 301 is the best possible caching outcome and the worst possible analytics outcome, because a browser that remembers the redirect stops telling you the click happened. So the choice is decided by the product: if click counts are the business, you take 302 and eat the traffic; if they're decoration, 301 makes most of your load disappear."
+          "why": "A browser may cache a `301 Moved Permanently` response and redirect future visits without contacting the shortener, reducing server traffic but hiding those visits from server-side analytics. A `302 Found` response usually preserves more requests for measurement at the cost of serving more redirect traffic."
         },
         {
           "id": "urls-3-4",
@@ -404,7 +759,7 @@
             "The link is rate limited"
           ],
           "answer": 1,
-          "why": "A cold key under sudden load means thousands of concurrent misses each dutifully going to the database for the identical value, which is unit 14's stampede at the row level. The fix is request coalescing: let one miss fetch while the rest wait for its result, so each server makes one query instead of thousands. Be precise about what that buys, though — coalescing is per-process, so the database sees one query per SERVER rather than one overall, and a fleet serving 116,000 rps is many servers. Getting to a single fetch needs a shared lease, or a shielding tier in front of the store — exactly the move unit 14 makes with origin shielding when 300 edges each coalesce and the origin still sees 300."
+          "why": "Concurrent misses for one newly popular code can send identical queries to the database. Per-process request coalescing allows one fetch while local requests wait, reducing the load to roughly one query per application process; a shared lease or shielding tier is needed to coordinate across processes."
         },
         {
           "id": "urls-3-5",
@@ -417,7 +772,7 @@
             "A graph database"
           ],
           "answer": 1,
-          "why": "The system does exactly one read: give me the long URL for this code. That's a hashmap, which is unit 7's cleanest case — no joins, no transactions, no ad-hoc queries. Postgres would serve this happily too; what makes the KV store defensible is that the workload genuinely has one access pattern, and that's the honest reasoning rather than 'NoSQL scales'."
+          "why": "The redirect path performs a point lookup from short code to long URL, which matches a key-value store's primary access pattern. A relational database can also serve this indexed lookup; the key-value choice is justified when joins and ad hoc relational queries are not required."
         },
         {
           "id": "urls-3-6",
@@ -425,12 +780,12 @@
           "prompt": "How would you shard 91TB of links?",
           "choices": [
             "By creation date",
-            "By hash of the short code — it's the only thing every read has, and hashing spreads the hot codes across shards",
+            "By hash of the short code — every redirect supplies that lookup key, so the router can select one shard",
             "By long URL",
             "By user id"
           ],
           "answer": 1,
-          "why": "Unit 15's rule is to shard by what your hot query filters on, and every redirect arrives knowing exactly one thing: the short code. Sharding by date would send all of today's traffic to today's shard — the sequential-key hotspot — and sharding by user would mean the redirect, which has no user, can't find its row without a scan."
+          "why": "Every redirect supplies the short code, so hashing that code routes the lookup to one shard without a scatter-gather query. Sharding by creation date can concentrate new writes, and sharding by creator requires information the redirect request may not contain."
         }
       ]
     },
@@ -441,7 +796,7 @@
         {
           "id": "urls-4-0",
           "type": "concept",
-          "title": "You only built one map, and every feature you add later lands in it",
+          "title": "Generated codes, custom aliases, and routes share one namespace",
           "viz": {
             "nodes": [
               {
@@ -467,16 +822,18 @@
             "edges": [
               {
                 "from": "g",
-                "to": "m"
+                "to": "m",
+                "kind": "data"
               },
               {
                 "from": "a",
-                "to": "m"
+                "to": "m",
+                "kind": "data"
               }
             ]
           },
-          "body": "A custom alias isn't a separate feature with its own storage. It's a row in the same map as every generated code — a key somebody chose rather than drew. So two parties now write into one namespace with no idea the other exists: your generator, minting codes at 1,200 a second, and your users, picking words they like. Work out what that costs you.",
-          "note": "Your own product lives in that namespace too: `/about`, `/pricing`, `/api`. A generator that emits one of those doesn't collide with a customer — it collides with your website. That's what reserved prefixes are for."
+          "body": "The redirect key is the namespace identifier regardless of who chose it. Generated codes and user aliases therefore need one atomic uniqueness constraint. Application routes such as `/api` must be excluded from allocation through a reserved-key or reserved-prefix set.",
+          "note": "Separate allocation paths without a shared uniqueness check can accept the same key concurrently and make redirect behavior depend on write order."
         },
         {
           "id": "urls-4-1",
@@ -489,7 +846,7 @@
             "Generate the custom alias by hashing it"
           ],
           "answer": 1,
-          "why": "Both are just keys in the same map, so `/launch` is only free if nothing generated it first — and a unique constraint in the database is the only enforcement that can't be raced (unit 6). Real systems often generate from a reduced alphabet or reserve a prefix space, so generated codes and human-chosen words rarely compete for the same string."
+          "why": "Custom aliases and generated codes share one key namespace, so concurrent claims require an atomic uniqueness constraint. Reserving prefixes or using a separate generated-code alphabet can reduce conflicts, but the storage layer must still reject duplicate keys."
         },
         {
           "id": "urls-4-2",
@@ -502,36 +859,88 @@
             "Never delete them"
           ],
           "answer": 1,
-          "why": "A single mass DELETE is a long-running transaction touching millions of rows, which is unit 9's advice violated at scale — it holds locks, bloats storage, and lags your replicas exactly when it runs. A TTL that the store enforces, or small idempotent batches, keeps the work bounded and interruptible, which is what makes it safe to run on a live system."
+          "why": "Deleting millions of expired rows in one transaction can hold locks, generate a large write-ahead log, and delay replicas. Store-managed time to live (TTL), meaning automatic expiration after a deadline, or small idempotent batches bounds each cleanup operation and permits safe retries."
         },
         {
           "id": "urls-4-3",
-          "type": "multiple_choice",
-          "prompt": "You want click analytics, but writing a row per click means 116,000 writes/sec — 100× your link writes. What do you do?",
-          "choices": [
-            "Write each click synchronously",
-            "Fire the click onto a queue and aggregate asynchronously — the redirect must not wait for analytics, and approximate counts are fine",
-            "Skip analytics",
-            "Store clicks in the cache"
+          "type": "build_diagram",
+          "prompt": "Build the click-analytics path so 116,000 redirects/sec do not wait for aggregation.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Redirect Service",
+                "sub": "return redirect",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "sub": "buffer click events",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "batch + aggregate",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "queryable totals",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "h1",
+                "dash": true,
+                "kind": "optional"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Click Event Queue",
+            "Analytics Workers",
+            "Analytics Store",
+            "Read Replica",
+            "CDN Edge"
           ],
-          "answer": 1,
-          "why": "Analytics would be the single largest write load in the system, and it's the least important data — so it must never sit on the redirect's critical path (unit 16). Queue the event, batch the aggregation, and accept that a few lost clicks change no decision anyone will ever make, which is exactly the durability tradeoff unit 6 described."
+          "answer": {
+            "h1": "Click Event Queue",
+            "h2": "Analytics Workers",
+            "h3": "Analytics Store"
+          },
+          "why": "The redirect service emits a small event to the queue, workers aggregate events in batches, and the analytics store serves totals without joining the redirect path. If workers fail, durable queued events can wait and replay; writing analytics synchronously would let a slow or unavailable analytics store delay or fail redirects."
         },
         {
           "id": "urls-4-4",
           "type": "multi_select",
-          "prompt": "Which parts of this system genuinely need strong consistency? Select all.",
+          "prompt": "Which guarantees belong on the link-creation path? Select all.",
           "choices": [
-            "The uniqueness of a short code",
-            "The click counter",
-            "The mapping visible immediately after creation, to the creator",
-            "Analytics dashboards"
+            "Atomic uniqueness: only one mapping can claim a code",
+            "Global linearizability for click counters",
+            "Read-your-writes: the creator can resolve the code they just created",
+            "Instantly consistent analytics in every region"
           ],
           "answer": [
             0,
             2
           ],
-          "why": "Uniqueness is non-negotiable — two long URLs behind one code is corruption you can't undo — and the creator seeing their own new link immediately is unit 19's read-your-writes, which is what they'd notice. The counter and the dashboards can be seconds or minutes stale and nobody is harmed, so paying for coordination there buys a guarantee nobody would miss."
+          "why": "A storage uniqueness constraint atomically prevents two destinations from claiming one code. Immediate creator visibility is a read-your-writes session guarantee, which can be provided by routing that creator's read to the write authority or a caught-up replica; it does not require global linearizability for every reader. Click totals and dashboards can usually lag without changing redirect correctness."
         },
         {
           "id": "urls-4-5",
@@ -544,7 +953,7 @@
             "A rate limiting problem"
           ],
           "answer": 1,
-          "why": "The product's core feature — hiding the destination behind your domain — is exactly what makes it useful for phishing, so abuse isn't a bolt-on concern but a direct consequence of the design. That's why real shorteners check destinations against blocklists, rate limit creation, and offer a preview: the mitigation belongs in the design, because the vulnerability came from the requirements."
+          "why": "A short URL conceals its destination before the click, which attackers can exploit for phishing or malware delivery. Destination blocklists, creation rate limits, abuse reporting, and an optional preview page reduce that risk and must be part of the service requirements."
         },
         {
           "id": "urls-4-6",
@@ -557,7 +966,311 @@
             "A relational database with heavy indexing"
           ],
           "answer": 1,
-          "why": "The arithmetic said writes were easy and reads were everything, and immutability said caching is free — so the core is genuinely simple, and pretending otherwise is how people over-engineer this in interviews. All the real difficulty sits at the edges: how you mint keys, how you count clicks without drowning, and what happens when people misuse it."
+          "why": "The design follows from the workload: moderate creation traffic uses a durable uniqueness-enforcing write path, high redirect traffic uses cached point lookups, and immutable mappings minimize invalidation. Key generation, asynchronous analytics, expiration, and abuse controls address the main correctness and operational risks."
+        }
+      ]
+    },
+    {
+      "id": "urls-5",
+      "title": "Review the complete shortener",
+      "exercises": [
+        {
+          "id": "urls-5-0",
+          "type": "concept",
+          "title": "Creation and redirect share one authoritative mapping but have different workloads",
+          "viz": {
+            "nodes": [
+              {
+                "id": "w",
+                "label": "POST /links",
+                "sub": "validate + insert",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "Mapping store",
+                "sub": "UNIQUE code",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "c",
+                "label": "Mapping cache",
+                "sub": "hot redirects",
+                "col": 2,
+                "kind": "cache"
+              },
+              {
+                "id": "r",
+                "label": "GET /{code}",
+                "sub": "302 response",
+                "col": 3,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "w",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "d",
+                "to": "c",
+                "kind": "data"
+              },
+              {
+                "from": "c",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "Creation validates a destination and commits one unique `short_code → destination_url` mapping. Redirect performs a cache-first lookup of that mapping and returns immediately; click analytics leaves through a queue. The database owns correctness, while cache and analytics are derived paths.",
+          "note": "A newly committed code needs read-your-writes behavior. Populate or invalidate its cache key after commit, or route the creator's immediate lookup to an authority that can observe the write."
+        },
+        {
+          "id": "urls-review-change",
+          "type": "system_change",
+          "prompt": "Creation checks `SELECT short_code` and sees no row, then inserts. Two concurrent requests both pass the check and claim `/launch` for different destinations.",
+          "actionLabel": "Make insertion decide uniqueness",
+          "choices": [
+            "Check twice before inserting",
+            "Add `UNIQUE(short_code)` and treat one insert conflict as failure or retry",
+            "Let the last insert overwrite the first"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Two requests can still interleave after both checks.",
+            "The storage constraint serializes the claim at the only point that can decide it atomically.",
+            "Overwrite changes an already-issued link's destination and violates mapping identity."
+          ],
+          "beforeStatus": "ALIAS /launch · two successful creators · destination overwritten",
+          "afterStatus": "ALIAS /launch · one committed owner · one conflict response",
+          "result": "Exactly one mapping claims the code",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Creator A",
+                "sub": "check empty",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Creator B",
+                "sub": "check empty",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "Blind insert",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Creator A",
+                "sub": "commit",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Creator B",
+                "sub": "conflict",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "label": "UNIQUE code",
+                "sub": "single winner",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "why": "A preflight read and a later write are a check-then-act race. The unique constraint places observation and claim inside one atomic storage operation, so custom aliases fail clearly while random-code creation can generate another candidate and retry."
+        },
+        {
+          "id": "design-url-shortener-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Creation checks `SELECT short_code` and sees no row, then inserts. Two concurrent requests both pass the check and claim `/launch` for different destinations. Place UNIQUE code. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Creator A",
+                "sub": "commit",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "b",
+                "label": "Creator B",
+                "sub": "conflict",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "d",
+                "sub": "single winner",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "b",
+                "to": "d",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "UNIQUE code",
+            "'Design a URL shortener'",
+            "Requirements"
+          ],
+          "answer": {
+            "d": "UNIQUE code"
+          },
+          "why": "The completed diagram contains these directed flows: Creator A → UNIQUE code; Creator B → UNIQUE code. That topology is the evidence for the answer: A preflight read and a later write are a check-then-act race. The unique constraint places observation and claim inside one atomic storage operation, so custom aliases fail clearly while random-code creation can generate another candidate and retry."
+        },
+        {
+          "id": "urls-5-1",
+          "type": "build_diagram",
+          "prompt": "Build the complete hot redirect path while keeping click analytics off the response path.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "b",
+                "label": "Browser",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "only on miss",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "sub": "click event",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "b",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "dash": true,
+                "kind": "optional"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Redirect service + cache",
+            "Authoritative mapping store",
+            "Analytics queue",
+            "Synchronous analytics database"
+          ],
+          "answer": {
+            "h1": "Redirect service + cache",
+            "h2": "Authoritative mapping store",
+            "h3": "Analytics queue"
+          },
+          "why": "The cache answers hot lookups, the mapping store repairs misses, and the queue accepts click events without making redirect latency depend on aggregation. A synchronous analytics database would put an optional write on the critical path."
+        },
+        {
+          "id": "urls-5-2",
+          "type": "multi_select",
+          "prompt": "A design review finds deterministic hashing of only the destination URL, no unique constraint, mutable destinations cached forever, and synchronous click writes. Which failures follow? Select all.",
+          "choices": [
+            "Different owners cannot receive independent links for the same destination",
+            "A collision can bind one code to the wrong destination",
+            "Edits or abuse disabling can remain stale indefinitely",
+            "Analytics failure can delay or fail redirects"
+          ],
+          "answer": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "why": "Each finding breaks a separate requirement: destination-only identity collapses distinct creation intents, missing uniqueness permits conflicting ownership, unbounded caching ignores mapping changes, and synchronous analytics couples optional processing to the redirect's latency and availability."
+        },
+        {
+          "id": "xfer-url",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A webhook service gives each registered callback a short public ID. Two clients concurrently request the same custom ID. What must choose the winner?",
+          "choices": [
+            "Whichever request has lower latency according to the client",
+            "The cache",
+            "An atomic unique insert in authoritative storage",
+            "A prior unlocked SELECT"
+          ],
+          "answer": 2,
+          "why": "A check-then-insert race allows both callers to observe absence. The authoritative uniqueness constraint or conditional insert serializes the claim and gives one winner."
         }
       ]
     }

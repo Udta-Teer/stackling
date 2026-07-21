@@ -2,7 +2,7 @@
 
 > **Purpose:** This is the single source of truth for *what* we teach, *in what order*, *in what voice*, and *how far along we are*. Every content-authoring session starts by reading this file. It exists to stop scope-spiral: we build **one concept at a time, top to bottom**, and check it off here.
 
-**Last updated:** 2026-07-16
+**Last updated:** 2026-07-18
 **Owner:** content
 **Related:** [SPEC.md](./SPEC.md) (product/tech), content files live in `/content`
 
@@ -30,7 +30,7 @@ Write for this arc within every unit:
 ## 2. Voice & tone (non-negotiable rules)
 
 1. **Concrete over abstract.** Never "improves performance" — say "cuts the response from 400ms to 20ms."
-2. **Analogy first, term second.** Introduce the idea with a real-world analogy, *then* name it. ("A phonebook that turns names into numbers — that's DNS.")
+2. **Mechanism first; analogy only when it adds precision.** Name the technical term and explain what enters it, what it does, and what comes out. An analogy may follow when the mapping is exact enough to teach something. Never replace a mechanism with a childlike metaphor.
 3. **Numbers people can feel.** Use the "latency numbers every engineer should know," data sizes, request rates. Numbers make it real.
 4. **War stories.** Sprinkle real incidents (the 2016 Dyn DNS outage, Twitter's fail whale, an S3 typo taking down half the web). These are the "Go deeper" candy.
 5. **Short sentences. Warm, a little witty. Never smug.**
@@ -68,7 +68,7 @@ An optional `fieldTask` on a **lesson** sends the learner to their Terminal or b
 
 **⛔ Use them sparingly — this is enforced, not advised.** Every field task is an exit from the app, and an exit is a chance not to come back; retention is the whole product. `scripts/validate-content.py` **fails the build** on: more than **6 course-wide**, more than **1 per unit**, a missing/invalid `where`, or `seconds` over 60.
 
-**Only add one where doing the thing teaches something reading cannot** — hops you can count, a latency gap you can feel, a `304` you can watch. If prose conveys it just as well, don't spend an exit on it. Current: **3 of 6** (≈1 per 36 lessons).
+**Only add one where doing the thing teaches something reading cannot** — hops you can count, a latency gap you can feel, a `304` you can watch. If prose conveys it just as well, don't spend an exit on it. Current: **2 of 6**.
 
 ### 3.2 Markdown in content strings
 
@@ -94,6 +94,67 @@ Each **lesson** = 6–10 exercises, ~5 minutes, and follows this arc:
 
 Difficulty within a unit ramps **easy → hard** (per the HARD RULE, §1 — don't stop at medium). New concepts go *recognition* (multiple choice) → *recall* (fill blank) → *application* (build/order) → **judgment & diagnosis** (tradeoff sliders, spot-the-bottleneck, "what breaks at scale," multi-step reasoning). Every unit must include at least one genuinely hard, make-them-think exercise near the end. A unit that only tests recognition is unfinished.
 
+### 3.4 Design studio anatomy — complete systems, not component trivia
+
+Every `design-*` unit has at least four lessons and ends with an explicit
+**complete-system review**. The validator enforces that final lesson contains:
+
+- a `concept` showing the complete authoritative and derived data paths;
+- a `system_change` that injects a failure and lets the learner revise the design;
+- a `build_diagram` that reconstructs an end-to-end path; and
+- a `multi_select` design review containing several independent defects.
+
+Across the studio, the learner must encounter all of these beats:
+
+1. Clarify requirements and use supplied, phone-friendly workload numbers.
+2. Name the critical read and write operations.
+3. Model the minimum authoritative records and their invariants.
+4. Build the simplest complete request path.
+5. Observe a measured bottleneck or correctness failure.
+6. Change one architectural decision and observe the consequence.
+7. Separate authoritative state from caches, indexes, queues, and analytics.
+8. Review the finished system and identify unjustified components or missing guarantees.
+
+The preferred arc is **build v1 → observe failure → revise → defend the
+tradeoff**. A diagram with one obvious empty box is scaffolding, not sufficient
+evidence that the learner can design a system.
+
+### 3.5 Interactive-diagram floor
+
+Every unit contains at least **three `diagramExpansion` build exercises** in
+addition to its earlier content. Each drill reconstructs a reviewed topology
+from that unit, uses multiple missing components whenever the system permits,
+and keeps plausible distractors in the unit's own vocabulary. The validator
+fails if any of the 44 units drops below three or marks a passive illustration
+as part of the expansion.
+
+An expansion drill may intentionally revisit a topology as retrieval practice,
+but it must label that purpose, pose its own construction task, and explain the
+directed path the learner built. It may not copy another exercise's `prompt` or
+`why`; the validator compares every expansion against the rest of its unit and
+fails on either duplicate.
+
+One expansion in every unit also sets `connectEdges: true`. Placement alone is
+then insufficient: after choosing the components, the learner must connect every
+directed flow on the diagram before Check enables. This is the course-wide
+minimum for architecture composition rather than component recognition.
+
+Every authored edge has an explicit `kind`: `request`, `data`, `event`,
+`replication`, `invalidation`, `control`, `optional`, `broken`, or `blocked`.
+Failed and denied edges also require a visible `label`; multiplicity uses
+`count`/`label`, never duplicate paths painted on top of one another. A network
+partition is a `broken` relationship, never a server-shaped node.
+
+The browser gate renders all **497** `viz`/`afterViz` states at 360px and fails
+on frame scrolling, clipped node copy, overlap, missing SVG paths, missing edge
+kinds, or unlabeled failure edges. Diagram geometry grows node height from its
+actual rendered content rather than assuming fixed-height labels.
+
+This floor exists because counting any exercise with a `viz` overstated actual
+interaction: before the expansion, only 65 of 1,052 exercises let the learner
+build a diagram. Passive concept art and a diagram revealed after choosing a
+button are useful, but they are not architecture construction.
+
 ---
 
 ## 4. Exercise types (from SPEC §3.2) and when to use each
@@ -109,14 +170,52 @@ Difficulty within a unit ramps **easy → hard** (per the HARD RULE, §1 — don
 | `spot_bottleneck` | Diagnosing scale problems | medium–hard |
 | `tradeoff_slider` | Judgment calls with no single answer | hard |
 | `estimate` | Back-of-envelope capacity math | hard |
+| `concept` | Direct teaching before assessment | ungraded |
+| `simulate` | Vary load or capacity and observe the system | medium–hard |
+| `system_change` | Make one architecture change and observe measured before/after consequences | medium–hard |
+
+**Causal-simulation floor:** the course contains at least 30 `simulate`
+exercises where the learner changes one explicit variable, sees load move through
+a topology, and discovers the minimum safe threshold. The validator recomputes
+the threshold from the model, rejects an answer range that disagrees with the
+visible capacity, and fails if the course drops below 30. Current: **30**.
+
+**Transfer floor:** every unit contains at least one graded exercise marked
+`"transfer": true`. It must apply the unit's mechanism in an unfamiliar domain,
+without relying on names copied from the teaching example. Reconstruction checks
+memory; transfer checks whether the learner can recognize the invariant when the
+surface details change. Checkpoints should combine mechanisms from several units.
 
 **Rule:** a lesson uses **3–5 different types** to stay fresh. Never 8 multiple-choice in a row.
 
+**Causal-interaction floor:** every unit contains at least one `system_change`; foundational units 1–13 and design units 23–27 contain at least two. The course currently has 50. A valid system change names the action, shows explicit before and after measurements, changes the topology or routing semantics, and explains why the result changed. It must not ask the learner to infer hidden capacities or traffic rates.
+
+After the first guided Aha, prefer **decision labs**: offer 2–4 plausible architecture changes, make each wrong choice expose the specific invariant or bottleneck it fails to repair, keep the broken topology visible, and let the learner revise. A single predetermined button is onboarding scaffolding, not sufficient evidence that the learner can design.
+
 ---
 
-## 5. THE BIGGER PICTURE — full concept map
+## 5. THE BIGGER PICTURE — canonical learning path
 
-Ordered dependency-first. Each concept = one **unit** (3–5 lessons). Grouped into 5 tiers = the skill tree.
+**The learning order is keyed by stable `unitId`, not filename number.** Filenames
+record authoring history and must not be interpreted as the learner's path.
+`scripts/build-prototype.py::COURSE_ORDER` mechanically enforces this sequence,
+fails if a unit is missing or unplaced, and supplies the learner-facing stage
+labels. Stable unit and exercise IDs survive reordering so saved progress can be
+migrated without pretending that file 28 must remain the 28th learning step.
+
+| Stage | Ordered units | Why this order |
+|---|---|---|
+| **Request Foundations** | Internet → Client–Server & HTTP → APIs → Latency vs Throughput → Where State Lives → **Checkpoint** | Follow one request before decomposing the machinery behind it |
+| **Durable Data** | Database → SQL vs NoSQL → Indexes → Transactions → Replication → **Checkpoint** | Establish storage, access paths, atomic change, then copies |
+| **Serving Traffic** | Scaling → Load Balancing → Caching → CDNs → Sharding → Rate Limiting → Queues → Idempotency → **Checkpoint** | Add capacity, reduce work, control admission, move work off-path, then make redelivery safe |
+| **Distributed Systems** | Observability → Resilience & Backpressure → Consistency Models → CAP → Consensus → Disaster Recovery → **Checkpoint** | See failure, contain it, define read guarantees, reason about partitions and agreement, then prove recovery |
+| **Production Systems** | Authentication & Authorization → Security → Discovery & Configuration → Schema Migrations → Event Streams → Multi-Region → Architecture Evolution → **Checkpoint** | Preserve identity, policy, compatibility, ordering, and authority while a live system evolves |
+| **Design Studio** | URL Shortener → Rate Limiter → Notification Platform → News Feed → Chat → Cloud File Storage → Video Streaming → Ride Sharing | Progress from one dominant mapping to real-time, multi-path, globally distributed systems |
+
+### 5.1 Concept inventory and historical source numbers
+
+The tables below describe each concept. Their numbers are **source-file IDs**, not
+the post-migration learning order.
 
 ### Tier 0 — How things talk (Foundations)
 | # | Concept | Core idea a beginner leaves with |
@@ -165,6 +264,22 @@ Ordered dependency-first. Each concept = one **unit** (3–5 lessons). Grouped i
 | 26 | **Design a rate limiter** | Applies Tier 2 rate limiting at system scale |
 | 27 | **Design a ride-sharing backend** | Geo, matching, real-time — the boss level |
 
+### Tier 5 — Production systems and evolution
+| # | Concept | Core idea |
+|---|---------|-----------|
+| 33 | **Authentication & authorization** | Establish identity, enforce resource permissions, and contain credential compromise |
+| 34 | **Security & threat modeling** | Identify trust boundaries and design controls for concrete attacker capabilities |
+| 35 | **Resilience & backpressure** | Bound failure propagation with deadlines, circuit breakers, bulkheads, and admission control |
+| 36 | **Service discovery & configuration** | Locate healthy service instances and roll out runtime configuration safely |
+| 37 | **Schema & data migrations** | Change live data formats without requiring an instantaneous fleet-wide cutover |
+| 38 | **Architecture evolution** | Split responsibilities only when ownership, scaling, or deployment evidence requires it |
+| 39 | **Event streams & stream processing** | Process ordered event partitions with replayable state and explicit time semantics |
+| 40 | **Multi-region architecture** | Place traffic and data across regions under latency, consistency, and failure constraints |
+| 41 | **Disaster recovery** | Define backups, restore procedures, RPO, and RTO as tested guarantees |
+| 42 | **Design cloud file storage** | Separate metadata, object bytes, synchronization, and sharing |
+| 43 | **Design a notification platform** | Apply preferences, fan-out, retries, provider limits, and deduplication |
+| 44 | **Design video streaming** | Build ingest, transcoding, manifests, storage, and global delivery |
+
 > **Launch bar (~30%):** ship when **Tiers 0–1 + Caching, Load balancing, Sharding, and the URL-shortener capstone** are done. That's a coherent "beginner → first real design" journey (≈11 units). Everything after ships as updates.
 
 ---
@@ -205,10 +320,24 @@ Status: `⬜ not started` · `🟨 drafting` · `✅ done` · `🔁 needs review
 | 28 | Checkpoint: Foundations (units 1–5) | ✅ done | `content/28-checkpoint-foundations.json` |
 | 29 | Checkpoint: Storing Data (units 6–10) | ✅ done | `content/29-checkpoint-storing-data.json` |
 | 30 | Checkpoint: Serving Scale (units 11–17) | ✅ done | `content/30-checkpoint-serving-scale.json` |
-| 31 | Checkpoint: Hard Truths (units 18–22) | ✅ done | `content/31-checkpoint-hard-truths.json` |
-| 32 | Checkpoint: Design Challenges (units 23–27) | ✅ done | `content/32-checkpoint-design-challenges.json` |
+| 31 | Checkpoint: Distributed Systems | ✅ done | `content/31-checkpoint-hard-truths.json` |
+| 32 | Checkpoint: Production Systems | ✅ done | `content/32-checkpoint-design-challenges.json` |
+| 33 | Authentication & authorization | ✅ done | `content/33-authentication-authorization.json` |
+| 34 | Security & threat modeling | ✅ done | `content/34-security-threat-modeling.json` |
+| 35 | Resilience & backpressure | ✅ done | `content/35-resilience-backpressure.json` |
+| 36 | Service discovery & configuration | ✅ done | `content/36-service-discovery-configuration.json` |
+| 37 | Schema & data migrations | ✅ authored | `content/37-schema-data-migrations.json` |
+| 38 | Architecture evolution | ✅ authored | `content/38-architecture-evolution.json` |
+| 39 | Event streams & stream processing | ✅ authored | `content/39-event-streams-processing.json` |
+| 40 | Multi-region architecture | ✅ authored | `content/40-multi-region-architecture.json` |
+| 41 | Disaster recovery | ✅ authored | `content/41-disaster-recovery.json` |
+| 42 | Design cloud file storage | ✅ authored | `content/42-design-cloud-file-storage.json` |
+| 43 | Design a notification platform | ✅ authored | `content/43-design-notification-platform.json` |
+| 44 | Design video streaming | ✅ authored | `content/44-design-video-streaming.json` |
 
-**Authoring order = the table order.** Do not jump ahead. Finish a concept (all lessons + `why` lines + a review pass) and mark it ✅ before starting the next.
+**Authoring history = the table order; learning order = §5 and `COURSE_ORDER`.**
+Never infer curriculum position from a filename. Finish a concept (all lessons +
+`why` lines + a review pass) before marking it ✅.
 
 ### 6.1 Teaching cards — every lesson teaches before it tests
 
@@ -236,6 +365,48 @@ Rules that keep a card from becoming goDeeper 2.0:
 - **Don't define neighbouring concepts.** Each card does one job.
 - **Max 3 per lesson**, and a lesson of only concept cards is rejected — it's a slide deck.
 
+#### Concept-card writing standard: teach, do not perform expertise
+
+A concept card is an instructor standing beside a beginner, not a senior engineer
+writing a clever post. The old cards repeatedly compressed an aphorism, a mechanism,
+two caveats, and a teaser into one paragraph. They sounded authoritative while making
+the learner unpack the prose before they could unpack the system.
+
+Write each card in this order:
+
+1. **Define:** name the technical concept and state its contract or mechanism directly.
+   Prefer “DNS resolves a domain name to one or more resource records, commonly IP
+   addresses” over either a vague aphorism or a childish metaphor.
+2. **Show:** give one concrete request, number, or tiny system and walk through what
+   happens. Do not tell the learner to “notice”, “sit with”, or “work out” an idea that
+   the card is responsible for teaching.
+3. **Trace:** when useful, follow one concrete request through the mechanism using the
+   correct component names.
+4. **Bound:** state one operational consequence, precondition, or failure mode. The
+   renderer labels this “Engineering consequence.” It is not a second punchline.
+
+Additional rules:
+
+- **Precision beats simplicity and quotability.** Use the hard term when it is the
+  accurate term, then define it. Never make the learner infer a technical claim from
+  “not X but Y”, “it sounds like X”, “the opposite”, or similar rhetorical contrast.
+- **One mechanism per card.** If the body needs “and” to introduce a second mechanism,
+  add another card at the point of need.
+- **No mystery-box teaching.** Avoid “there's an obvious move”, “ask what kind of
+  thing…”, and “work out what that costs.” Explain the move, kind, or cost.
+- **Prefer positive definitions.** State what a component does before discussing what
+  it does not do. Contrast is allowed only when both sides are technically necessary.
+- **No unsupported absolutes.** “Every”, “never”, “nothing”, and “the whole idea” need
+  a condition in the same clause or a rewrite.
+- **No course-navigation prose.** “Unit 5's question” is not an explanation. Restate
+  the relevant principle in the current card.
+- **Use the space; do not fill the cap.** The 360/220 limits are ceilings, not targets.
+  Aim for roughly 180–280 body characters and 80–160 note characters when that is
+  enough.
+- **Teach at point of need.** One opener is not automatically enough for six graded
+  exercises. Insert another card immediately before a later question cluster that
+  introduces a new mechanism. Three useful cards beat one generic overview.
+
 #### The card teaches the MECHANISM; the exercise supplies the INSTANCE
 
 The failure mode a teaching card invites: teach so literally that the test becomes a memory check. Ask of every exercise — *could a learner get this right by recalling a sentence from the card, without reasoning?* If yes, the card spoiled it.
@@ -253,15 +424,21 @@ Fix by moving the instance into the exercise and keeping the principle on the ca
 
 **`scripts/check-spoilers.py` catches only copy-paste, and its own docstring says so.** Calibrated against confirmed cases: `scale-4-0` → `scale-4-5` ("a complete pre-answer") scores **0%**, while the *healthy* `rl-3-0` → `rl-3-1` scores **25%**. The healthy card scores higher than the worst offender, because real spoilers are semantic. A clean run means "nobody copy-pasted" and nothing more — judging this needs a reader.
 
-**Checkpoints (units 28–32) are the deliberate exception**: a checkpoint is a test *by design*, mixing units the learner has already been taught. No cards there.
+**Checkpoint source files 28–32 are the deliberate exception**: a checkpoint is
+a test *by design*, mixing units the learner has already been taught. They are
+inserted at the end of their actual stage by `COURSE_ORDER`; no cards belong there.
 
 ### 6.2 Review status
 
-All 32 units have now had an independent adversarial review (2026-07-17), including the checkpoints.
+The original 32 units had an independent adversarial review on 2026-07-17,
+including the checkpoints. Units 33–44 were reviewed during the production-
+coverage audit and still remain subject to the same validator and browser gates.
 
 - **Units 1–11**: 23 fixes, then 6 more to repair defects those fixes introduced. The reviewer caught `txn-2-5` still contradicting the `txn-2-4` fix — the fix-two-of-three pattern.
 - **All 108 concept cards**: 38 fixes. Real errors, e.g. `cons-3-0` taught that a leader removes the per-write majority (it doesn't — it amortizes the argument about *order*), `idx-4-0` defined selectivity inverted, `idx-2-0`'s B-tree diagram had one child per node.
-- **Checkpoints 28–32**: first independent pass found a `spot_bottleneck` with a **tie** (two nodes at 5k, so the answer wasn't derivable) and three `why`s citing "Option 3" when the UI renders A–D.
+- **Checkpoint source files 28–32**: first independent pass found a
+  `spot_bottleneck` with a **tie** (two nodes at 5k, so the answer wasn't
+  derivable) and three `why`s citing "Option 3" when the UI renders A–D.
 - **De-spoiling pass**: all 108 cards rewritten so the card teaches the mechanism and the exercise supplies the instance. Verified: all 725 graded exercises byte-identical afterwards.
 
 **The pattern to internalise: my own review finds ~zero; independent reviewers find many, every single time.** And my *fixes* introduce new errors at a steady rate — three in one batch, and the de-spoiling pass caught a fourth (a partial fix to `cm-3-0` had labelled "the like count went down" a read-your-writes symptom, contradicting `cm-3-6`'s key, which says it's monotonic reads). **Never ship a batch of fixes without an independent pass over the fixes themselves.**
@@ -277,7 +454,7 @@ See `content/01-how-the-internet-works.json` for a worked example. Every unit fi
   "unitId": "how-internet-works",
   "tier": 0,
   "title": "How the Internet Works",
-  "subtitle": "The internet is just computers passing notes",
+  "subtitle": "Packets, addressing, name resolution, and transport from browser to server",
   "objectives": ["...learner-facing 'by the end you can...' bullets..."],
   "lessons": [
     {
@@ -295,7 +472,7 @@ Per-exercise required fields: `type`, `prompt`, the type-specific answer fields,
 
 ## 8. Business decisions locked here (so content reflects them)
 
-- **Pricing (recommended):** $19/mo, $149/yr, 7-day free trial for all. *(Under review — see chat.)*
+- **Pricing:** $9.99/mo, $79.99/yr, 7-day free trial for all.
 - **Launch strategy:** ship at ~30% content (Tiers 0–1 + key Tier 2 + URL shortener), keep shipping units.
 - **Offline-first** through the early milestones; backend/sync is v2.
 - **Positioning:** "Interview-grade system design, 10 minutes a day."

@@ -1,0 +1,513 @@
+{
+  "unitId": "disaster-recovery",
+  "tier": 5,
+  "title": "Disaster Recovery",
+  "subtitle": "Define data loss and recovery time as tested objectives backed by independent copies",
+  "objectives": [
+    "Distinguish availability replicas from recovery copies",
+    "Use RPO and RTO to select protection",
+    "Design immutable and isolated backups",
+    "Verify restore through regular drills"
+  ],
+  "lessons": [
+    {
+      "id": "dr-1",
+      "title": "Recovery objectives",
+      "exercises": [
+        {
+          "id": "dr-1-0",
+          "type": "concept",
+          "title": "RPO bounds acceptable data loss; RTO bounds acceptable recovery time",
+          "body": "Recovery point objective (RPO) specifies how far restored data may fall behind the failure. Recovery time objective (RTO) specifies how long the service may remain unavailable. Both require a failure scope and measurable restore procedure.",
+          "note": "A zero RPO or near-zero RTO is an expensive architecture requirement, not a default label."
+        },
+        {
+          "id": "dr-1-1",
+          "type": "match_pairs",
+          "prompt": "Match each objective to its measurement.",
+          "pairs": [
+            {
+              "left": "RPO",
+              "right": "Maximum acceptable gap between failure and restored data"
+            },
+            {
+              "left": "RTO",
+              "right": "Maximum acceptable time to restore service"
+            },
+            {
+              "left": "Retention",
+              "right": "How long recovery versions remain available"
+            }
+          ],
+          "why": "RPO measures potential data loss, RTO measures recovery duration, and retention controls how far back operators can select a recovery point."
+        },
+        {
+          "id": "dr-1-2",
+          "type": "multiple_choice",
+          "prompt": "Backups run every 24 hours. Ignoring logs between backups, what is the worst-case RPO?",
+          "choices": [
+            "About 24 hours",
+            "Zero",
+            "One minute",
+            "The RTO"
+          ],
+          "answer": 0,
+          "why": "A failure immediately before the next backup can lose almost 24 hours of changes. More frequent snapshots or continuous logs reduce that gap."
+        }
+      ]
+    },
+    {
+      "id": "dr-2",
+      "title": "A replica is not a backup",
+      "exercises": [
+        {
+          "id": "dr-2-0",
+          "type": "concept",
+          "title": "Replication preserves availability by copying changes, including destructive ones",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Primary",
+                "sub": "DELETE issued",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "r",
+                "label": "Replica",
+                "sub": "DELETE replayed",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "b",
+                "label": "Isolated backup",
+                "sub": "older version retained",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "p",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "body": "A replica follows the live system and can replace a failed node, but it commonly reproduces operator deletion, corruption, or malicious writes. A recovery copy needs version history, isolation, retention, and access controls independent of the live write path.",
+          "note": "Availability and recoverability use different copies because they defend against different failures."
+        },
+        {
+          "id": "disaster-recovery-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Replication preserves availability by copying changes, including destructive ones",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Primary",
+                "sub": "DELETE issued",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "r",
+                "sub": "DELETE replayed",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "older version retained",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "r",
+                "kind": "data"
+              },
+              {
+                "from": "p",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Replica",
+            "Isolated backup",
+            "Followers",
+            "Live database"
+          ],
+          "answer": {
+            "r": "Replica",
+            "b": "Isolated backup"
+          },
+          "why": "A replica follows the live system and can replace a failed node, but it commonly reproduces operator deletion, corruption, or malicious writes. A recovery copy needs version history, isolation, retention, and access controls independent of the live write path. Availability and recoverability use different copies because they defend against different failures.",
+          "connectEdges": true
+        },
+        {
+          "id": "dr-change-1",
+          "type": "system_change",
+          "prompt": "An administrator deletes the customer table and replication immediately deletes it from every follower. Add a recovery boundary.",
+          "actionLabel": "Create immutable isolated backups",
+          "choices": [
+            "Add another synchronous follower",
+            "Store versioned immutable backups under separate credentials",
+            "Increase database CPU"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Another follower replays the same deletion.",
+            "Independent immutable versions preserve a point before the destructive write.",
+            "CPU capacity does not restore deleted data."
+          ],
+          "beforeStatus": "DELETION · primary and 3 replicas contain no customer table",
+          "afterStatus": "DELETION · live copies damaged · protected recovery point available",
+          "result": "Destructive live writes no longer erase every recovery copy",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Primary",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "r",
+                "label": "Followers",
+                "sub": "deletion replicated",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "r",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Live database",
+                "sub": "damaged",
+                "col": 0,
+                "kind": "db"
+              },
+              {
+                "id": "b",
+                "label": "Immutable backup",
+                "sub": "separate authority",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "why": "Versioned backups under separate credentials and deletion controls preserve recovery points when the live authority is compromised. Encryption keys, catalog metadata, and restore tooling need equivalent protection."
+        },
+        {
+          "id": "disaster-recovery-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Draw the failure path first; the disconnected or blocked part is evidence: An administrator deletes the customer table and replication immediately deletes it from every follower. Add a recovery boundary.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "r",
+                "sub": "deletion replicated",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "r",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Primary",
+            "Followers",
+            "Replica",
+            "Isolated backup"
+          ],
+          "answer": {
+            "p": "Primary",
+            "r": "Followers"
+          },
+          "why": "The completed diagram contains these directed flows: Primary → Followers. That topology is the evidence for the answer: Versioned backups under separate credentials and deletion controls preserve recovery points when the live authority is compromised. Encryption keys, catalog metadata, and restore tooling need equivalent protection."
+        },
+        {
+          "id": "disaster-recovery-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: An administrator deletes the customer table and replication immediately deletes it from every follower. Add a recovery boundary. Place Live database, Immutable backup. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "sub": "damaged",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "separate authority",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Live database",
+            "Immutable backup",
+            "Primary",
+            "Replica"
+          ],
+          "answer": {
+            "p": "Live database",
+            "b": "Immutable backup"
+          },
+          "why": "The completed diagram contains these directed flows: Live database → Immutable backup. That topology is the evidence for the answer: Versioned backups under separate credentials and deletion controls preserve recovery points when the live authority is compromised. Encryption keys, catalog metadata, and restore tooling need equivalent protection."
+        },
+        {
+          "id": "dr-2-1",
+          "type": "multi_select",
+          "prompt": "Which properties strengthen a recovery copy? Select all.",
+          "choices": [
+            "Immutable retention window",
+            "Separate administrative credentials",
+            "Geographic or failure-domain isolation",
+            "Automatic overwrite by every live write"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Immutability, independent authority, and failure-domain separation protect against live corruption and compromise. Immediate overwrite reproduces the failure a backup must survive."
+        }
+      ]
+    },
+    {
+      "id": "dr-3",
+      "title": "Restore is the product",
+      "exercises": [
+        {
+          "id": "dr-3-0",
+          "type": "concept",
+          "title": "A backup is useful only when a verified restore meets the objective",
+          "body": "A restore drill provisions clean infrastructure, retrieves the selected recovery point, restores data and keys, validates application invariants, and measures elapsed time and data gap. Record failures as defects in the recovery system.",
+          "note": "A successful backup job proves bytes were written; it does not prove completeness, decryptability, or application correctness."
+        },
+        {
+          "id": "dr-3-1",
+          "type": "order_steps",
+          "prompt": "Build a recovery drill.",
+          "steps": [
+            "Declare the failure scope and target RPO/RTO",
+            "Provision an isolated recovery environment",
+            "Restore data, configuration, and required keys",
+            "Run integrity and application-level validation",
+            "Measure objectives and record remediation"
+          ],
+          "why": "The drill starts with measurable objectives, restores into isolation, validates usable behavior, and turns gaps into tracked engineering work."
+        },
+        {
+          "id": "dr-3-2",
+          "type": "tradeoff_slider",
+          "prompt": "A payroll ledger permits at most five minutes of data loss and four hours of recovery time. Choose the protection emphasis.",
+          "leftLabel": "Daily snapshot only",
+          "rightLabel": "Frequent logs + snapshots + rehearsed restore",
+          "answerRange": [
+            80,
+            100
+          ],
+          "why": "Daily snapshots cannot meet a five-minute RPO. Frequent durable logs reduce the recovery point gap, while rehearsed automation is needed to meet the four-hour RTO."
+        }
+      ]
+    },
+    {
+      "id": "dr-4",
+      "title": "Restore the whole dependency graph",
+      "exercises": [
+        {
+          "id": "dr-4-0",
+          "type": "concept",
+          "title": "A database restore is not an application recovery",
+          "body": "The recovered service also needs secrets, identity, configuration, queues, object storage, network policy, and compatible application versions. A recovery plan orders those dependencies and verifies user-visible invariants, not merely that one database process started.",
+          "note": "Measure recovery time from incident declaration until the required user journey works—not until the restore command exits."
+        },
+        {
+          "id": "dr-4-1",
+          "type": "order_steps",
+          "prompt": "Order a controlled regional recovery.",
+          "steps": [
+            "Declare the recovery scope and freeze conflicting writes",
+            "Restore foundational identity, secrets, networking, and configuration",
+            "Restore authoritative data and required object/event dependencies",
+            "Start compatible application services and run invariant checks",
+            "Shift a small traffic cohort, then expand while monitoring"
+          ],
+          "why": "The dependency foundation must exist before data and applications can authenticate or connect. Invariant checks precede traffic, and gradual routing limits blast radius while measuring the actual recovery objective."
+        },
+        {
+          "id": "dr-4-2",
+          "type": "multi_select",
+          "prompt": "A restore job completed successfully. Which evidence is still required before claiming the recovery-time objective was met? Select all.",
+          "choices": [
+            "Critical user journeys succeed",
+            "Restored data satisfies business invariants",
+            "Queues and downstream processors are catching up",
+            "The backup file existed"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Backup existence and command success do not prove a usable system. Recovery ends when required behavior works with correct data and dependent pipelines are within the declared objective."
+        },
+        {
+          "id": "dr-4-3",
+          "type": "build_diagram",
+          "prompt": "Build the minimum dependency order for a recovery test before user traffic returns.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "h1",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h4",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "u",
+                "label": "Canary user traffic",
+                "col": 4,
+                "kind": "client"
+              }
+            ],
+            "edges": [
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "h4",
+                "kind": "request"
+              },
+              {
+                "from": "h4",
+                "to": "u",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Identity + secrets + network",
+            "Authoritative data restore",
+            "Compatible application services",
+            "Invariant + journey checks",
+            "Full traffic immediately",
+            "Dashboard screenshot"
+          ],
+          "answer": {
+            "h1": "Identity + secrets + network",
+            "h2": "Authoritative data restore",
+            "h3": "Compatible application services",
+            "h4": "Invariant + journey checks"
+          },
+          "why": "Connectivity and credentials enable the restore, authoritative data enables compatible services, and correctness checks gate canary traffic. Reversing that order turns recovery into uncontrolled production testing."
+        },
+        {
+          "id": "dr-4-4",
+          "type": "multiple_choice",
+          "prompt": "Your backup retains 24 hours of data, but corruption went unnoticed for three days. What failed?",
+          "choices": [
+            "The recovery point lies outside retention, so every retained backup may contain corruption",
+            "The restore needs more CPU",
+            "RTO automatically extends retention",
+            "Replication will reconstruct the deleted history"
+          ],
+          "answer": 0,
+          "why": "Retention must exceed the maximum plausible detection delay plus the required recovery-point window. Fast restore cannot recover a clean state that no retained backup contains."
+        },
+        {
+          "id": "xfer-dr",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "Ransomware corrupts production and the corruption is copied to every live replica. What recovery asset is required?",
+          "choices": [
+            "A retained, isolated backup from before corruption",
+            "Another synchronous replica",
+            "A longer load-balancer timeout",
+            "More cache memory"
+          ],
+          "answer": 0,
+          "why": "Replication preserves current availability but also propagates bad writes. Recovery needs a clean historical copy retained outside the corrupted administrative and replication path."
+        }
+      ]
+    }
+  ]
+}

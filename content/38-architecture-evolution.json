@@ -1,0 +1,663 @@
+{
+  "unitId": "architecture-evolution",
+  "tier": 5,
+  "title": "Architecture Evolution",
+  "subtitle": "Change service boundaries from measured ownership and scaling constraints",
+  "objectives": [
+    "Prefer explicit modules before distributed services",
+    "Use the strangler pattern for incremental replacement",
+    "Define service ownership around data and invariants",
+    "Recognize distributed costs introduced by a split"
+  ],
+  "lessons": [
+    {
+      "id": "evo-1",
+      "title": "Start with boundaries, not processes",
+      "exercises": [
+        {
+          "id": "evo-1-0",
+          "type": "concept",
+          "title": "A modular monolith can enforce ownership boundaries without network calls",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "One deployable",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "o",
+                "label": "Orders module",
+                "sub": "owns order rules",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "p",
+                "label": "Payments module",
+                "sub": "owns payment rules",
+                "col": 1,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "o",
+                "kind": "data"
+              },
+              {
+                "from": "a",
+                "to": "p",
+                "kind": "data"
+              }
+            ]
+          },
+          "body": "Separate responsibilities through module APIs and data ownership before distributing them across processes. A process split adds independent deployment and scaling only when those benefits justify network failure, operational overhead, and cross-service consistency work.",
+          "note": "Code organization and runtime topology are different decisions; one does not require the other."
+        },
+        {
+          "id": "architecture-evolution-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: A modular monolith can enforce ownership boundaries without network calls",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "One deployable",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "o",
+                "sub": "owns order rules",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "sub": "owns payment rules",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "o",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Orders module",
+            "Payments module",
+            "Application",
+            "Shared tables"
+          ],
+          "answer": {
+            "o": "Orders module",
+            "p": "Payments module"
+          },
+          "why": "Separate responsibilities through module APIs and data ownership before distributing them across processes. A process split adds independent deployment and scaling only when those benefits justify network failure, operational overhead, and cross-service consistency work. Code organization and runtime topology are different decisions; one does not require the other.",
+          "connectEdges": true
+        },
+        {
+          "id": "evo-change-1",
+          "type": "system_change",
+          "prompt": "A 6-person team has one application, shared tables, and unclear ownership. Deployments are fast and load is modest. Improve boundaries without adding network operations.",
+          "actionLabel": "Create owned modules",
+          "choices": [
+            "Split into 20 services immediately",
+            "Define module APIs and table ownership inside the application",
+            "Let every feature update every table"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Twenty services add coordination and operations without evidence that independent runtime scaling is needed.",
+            "Owned modules clarify responsibility while preserving simple local calls and transactions.",
+            "Shared mutation keeps coupling and makes invariants ownerless."
+          ],
+          "beforeStatus": "CHANGE IMPACT · every feature can modify every table",
+          "afterStatus": "CHANGE IMPACT · module APIs protect owned invariants",
+          "result": "Responsibility is explicit before distribution",
+          "viz": {
+            "nodes": [
+              {
+                "id": "a",
+                "label": "Application",
+                "sub": "shared internals",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Shared tables",
+                "sub": "no owner",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "a",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Orders module",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Payments module",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "label": "Owned tables",
+                "sub": "access through owner",
+                "col": 1,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "d",
+                "kind": "data"
+              },
+              {
+                "from": "p",
+                "to": "d",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Module boundaries create explicit contracts and ownership without partial network failure or distributed transactions. Later evidence can justify extracting one module while preserving the established boundary."
+        },
+        {
+          "id": "architecture-evolution-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A 6-person team has one application, shared tables, and unclear ownership. Deployments are fast and load is modest. Improve boundaries without adding network operations. Place Owned tables. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "o",
+                "label": "Orders module",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Payments module",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "d",
+                "sub": "access through owner",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "o",
+                "to": "d",
+                "kind": "request"
+              },
+              {
+                "from": "p",
+                "to": "d",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Owned tables",
+            "One deployable",
+            "Application"
+          ],
+          "answer": {
+            "d": "Owned tables"
+          },
+          "why": "The completed diagram contains these directed flows: Orders module → Owned tables; Payments module → Owned tables. That topology is the evidence for the answer: Module boundaries create explicit contracts and ownership without partial network failure or distributed transactions. Later evidence can justify extracting one module while preserving the established boundary."
+        },
+        {
+          "id": "evo-1-1",
+          "type": "multi_select",
+          "prompt": "Which evidence can justify extracting a module into a service? Select all.",
+          "choices": [
+            "It needs materially different scaling",
+            "A team needs independent deployment ownership",
+            "Its availability or security boundary differs",
+            "Microservices appear modern"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Independent scaling, ownership, availability, or security can repay distribution cost. Fashion does not define a workload or organizational constraint."
+        }
+      ]
+    },
+    {
+      "id": "evo-2",
+      "title": "Incremental replacement",
+      "exercises": [
+        {
+          "id": "evo-2-0",
+          "type": "concept",
+          "title": "The strangler pattern moves one route or capability at a time",
+          "viz": {
+            "nodes": [
+              {
+                "id": "r",
+                "label": "Router",
+                "sub": "choose by capability",
+                "col": 0,
+                "kind": "gw"
+              },
+              {
+                "id": "l",
+                "label": "Legacy system",
+                "sub": "remaining routes",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "n",
+                "label": "New service",
+                "sub": "migrated route",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "r",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "n",
+                "kind": "request"
+              }
+            ]
+          },
+          "body": "Place a routing boundary in front of the old system, implement one capability in the new path, compare behavior, and move traffic gradually. The legacy path remains available for rollback until the migrated capability is verified.",
+          "note": "Data ownership must move deliberately; routing traffic alone can leave two systems writing the same invariant."
+        },
+        {
+          "id": "evo-change-2",
+          "type": "system_change",
+          "prompt": "A two-year rewrite plans one final cutover of the entire billing system. Reduce the failure scope and time before evidence.",
+          "actionLabel": "Migrate one billing capability",
+          "choices": [
+            "Wait for the complete rewrite",
+            "Route one bounded capability to the new service and compare outcomes",
+            "Write every request to both systems without an authority rule"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A final cutover concentrates integration, data, and rollback risk into one event.",
+            "A bounded capability creates production evidence and a reversible traffic boundary.",
+            "Uncontrolled dual authority creates conflicting state."
+          ],
+          "beforeStatus": "CUTOVER · all capabilities change in one irreversible event",
+          "afterStatus": "CUTOVER · one route moves · measured rollback remains",
+          "result": "Migration risk is bounded by one capability",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "All billing traffic",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "n",
+                "label": "Complete rewrite",
+                "sub": "one cutover",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "n",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Billing traffic",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "label": "Capability router",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "l",
+                "label": "Legacy",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "n",
+                "label": "New invoicing",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "n",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Incremental routing limits blast radius and makes rollback a traffic decision. The migrated service needs one authoritative data-write path and reconciliation for any shadow comparison."
+        },
+        {
+          "id": "architecture-evolution-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: A two-year rewrite plans one final cutover of the entire billing system. Reduce the failure scope and time before evidence. Place Capability router, Legacy, New invoicing. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Billing traffic",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "r",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "l",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "n",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "r",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "l",
+                "kind": "request"
+              },
+              {
+                "from": "r",
+                "to": "n",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Capability router",
+            "Legacy",
+            "New invoicing",
+            "One deployable",
+            "Orders module"
+          ],
+          "answer": {
+            "r": "Capability router",
+            "l": "Legacy",
+            "n": "New invoicing"
+          },
+          "why": "The completed diagram contains these directed flows: Billing traffic → Capability router; Capability router → Legacy; Capability router → New invoicing. That topology is the evidence for the answer: Incremental routing limits blast radius and makes rollback a traffic decision. The migrated service needs one authoritative data-write path and reconciliation for any shadow comparison."
+        },
+        {
+          "id": "evo-2-1",
+          "type": "order_steps",
+          "prompt": "Build an incremental extraction sequence.",
+          "steps": [
+            "Define the capability and its data owner",
+            "Add a routing seam",
+            "Implement and shadow the new path",
+            "Move a small traffic share and compare evidence",
+            "Expand traffic, remove the old path, then clean up"
+          ],
+          "why": "Ownership and a seam precede implementation; shadowing and staged traffic provide evidence; cleanup waits until the old path is no longer a rollback dependency."
+        }
+      ]
+    },
+    {
+      "id": "evo-3",
+      "title": "The distributed bill",
+      "exercises": [
+        {
+          "id": "evo-3-0",
+          "type": "concept",
+          "title": "A service split converts local assumptions into distributed protocols",
+          "body": "A function call becomes a network request with deadlines and retries; one transaction becomes a workflow; a shared schema becomes versioned APIs and events; debugging requires cross-service context. Record these costs in the extraction decision.",
+          "note": "Independent deployment is valuable only when contracts and data ownership let teams change independently in practice."
+        },
+        {
+          "id": "evo-3-1",
+          "type": "match_pairs",
+          "prompt": "Match each local assumption to its distributed replacement.",
+          "pairs": [
+            {
+              "left": "Function call",
+              "right": "Network call with timeout and retry policy"
+            },
+            {
+              "left": "One database transaction",
+              "right": "Workflow with idempotency and compensation"
+            },
+            {
+              "left": "In-process stack trace",
+              "right": "Correlated logs and distributed trace"
+            }
+          ],
+          "why": "Distribution introduces partial failure, independent commits, and fragmented evidence. Each local mechanism needs an explicit distributed replacement rather than an unchanged interface name."
+        },
+        {
+          "id": "evo-3-2",
+          "type": "tradeoff_slider",
+          "prompt": "Orders and inventory change together in one small team's application, share one scaling profile, and require atomic reservation. Choose the boundary emphasis.",
+          "leftLabel": "Keep owned modules in one deployable",
+          "rightLabel": "Split into independently deployed services",
+          "answerRange": [
+            0,
+            30
+          ],
+          "why": "Shared ownership, scaling, and atomic invariants favor a local module boundary. Extraction becomes stronger when independent scaling or ownership evidence outweighs workflow and network complexity."
+        }
+      ]
+    },
+    {
+      "id": "evo-4",
+      "title": "Extraction is a data migration",
+      "exercises": [
+        {
+          "id": "evo-4-0",
+          "type": "concept",
+          "title": "A service boundary is incomplete until one owner controls each write",
+          "body": "Moving code behind a network endpoint does not create an independent service while both the monolith and new service write the same tables. Extraction needs an authority transition: route new writes to one owner, migrate historical data, reconcile differences, then remove the old writer.",
+          "note": "Shared reads may remain temporarily. Two uncoordinated writers create ambiguous invariants, rollback, and incident ownership."
+        },
+        {
+          "id": "evo-4-1",
+          "type": "multiple_choice",
+          "prompt": "The Orders service has its own deployment, but the monolith still updates the same order rows directly. What has actually been extracted?",
+          "choices": [
+            "A fully independent service",
+            "A network API, but not exclusive data ownership",
+            "An event stream",
+            "A disaster-recovery system"
+          ],
+          "answer": 1,
+          "why": "Deployment separation does not establish authority. While two codebases can mutate the same records, either can violate the other's assumptions and neither owns the write invariant end to end."
+        },
+        {
+          "id": "evo-4-2",
+          "type": "order_steps",
+          "prompt": "Order a reversible strangler extraction for order writes.",
+          "steps": [
+            "Define the new service contract and ownership invariant",
+            "Route a small cohort of writes through the new service",
+            "Compare outcomes and reconcile migrated state",
+            "Increase traffic while monitoring correctness and latency",
+            "Remove the monolith's direct write path after rollback closes"
+          ],
+          "why": "The sequence establishes the contract before moving authority, limits blast radius during observation, and removes the old writer only after evidence and rollback requirements permit it."
+        },
+        {
+          "id": "evo-4-3",
+          "type": "multi_select",
+          "prompt": "Which signals justify splitting a module into a separately deployed service? Select all.",
+          "choices": [
+            "It needs independent scaling proven by measurements",
+            "A stable team can own its contract and data",
+            "Release coupling creates repeated operational pain",
+            "Microservices appear on an architecture diagram"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "A service boundary adds network, consistency, deployment, and observability costs. Independent scaling, ownership, or release constraints can repay that bill; fashion cannot."
+        },
+        {
+          "id": "evo-4-4",
+          "type": "build_diagram",
+          "prompt": "Build the authority cutover. New writes go through one owner; an event updates the monolith's temporary read copy without giving it write authority.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Client",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 3,
+                "hole": true
+              },
+              {
+                "id": "h4",
+                "col": 4,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "h4",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Orders service · sole writer",
+            "Orders database",
+            "Change event",
+            "Monolith read copy",
+            "Second direct writer",
+            "Shared mutable table"
+          ],
+          "answer": {
+            "h1": "Orders service · sole writer",
+            "h2": "Orders database",
+            "h3": "Change event",
+            "h4": "Monolith read copy"
+          },
+          "why": "The client sends mutations to the Orders service, which owns the authoritative database. Events may feed a temporary read copy, but the monolith cannot write back through that derived path."
+        },
+        {
+          "id": "xfer-evolution",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A team moves invoice code into a separate process, but both the monolith and new service still mutate invoice tables. What remains unresolved?",
+          "choices": [
+            "Whether invoices have IDs",
+            "Exclusive write ownership and invariant authority",
+            "Network connectivity",
+            "The programming language"
+          ],
+          "answer": 1,
+          "why": "A deployment boundary is not a data-ownership boundary. Two independent writers can violate each other's assumptions until one service owns authoritative mutations."
+        }
+      ]
+    }
+  ]
+}

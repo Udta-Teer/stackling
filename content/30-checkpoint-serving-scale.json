@@ -2,10 +2,10 @@
   "unitId": "checkpoint-serving-scale",
   "tier": 2,
   "title": "Checkpoint: Serving Scale",
-  "subtitle": "Mixing units 11–17 — every technique here buys capacity by selling something else",
+  "subtitle": "Combine scaling, balancing, caching, partitioning, admission control, queues, and safe retries",
   "objectives": [
     "Recall the scaling toolkit cold, without knowing which unit a question came from",
-    "See that load balancing, caching, CDNs, sharding and queues are the same trade in different clothes",
+    "Connect queues and at-least-once delivery to the idempotency required for safe effects",
     "Diagnose a scaled system where the bottleneck moved rather than disappeared"
   ],
   "lessons": [
@@ -13,6 +13,163 @@
       "id": "cp3-1",
       "title": "Mixed recall",
       "exercises": [
+        {
+          "id": "cp3-change-1",
+          "type": "system_change",
+          "prompt": "A synchronous image-resize step makes uploads take four seconds. Queue resizing and return after the original file is stored.",
+          "actionLabel": "Move resizing behind a queue",
+          "beforeStatus": "UPLOAD RESPONSE · 4 seconds · user waits for resize",
+          "afterStatus": "UPLOAD RESPONSE · 300ms · resize completes asynchronously",
+          "result": "The slow derivative work left the upload path",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Uploader",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Upload API",
+                "sub": "store original",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "r",
+                "label": "Image resize",
+                "sub": "3.7s",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "r",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Uploader",
+                "sub": "300ms response",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "label": "Upload API",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "q",
+                "label": "Resize queue",
+                "col": 2,
+                "kind": "queue"
+              },
+              {
+                "id": "r",
+                "label": "Resize worker",
+                "sub": "async",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "q",
+                "kind": "event"
+              },
+              {
+                "from": "q",
+                "to": "r",
+                "kind": "event"
+              }
+            ]
+          },
+          "why": "Queueing derivative generation lets the API respond after the durable original is stored. The product must represent derivatives as pending and workers need retry-safe processing."
+        },
+        {
+          "id": "checkpoint-serving-scale-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: A synchronous image-resize step makes uploads take four seconds. Queue resizing and return after the original file is stored. Place Upload API, Resize queue, Resize worker. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Uploader",
+                "sub": "300ms response",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "a",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "q",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "r",
+                "sub": "async",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "a",
+                "to": "q",
+                "kind": "request"
+              },
+              {
+                "from": "q",
+                "to": "r",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Upload API",
+            "Resize queue",
+            "Resize worker",
+            "Image resize",
+            "Clients"
+          ],
+          "answer": {
+            "a": "Upload API",
+            "q": "Resize queue",
+            "r": "Resize worker"
+          },
+          "why": "The completed diagram contains these directed flows: Uploader → Upload API; Upload API → Resize queue; Resize queue → Resize worker. That topology is the evidence for the answer: Queueing derivative generation lets the API respond after the durable original is stored. The product must represent derivatives as pending and workers need retry-safe processing.",
+          "connectEdges": true
+        },
         {
           "id": "cp3-1-1",
           "type": "multiple_choice",
@@ -24,7 +181,7 @@
             "You need a second load balancer"
           ],
           "answer": 1,
-          "why": "This is the tax on horizontal scaling, and it catches everyone once. Any state kept in a single server's memory turns that server into the only one who can serve you — so the moment the load balancer sends you to a peer, your session doesn't exist. Two ways out, and they're not equal: sticky sessions pin you to the server that has your data, which works until that server dies and takes your session with it, and quietly undoes the load balancing you were trying to do. Moving the session into shared storage — Redis, a signed cookie — makes every server interchangeable, which is what 'stateless' actually means and why it's the precondition for everything else in this tier.",
+          "why": "A session stored in one app server's memory is visible only to requests routed to that server. The load balancer can send a later request to either peer, where the session is absent. Shared session storage or a verifiable client-carried session makes app instances interchangeable; sticky routing preserves local sessions only while the assigned server remains available and can also create uneven load.",
           "hint": "What does server 1 know that server 2 doesn't?"
         },
         {
@@ -42,7 +199,7 @@
             1,
             3
           ],
-          "why": "Hit rate is about how often the answer is *there*, which is decided by how long you keep things and how many you can hold. A longer `TTL` keeps entries alive to be hit again — and buys staleness with the same move. More memory means less eviction. Key normalisation is the sleeper: two spellings of the same question are two entries, each half as likely to be hit, and this is a genuinely common bug — you can find caches in production running at half the hit rate they should because a query-string order or a trailing slash forked every key in two. A faster cache server makes hits *cheaper*, not more frequent; it's the one that improves latency without touching the rate.",
+          "why": "A longer time to live (TTL) gives an entry more time to be reused, additional memory reduces capacity evictions, and normalized keys map equivalent requests to one entry. Each change can increase the fraction of requests whose key is present. Faster cache hardware lowers hit latency but does not change whether a requested key exists, and a longer TTL also increases the possible staleness window.",
           "hint": "Three of these change whether the answer is there. One changes how fast you get it."
         },
         {
@@ -56,7 +213,7 @@
             "One shard, because dates aren't sharded"
           ],
           "answer": 1,
-          "why": "Sharding makes queries that name the shard key fast and everything else expensive. This query doesn't mention `user_id`, so there's no way to know where the answer lives except to ask all 16 and merge — and your latency becomes the *slowest* of 16, not the average. That's the part people miss: with a 99th-percentile latency on each shard, hitting 16 of them means you're now getting a p99-ish experience on roughly 15% of these queries, because 1 − 0.99¹⁶ ≈ 0.15. Fanning out doesn't average tails, it collects them. This is why choosing the shard key is the decision that outlives every other one you make here: it silently sorts your future queries into 'fast' and 'a report you run at 3am'.",
+          "why": "The shard key is `user_id`, and the query supplies no user ID, so the router cannot select one database. It must send the query to all 16 shards, wait for their results, and merge them. This scatter-gather path consumes work on every shard and its completion latency is determined by the slowest participating shard, so cross-user reporting may need a separate data layout or analytics pipeline.",
           "hint": "The query doesn't mention the shard key. So which shard has the answer?"
         },
         {
@@ -81,21 +238,21 @@
               "right": "Stop sending traffic to a server that stopped answering"
             }
           ],
-          "why": "Round robin assumes every request costs the same, which is false the moment one endpoint is a report and another is a health ping. Least connections adapts to that automatically and is the better default more often than people think. Consistent hashing is the one worth really understanding, because it's the same idea that makes sharding and distributed caches possible: with plain `hash % N`, changing N remaps almost every key at once — which empties your entire cache the moment you add a node. Health checks are the unglamorous one that decides whether your outage lasts seconds or hours.",
+          "why": "Round robin rotates through servers without measuring their current work. Least connections directs new work toward the server with the fewest active connections, which helps when connection duration varies. Consistent hashing keeps most key assignments stable when membership changes, limiting cache or shard remapping. Health checks remove an unresponsive server from routing until it recovers.",
           "hint": "One of these is about *stability* when the server count changes."
         },
         {
           "id": "cp3-1-5",
           "type": "multiple_choice",
-          "prompt": "A user in Tokyo requests an image. The CDN edge in Tokyo doesn't have it. What does that miss actually cost?",
+          "prompt": "A Tokyo CDN edge misses an image, but it already has a warm pooled connection to the Virginia origin. What work can the CDN still avoid for the user?",
           "choices": [
             "The full original price — same as having no CDN at all",
-            "Less than no CDN: the user's TLS handshake still terminates in Tokyo, and the edge usually has a warm connection to the origin",
+            "The user's long-distance connection setup: their TLS handshake terminates in Tokyo while the pooled origin connection is reused",
             "Nothing — the CDN generates it",
             "The request fails"
           ],
           "answer": 1,
-          "why": "A miss isn't a bypass. The expensive part of a cold request is the handshake — several round trips to establish TCP and TLS — and those still happen against the Tokyo edge, milliseconds away, not against your origin in Virginia. The edge then fetches over a connection it already has open and often keeps warm, over network paths it has optimised. So the miss costs you one origin fetch, not the round trips a naive user would have paid. This is why CDNs help even for content that's never cached twice, and why 'our hit rate is low so the CDN isn't earning its keep' is usually the wrong conclusion.",
+          "why": "The prompt guarantees a warm pooled edge-to-origin connection, so the user's new connection and Transport Layer Security (TLS) handshake end at the nearby edge while the origin fetch reuses its existing connection. The response still pays Virginia fetch latency. Without connection reuse or favorable routing, a cold CDN miss could equal or exceed a direct-origin request.",
           "hint": "What's slow about a first connection — and where does that part now happen?"
         },
         {
@@ -109,7 +266,7 @@
             "partition"
           ],
           "answer": 0,
-          "why": "Queue depth is the number that tells you the truth, and it's the one people forget to alarm on. A queue converts an availability problem into a latency problem: instead of the producer failing when the consumer can't keep up, work piles up and gets done late. That's usually the trade you want — but only if the pile is temporary. If producers are permanently faster than consumers, depth grows without bound, and eventually you're not running late, you're running out of disk. So the useful alert isn't 'the queue is deep', it's 'the queue is deeper than it was an hour ago and the trend doesn't turn around'.",
+          "why": "Queue depth counts messages waiting to be processed. It rises when producers publish faster than consumers complete and acknowledge work, allowing producers to continue while processing latency increases. A sustained upward trend means consumer throughput is below arrival rate; without recovery capacity or backpressure, the backlog eventually exhausts retention time or storage.",
           "hint": "It's a count, not a duration."
         }
       ]
@@ -161,27 +318,33 @@
             "edges": [
               {
                 "from": "c",
-                "to": "h1"
+                "to": "h1",
+                "kind": "request"
               },
               {
                 "from": "h1",
-                "to": "s1"
+                "to": "s1",
+                "kind": "request"
               },
               {
                 "from": "h1",
-                "to": "s2"
+                "to": "s2",
+                "kind": "request"
               },
               {
                 "from": "s1",
-                "to": "h2"
+                "to": "h2",
+                "kind": "request"
               },
               {
                 "from": "s2",
-                "to": "h2"
+                "to": "h2",
+                "kind": "request"
               },
               {
                 "from": "h2",
-                "to": "h3"
+                "to": "h3",
+                "kind": "request"
               }
             ]
           },
@@ -196,8 +359,94 @@
             "h2": "Cache",
             "h3": "Database"
           },
-          "why": "This is the shape most web systems converge on, and each box is one lesson from this tier: spread the load so no single server is the limit, keep the answer close so most reads never do the expensive work, and hold the truth in one place so there's something to be right about. Notice the ordering is not arbitrary. The load balancer is in front because it has to see every request. The cache is between the app and the database because its whole job is to be *in the way* of the expensive thing. Put the cache behind the database and you have a component that caches nothing; put it in front of the load balancer and you're caching before you know who's asking.",
+          "why": "The load balancer receives incoming requests and distributes them across application capacity. The read path then checks the cache, returning a hit without querying the database; on a miss, it reads the authoritative value from the database and can populate the cache. This ordering lets the cache absorb repeat reads while retaining a source of truth for misses and refreshes.",
           "hint": "Each component has to be in the way of the thing it's protecting you from."
+        },
+        {
+          "id": "checkpoint-serving-scale-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Build the read path for a scaled web app: spread the traffic, then check for a saved answer, then fall back to the source of truth.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "s1",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "s2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 3,
+                "label": "Cache"
+              },
+              {
+                "id": "h3",
+                "col": 4,
+                "label": "Database"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "s1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "s2",
+                "kind": "request"
+              },
+              {
+                "from": "s1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "s2",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "h3",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Load Balancer",
+            "App Server 1",
+            "App Server 2",
+            "Uploader",
+            "Upload API"
+          ],
+          "answer": {
+            "h1": "Load Balancer",
+            "s1": "App Server 1",
+            "s2": "App Server 2"
+          },
+          "why": "The completed diagram contains these directed flows: Clients → Load Balancer; Load Balancer → App Server 1; Load Balancer → App Server 2; App Server 1 → Cache; App Server 2 → Cache; Cache → Database. That topology is the evidence for the answer: The load balancer receives incoming requests and distributes them across application capacity. The read path then checks the cache, returning a hit without querying the database; on a miss, it reads the authoritative value from the database and can populate the cache. This ordering lets the cache absorb repeat reads while retaining a source of truth for misses and refreshes."
         },
         {
           "id": "cp3-2-2",
@@ -227,11 +476,13 @@
             "edges": [
               {
                 "from": "u",
-                "to": "cdn"
+                "to": "cdn",
+                "kind": "request"
               },
               {
                 "from": "cdn",
-                "to": "origin"
+                "to": "origin",
+                "kind": "request"
               }
             ]
           },
@@ -261,13 +512,13 @@
             98,
             99
           ],
-          "why": "98%. Sit with that for a second, because it reframes what a CDN is. A 95% hit rate — a number that sounds like an unambiguous success, and that you'd happily put on a slide — sends 2,500 req/s at an origin that dies at 1,000. It isn't close. It's 2.5× over. The last three points of hit rate are doing more work than your entire origin fleet, which is why CDN hit rates get quoted to a decimal place and why one uncacheable `Set-Cookie` header on your logo can take a site down. The general lesson, and it's the one to carry out of this tier: when a component absorbs most of the load, your survival is decided entirely by the *miss* rate, and the miss rate is a small number that behaves violently.",
+          "why": "At a 98% hit rate, the 2% miss rate sends 1,000 of 50,000 requests/second to the origin, exactly its capacity. A 95% hit rate would send 2,500 requests/second and overload it. When a cache absorbs most traffic, small changes in hit rate produce large relative changes in miss traffic, so capacity planning and alerts must use the origin request rate as well as the headline hit rate.",
           "hint": "The origin's limit is 2% of the traffic. So what has to be absorbed?"
         },
         {
           "id": "cp3-2-3",
           "type": "spot_bottleneck",
-          "prompt": "You cached everything and added app servers. Traffic is 30k rps. Where's the ceiling now?",
+          "prompt": "The cache is warm with a 95% hit rate. As traffic rises, which component sets the steady-state throughput ceiling?",
           "viz": {
             "nodes": [
               {
@@ -280,7 +531,7 @@
               {
                 "id": "n1",
                 "label": "App Servers",
-                "sub": "60k rps",
+                "sub": "70k rps",
                 "col": 1,
                 "kind": "server"
               },
@@ -302,48 +553,163 @@
             "edges": [
               {
                 "from": "n0",
-                "to": "n1"
+                "to": "n1",
+                "kind": "request"
               },
               {
                 "from": "n1",
-                "to": "n2"
+                "to": "n2",
+                "kind": "data"
               },
               {
                 "from": "n2",
-                "to": "n3"
+                "to": "n3",
+                "kind": "data"
               }
             ]
           },
           "answer": 3,
-          "why": "The database, at 3k — and the interesting part is that it might be *fine anyway*. At a 95% hit rate only 1,500 rps of that 30k reaches it, so you're comfortably inside the limit and nothing is on fire. That's exactly what makes this the dangerous shape: your true capacity is now 3,000 ÷ your miss rate, a number nobody has written down, and it moves whenever someone deploys a new query, shortens a `TTL`, or restarts Redis. The cache didn't remove the bottleneck, it *hid* it — which is the same thing right up until the moment the cache is cold, and then 30k rps arrives at a database that can take 3k. That's unit 13's cache-2-6 scenario — losing the cache multiplies the origin's load by twenty — and it's why 'we're fine, we have a cache' and 'we're one Redis restart from an outage' are frequently the same system.",
+          "why": "At a 95% hit rate, the 3,000-request/second database supports 3,000 / 0.05 = 60,000 total requests/second. That is below the 70,000-request/second app capacity, the 80,000 cache capacity, and the 100,000 load-balancer capacity, so the database uniquely sets the warm-path ceiling. With a cold cache, its ceiling falls to 3,000 total requests/second.",
           "hint": "Divide by the miss rate, then ask what happens when the cache is empty."
         },
         {
           "id": "cp3-2-4",
-          "type": "tradeoff_slider",
-          "prompt": "You're rate limiting an API. Set the limit strictly enough to protect the backend, loosely enough not to break legitimate bursty clients.",
-          "leftLabel": "Loose — never block a real user",
-          "rightLabel": "Strict — protect the backend at all costs",
-          "answerRange": [
-            40,
-            70
-          ],
-          "why": "The honest answer sits in the middle, and lands there for a reason worth naming: rate limiting is the one technique in this tier that fails by hurting the people you built the thing for. Too loose and it isn't protection, it's a suggestion — the backend still falls over, just with a counter watching. Too strict and you've built an outage that only affects your best customers, because the mobile client that fires twelve parallel requests on app open looks exactly like abuse. What resolves it isn't the number, it's the shape: a token bucket lets a client burst and then throttles to a sustained rate, which is a fair description of what real clients actually do. And the failure mode you can't slider your way out of is per-server counters — 50 servers each allowing 100 rps is a limit of 5,000, which is why the counter has to be shared even though that puts Redis in the path of every request.",
-          "hint": "Which direction fails silently, and which fails loudly at your best customer?"
+          "type": "estimate",
+          "prompt": "A backend sustains 20,000 requests/sec. You reserve 20% for retries and traffic variance. What maximum sustained token-bucket refill rate protects that headroom?",
+          "answer": 16000,
+          "tolerance": 200,
+          "unit": "requests/sec",
+          "why": "Twenty percent of 20,000 is 4,000 requests/second, leaving a sustained admission budget of 16,000. The token bucket's refill rate should therefore be at most 16,000 requests/second for this traffic class. Burst capacity is a separate parameter and must be sized so a full bucket cannot exhaust the reserved headroom before the backend recovers.",
+          "hint": "Keep 80% of the measured sustained capacity available to admitted traffic."
         },
         {
           "id": "cp3-2-5",
-          "type": "multiple_choice",
-          "prompt": "You put a queue between checkout and the payment service so checkout stays fast. Payments now happen asynchronously. What have you just made your problem?",
-          "choices": [
-            "Nothing — the queue guarantees delivery",
-            "Duplicates: at-least-once delivery means a retried message can charge the card twice, so the consumer has to be idempotent",
-            "The queue will lose messages",
-            "Payments become synchronous again"
+          "type": "build_diagram",
+          "prompt": "Build the asynchronous payment path so queue redelivery cannot charge a card twice.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Checkout API",
+                "sub": "stable payment key",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "sub": "at-least-once",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "reuse same key",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "label": "Payment Provider",
+                "sub": "deduplicate by key",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Durable Payment Queue",
+            "Idempotent Payment Consumer",
+            "Read Replica",
+            "CDN Edge"
           ],
-          "answer": 1,
-          "why": "Queues almost universally give you at-least-once, not exactly-once, and the reason is unavoidable rather than lazy: the consumer has to do the work and then acknowledge it, and if it dies in that gap the broker cannot tell 'never did it' from 'did it and crashed before saying so'. So it redelivers, and the card gets charged twice. Exactly-once as a *delivery* guarantee is essentially a marketing claim; what you can actually have is at-least-once delivery plus an idempotent consumer, which adds up to exactly-once *effects*. That means the payment carries a key the provider deduplicates on — and critically, that key must go to the provider, because a 'have I seen this?' table on your side is just the same race one layer up.",
+          "answer": {
+            "h1": "Durable Payment Queue",
+            "h2": "Idempotent Payment Consumer"
+          },
+          "why": "Checkout enqueues a job carrying one stable payment key; the consumer reuses that key for every attempt, and the provider stores or returns the first result. If the consumer charges and crashes before acknowledging, the queue redelivers, but deduplication prevents a second charge; generating a new key on retry would turn that recovery path into duplicate payment.",
           "hint": "The broker can't tell 'never did it' from 'did it and crashed before saying so'."
+        },
+        {
+          "id": "checkpoint-serving-scale-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Build the end-to-end path required by this scenario: Build the asynchronous payment path so queue redelivery cannot charge a card twice.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Checkout API",
+                "sub": "stable payment key",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "h1",
+                "sub": "at-least-once",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "sub": "reuse same key",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "sub": "deduplicate by key",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "h1",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h2",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Durable Payment Queue",
+            "Idempotent Payment Consumer",
+            "Payment Provider",
+            "Uploader",
+            "Upload API"
+          ],
+          "answer": {
+            "h1": "Durable Payment Queue",
+            "h2": "Idempotent Payment Consumer",
+            "p": "Payment Provider"
+          },
+          "why": "The completed diagram contains these directed flows: Checkout API → Durable Payment Queue; Durable Payment Queue → Idempotent Payment Consumer; Idempotent Payment Consumer → Payment Provider. That topology is the evidence for the answer: Checkout enqueues a job carrying one stable payment key; the consumer reuses that key for every attempt, and the provider stores or returns the first result. If the consumer charges and crashes before acknowledging, the queue redelivers, but deduplication prevents a second charge; generating a new key on retry would turn that recovery path into duplicate payment."
         },
         {
           "id": "cp3-2-6",
@@ -356,8 +722,22 @@
             "They all require more servers"
           ],
           "answer": 1,
-          "why": "Every technique in this tier is the same move: give up something that was true of one small machine to get something you can't have on one small machine. Load balancing costs you 'any server can answer you' — hence statelessness. Caching and CDNs cost you 'the answer is current'. Sharding costs you 'any query is easy' — cross-shard joins and transactions get hard or impossible. Queues cost you 'it's done when I return' — and hand you duplicates and ordering to think about. Notice none of that is a downside to be managed; it's the *price*, and it's the whole reason these are engineering decisions rather than best practices. Anyone can list the five. The job is knowing what each one costs and whether your product can pay it — which is why the next tier is about the guarantees themselves.",
+          "why": "Each technique adds capacity by changing a prior guarantee. Load balancing requires instances to share or externalize request state; caches and content delivery networks can return stale copies; sharding makes queries and transactions spanning shard keys more expensive; queues return before downstream work finishes and commonly redeliver messages. The correct choice depends on whether the product can tolerate the resulting state, freshness, query, and completion semantics.",
           "hint": "Ask what each one takes away, not what it adds."
+        },
+        {
+          "id": "xfer-cp3",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A livestream launch overloads the origin with identical manifest reads. Which sequence removes the most origin work before adding database shards?",
+          "choices": [
+            "Move analytics into the request path",
+            "Cache/CDN the shared manifest and coalesce misses",
+            "Shard the user table first",
+            "Retry every timeout immediately"
+          ],
+          "answer": 1,
+          "why": "Identical cacheable reads should be answered near users, and concurrent misses for one key can share an origin fetch. Sharding unrelated user data does not remove manifest work."
         }
       ]
     }

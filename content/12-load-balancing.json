@@ -2,7 +2,7 @@
   "unitId": "load-balancing",
   "tier": 2,
   "title": "Load Balancing",
-  "subtitle": "One address, many machines — and who decides where your request goes",
+  "subtitle": "Distribute requests across healthy instances using workload-aware routing",
   "objectives": [
     "Explain what a load balancer buys you, and why it's indirection rather than speed",
     "Choose a distribution algorithm based on whether requests and servers are uniform",
@@ -17,7 +17,7 @@
         {
           "id": "lb-1-0",
           "type": "concept",
-          "title": "What a load balancer really sells is indirection",
+          "title": "A load balancer maps one client endpoint to a pool of servers",
           "viz": {
             "nodes": [
               {
@@ -55,24 +55,211 @@
             "edges": [
               {
                 "from": "c",
-                "to": "lb"
+                "to": "lb",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "s1"
+                "to": "s1",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "s2"
+                "to": "s2",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "s3"
+                "to": "s3",
+                "kind": "request"
               }
             ]
           },
-          "body": "Users can't be asked to know your machines. So one thing sits out front, owns the single address the world talks to, and hands each request to a server behind it. That's a load balancer. The distribution is the obvious part; the valuable part is that the outside now talks to one stable thing instead of to your servers.",
-          "note": "The address is where your promises to the world stop and your freedom starts. Outside it, one name that never changes. Inside it, an arrangement that is nobody's business but yours."
+          "body": "Clients connect to the load balancer's stable address. For each connection or request, it selects an eligible backend, forwards the traffic, and returns the backend's response. Backend addresses and pool membership remain internal, so servers can be added, removed, or replaced without changing the client endpoint.",
+          "note": "Draining removes a backend from new selections while allowing its in-flight requests to finish, which prevents routine deploys from terminating active work."
+        },
+        {
+          "id": "lb-change-1",
+          "type": "system_change",
+          "prompt": "A failed server still receives one-third of requests. Make the load balancer stop routing to it after failed health checks.",
+          "actionLabel": "Remove the unhealthy server",
+          "beforeStatus": "SUCCESS RATE · 67% · one of three routes is dead",
+          "afterStatus": "SUCCESS RATE · 100% · traffic splits across two healthy servers",
+          "result": "Health-aware routing stopped sending traffic into failure",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "label": "Load balancer",
+                "sub": "round robin",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "healthy",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "offline",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "Server C",
+                "sub": "healthy",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "lb",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "label": "Load balancer",
+                "sub": "health-aware",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "50% traffic",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "c",
+                "label": "Server C",
+                "sub": "50% traffic",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "lb",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "why": "Health checks let the load balancer remove an unresponsive server from rotation. Detection is not instantaneous, and an overloaded but healthy server can fail aggressive checks, so intervals and thresholds affect both recovery time and false eviction."
+        },
+        {
+          "id": "load-balancing-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Assemble the system for this case: A failed server still receives one-third of requests. Make the load balancer stop routing to it after failed health checks. Place Load balancer, Server A, Server C. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "u",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "sub": "health-aware",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "a",
+                "sub": "50% traffic",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "c",
+                "sub": "50% traffic",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "u",
+                "to": "lb",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Load balancer",
+            "Server A",
+            "Server C",
+            "Load Balancer",
+            "App Server"
+          ],
+          "answer": {
+            "lb": "Load balancer",
+            "a": "Server A",
+            "c": "Server C"
+          },
+          "why": "The completed diagram contains these directed flows: Clients → Load balancer; Load balancer → Server A; Load balancer → Server C. That topology is the evidence for the answer: Health checks let the load balancer remove an unresponsive server from rotation. Detection is not instantaneous, and an overloaded but healthy server can fail aggressive checks, so intervals and thresholds affect both recovery time and false eviction.",
+          "connectEdges": true
         },
         {
           "id": "lb-1-1",
@@ -85,7 +272,7 @@
             "Each user must be given a different address"
           ],
           "answer": 1,
-          "why": "Users can't be asked to know your machines, so something must present one address to the world and route each request behind it. That's a load balancer — and what it really sells is indirection: because the outside world talks to one stable thing, you can add, remove, restart, and replace machines behind it all day without anyone noticing. Every machine becoming disposable is what horizontal scaling actually cashes in."
+          "why": "A load balancer presents one service address, accepts incoming requests, and routes each request to a member of the server pool. Clients remain independent of individual server addresses, so pool membership can change without changing the public endpoint."
         },
         {
           "id": "lb-1-2",
@@ -98,7 +285,7 @@
             "session"
           ],
           "answer": 0,
-          "why": "One front door, many rooms behind it — and the clients never learn how many rooms there are."
+          "why": "A load balancer exposes one address while selecting among multiple backend servers. That indirection hides the pool's size and membership from clients."
         },
         {
           "id": "lb-1-3",
@@ -122,7 +309,7 @@
               "right": "A server can finish its work before leaving"
             }
           ],
-          "why": "Distribution is the obvious job, but the other three are what you'll actually think about day to day. Most people describe a load balancer as 'it spreads traffic'; in practice it's the stable address, the removal of dead machines, and graceful departure that let you deploy on a Tuesday afternoon without anyone noticing."
+          "why": "The stable address decouples clients from backend membership, distribution shares requests across the pool, health checks stop routing to failed servers, and draining lets a departing server finish in-flight work. Together these functions allow routine pool changes without interrupting requests."
         },
         {
           "id": "lb-1-4",
@@ -135,7 +322,7 @@
             "Speed up the database"
           ],
           "answer": 1,
-          "why": "If traffic can be moved off a machine at will, that machine can be upgraded or destroyed whenever you like, so deploys become routine instead of events. This is why balancers appear even in systems whose traffic one server could handle: you're often not buying capacity at all, you're buying the ability to take a machine away safely."
+          "why": "Removing a server from rotation stops new assignments to it while other servers continue serving traffic. The isolated server can then be deployed, patched, or replaced without taking the service endpoint offline, provided the remaining pool has enough capacity."
         },
         {
           "id": "lb-1-5",
@@ -148,7 +335,7 @@
             "It sends the request to all three"
           ],
           "answer": 0,
-          "why": "A basic health check asks a yes/no question — are you answering? — and a server answering slowly passes it and keeps taking traffic. That gap between 'up' and 'healthy' is where a lot of real pain lives: a machine responding in 8 seconds is often worse for users than one that's cleanly dead, because a dead one gets removed and a slow one keeps accepting their requests."
+          "why": "A basic health check classifies a server by whether it responds before a configured timeout. A slow server can still pass that binary test and continue receiving work, so detecting degraded latency requires a check or routing policy that measures more than reachability."
         },
         {
           "id": "lb-1-6",
@@ -161,7 +348,7 @@
             "Stop sending traffic to a dead server"
           ],
           "answer": 1,
-          "why": "It routes; it doesn't compute. A single request does exactly the work it always did, plus one extra network hop to get there — so you've slightly increased latency to buy capacity and disposable machines. That's unit 4's throughput-versus-latency trade, made concrete in a box."
+          "why": "A load balancer chooses a backend; it does not reduce the computation that backend performs. One request still incurs the backend's processing time and may add a routing hop, while aggregate throughput can rise because requests are distributed across servers."
         }
       ]
     },
@@ -172,7 +359,7 @@
         {
           "id": "lb-2-0",
           "type": "concept",
-          "title": "Every balancing algorithm is an assumption about your traffic wearing a name",
+          "title": "A balancing algorithm selects a backend from the eligible pool",
           "viz": {
             "nodes": [
               {
@@ -207,20 +394,169 @@
             "edges": [
               {
                 "from": "lb",
-                "to": "a"
+                "to": "a",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "b"
+                "to": "b",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "c"
+                "to": "c",
+                "kind": "request"
               }
             ]
           },
-          "body": "Something must pick a server for every request, and no rule for picking is neutral — each one is a bet about your traffic, made once in a config file and then never looked at again. *Round robin* is the plain one: A, then B, then C, then A. It takes turns, so it spreads request COUNTS across the pool perfectly evenly. Perfectly.",
-          "note": "So the useful question about an algorithm isn't what it does — that's one sentence — it's what it refuses to look at. Round robin looks at nothing: not the server, not the request, not its own last decision. It counts."
+          "body": "*Round robin* increments through the server list and distributes request counts evenly when pool membership is stable. It does not measure request cost or current server work. Least-connections routing instead selects the server with the fewest active connections.",
+          "note": "Round robin can overload a server when requests have highly variable duration, because equal request counts can produce unequal concurrent work."
+        },
+        {
+          "id": "lb-change-2",
+          "type": "system_change",
+          "prompt": "Round-robin sends equal requests to two servers, but Server A's requests take 20ms and Server B's take 400ms. Route new work using active connections.",
+          "actionLabel": "Use least connections",
+          "choices": [
+            "Keep round-robin and retry slow requests",
+            "Route by least active connections",
+            "Pin each client permanently to one server"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Retries add more work to the already busy server and equal rotation still ignores the 5-versus-80 signal.",
+            "Active connection count reflects the unequal request durations and lets the busy server drain.",
+            "Permanent affinity can preserve the imbalance and makes server removal harder."
+          ],
+          "beforeStatus": "IN-FLIGHT · Server A 5 · Server B 80 · still receives equal new traffic",
+          "afterStatus": "IN-FLIGHT · new traffic favors Server A until pressure converges",
+          "result": "Routing responded to unequal request duration",
+          "viz": {
+            "nodes": [
+              {
+                "id": "l",
+                "label": "Round robin",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "5 active",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "80 active",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "l",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "b",
+                "kind": "request"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "l",
+                "label": "Least connections",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "sub": "preferred now",
+                "col": 1,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "allowed to drain",
+                "col": 1,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "l",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "why": "Least-connections routing uses current in-flight work as a load signal, which helps when request durations differ. It can still misjudge work when one connection is far more expensive than another."
+        },
+        {
+          "id": "load-balancing-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Round-robin sends equal requests to two servers, but Server A's requests take 20ms and Server B's take 400ms. Route new work using active connections. Place Server A, Server B. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "l",
+                "label": "Least connections",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "sub": "preferred now",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "allowed to drain",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "l",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "l",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Server A",
+            "Server B",
+            "Clients",
+            "Load Balancer"
+          ],
+          "answer": {
+            "a": "Server A",
+            "b": "Server B"
+          },
+          "why": "The completed diagram contains these directed flows: Least connections → Server A; Least connections → Server B. That topology is the evidence for the answer: Least-connections routing uses current in-flight work as a load signal, which helps when request durations differ. It can still misjudge work when one connection is far more expensive than another."
         },
         {
           "id": "lb-2-1",
@@ -233,7 +569,7 @@
             "Hashing — it assumes users are evenly spread"
           ],
           "answer": 1,
-          "why": "Round robin takes turns, which distributes request COUNTS evenly — and that only distributes LOAD evenly when requests cost about the same. If one request in fifty is a report that takes 30 seconds while the rest take 5ms, taking turns will cheerfully deal three reports onto one machine while the others idle."
+          "why": "Round robin assigns requests in a fixed rotation and therefore equalizes request counts. Equal counts approximate equal load only when requests consume similar time and resources; long-running requests can accumulate unevenly because the algorithm does not observe current work."
         },
         {
           "id": "lb-2-2",
@@ -246,7 +582,7 @@
             },
             {
               "left": "Least connections",
-              "right": "Send to whoever is currently least busy"
+              "right": "Send to the server with the fewest active connections"
             },
             {
               "left": "Weighted",
@@ -257,7 +593,7 @@
               "right": "The same key always lands on the same server"
             }
           ],
-          "why": "Four strategies for four situations: uniform requests, uneven requests, uneven servers, and requests that need to land somewhere specific. Notice only the last is about WHERE a request goes rather than how busy a server is — hashing exists for when the destination matters, which is a different problem from balancing."
+          "why": "Round robin rotates assignments, least connections uses active connection count as a load proxy, weighting gives higher-capacity servers more traffic, and key hashing provides repeatable placement. A server with fewer connections can still be busier when its requests cost more, so connection count is not a direct measurement of CPU or latency."
         },
         {
           "id": "lb-2-3",
@@ -270,7 +606,7 @@
             "Weighted round robin"
           ],
           "answer": 1,
-          "why": "Least connections uses live evidence: a machine stuck on a 30-second request still shows an open connection, so it stops receiving new work, while round robin has no idea and keeps dealing it cards. The general principle is that round robin is open-loop — it never looks at the result — and least-connections is closed-loop. Uniform workloads make that feedback nearly worthless; the more variance you have, the more it's worth."
+          "why": "A 30-second request keeps its connection open, increasing that server's observed connection count. Least connections routes new work toward servers with fewer open connections, so it responds to uneven request duration when connection count is a useful proxy for load."
         },
         {
           "id": "lb-2-4",
@@ -283,7 +619,7 @@
             "Remove the small machines"
           ],
           "answer": 1,
-          "why": "Equal shares to unequal machines overloads the small ones while the big ones coast, so weights let you say 'this one takes four times as much.' The catch is that a weight is a number a human guessed and then forgot, and it drifts out of date as hardware and workloads change — which is a real part of why homogeneous fleets are popular. Uniformity isn't elegant, it just deletes a config nobody maintains."
+          "why": "A 32-core server can accept a larger traffic share than an otherwise comparable 8-core server, so weighted balancing represents their unequal capacity. Weights must be measured and maintained because hardware capacity, request mix, and downstream limits can make CPU count an imperfect proxy."
         },
         {
           "id": "lb-2-5",
@@ -296,7 +632,7 @@
             "It's more secure"
           ],
           "answer": 1,
-          "why": "Hashing trades load-balancing quality for predictable placement: the same key reaches the same server every time, so whatever that server cached for them is still there. The cost is that you've deliberately made servers non-interchangeable — the very property unit 11 said horizontal scaling depends on — so losing a server now loses something, and adding one reshuffles who goes where."
+          "why": "Hashing the user identifier deterministically selects a server, so repeated requests can reuse that server's local cache. This placement constraint can create uneven load, and membership changes remap users unless the hashing scheme limits movement."
         },
         {
           "id": "lb-2-6",
@@ -309,7 +645,181 @@
             "Whichever your cloud defaults to"
           ],
           "answer": 2,
-          "why": "Three questions decide it — are requests uniform, are servers uniform, does it matter where a request lands — and once you answer them the algorithm mostly picks itself. Round robin is a very common default and a reasonable one, since uniform-ish requests on uniform servers is genuinely common; just know it was chosen for simplicity rather than as a verdict about your workload, so it's the first thing to revisit when your request costs get lumpy."
+          "why": "Algorithm choice depends on request-cost variance, server-capacity variance, and whether repeatable placement is required. Round robin suits similar requests on similar servers; least connections reacts to ongoing work; weighting models unequal capacity; and hashing preserves affinity."
+        }
+      ]
+    },
+    {
+      "id": "lb-retry-sim",
+      "title": "Retrying through a balancer still creates new work",
+      "exercises": [
+        {
+          "id": "lb-retry-sim-card",
+          "type": "concept",
+          "title": "A balancer redistributes retries; it does not make them free",
+          "body": "Retrying another server can escape one failed instance, but every retry consumes fleet capacity. Passive health removes bad targets, while retry budgets and backoff prevent clients from converting partial failure into whole-fleet overload.",
+          "note": "Use an end-to-end budget so nested services cannot each multiply attempts."
+        },
+        {
+          "id": "lb-retry-sim-0",
+          "type": "simulate",
+          "prompt": "Clients send 10,000 req/s. Half would retry once after a failed attempt; healthy capacity is 12,000 attempts/sec. Drag the *smallest* retry share prevented by budgets and passive health that avoids overload.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Original requests",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "label": "Balancer + retry budget",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "fleet",
+                "label": "Healthy fleet",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "lb",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "fleet",
+                "kind": "request"
+              }
+            ]
+          },
+          "sim": {
+            "input": 10000,
+            "inputLabel": "Original req/s",
+            "chain": [
+              "lb",
+              "fleet"
+            ],
+            "capacity": {
+              "fleet": 12000
+            },
+            "watch": "fleet",
+            "watchLabel": "Attempts reaching fleet",
+            "absorb": {
+              "node": "lb",
+              "label": "Potential retries prevented",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            },
+            "model": {
+              "kind": "retry",
+              "retryFraction": 0.5
+            }
+          },
+          "answerRange": [
+            60,
+            60
+          ],
+          "why": "Unbounded single retries create 15,000 attempts/sec. Preventing 60% of retry attempts leaves 12,000. Removing unhealthy targets reduces failed first attempts, while budgets stop remaining failures from multiplying load."
+        }
+      ]
+    },
+    {
+      "id": "lb-sim",
+      "title": "Move load before a server queues",
+      "exercises": [
+        {
+          "id": "lb-sim-0",
+          "type": "concept",
+          "title": "Balancing changes each server's arrival rate",
+          "body": "Two servers can each handle 7,000 requests/sec. Sending all 12,000 requests/sec to Server A overloads it while Server B sits idle. The balancer must move enough requests that every server's arrival rate stays at or below capacity.",
+          "note": "Equal request counts work here because the requests have equal cost. Real balancers may need latency or active-work signals."
+        },
+        {
+          "id": "lb-sim-1",
+          "type": "simulate",
+          "prompt": "Traffic is 12,000 req/s. Server A handles at most 7,000 req/s. Drag the *smallest* share to Server B that keeps Server A alive.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "lb",
+                "label": "Load balancer",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Server A",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Server B",
+                "sub": "receives shifted share",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "lb",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "sim": {
+            "input": 12000,
+            "inputLabel": "Requests",
+            "chain": [
+              "lb",
+              "a"
+            ],
+            "capacity": {
+              "lb": 50000,
+              "a": 7000
+            },
+            "watch": "a",
+            "watchLabel": "Server A load",
+            "absorb": {
+              "node": "lb",
+              "label": "Share routed to Server B",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            42,
+            42
+          ],
+          "why": "At 41%, Server A still receives 7,080 req/s and overloads. At 42%, it receives 6,960 req/s, below its 7,000 req/s capacity. The remaining 5,040 req/s goes to Server B."
         }
       ]
     },
@@ -320,7 +830,7 @@
         {
           "id": "lb-3-0",
           "type": "concept",
-          "title": "A dead server can't tell you it died, so the balancer never stops asking",
+          "title": "Active health checks control which backends receive traffic",
           "viz": {
             "nodes": [
               {
@@ -355,21 +865,90 @@
             "edges": [
               {
                 "from": "lb",
-                "to": "a"
+                "to": "a",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "b"
+                "to": "b",
+                "kind": "request"
               },
               {
                 "from": "lb",
                 "to": "c",
-                "dash": true
+                "dash": true,
+                "kind": "optional"
               }
             ]
           },
-          "body": "Nothing announces its own crash. So the balancer probes every server on a schedule — a `GET /health` every few seconds — and pulls whichever stop answering out of rotation. That's an *active* health check. The passive alternative watches real traffic and notices the failures, which costs no probes but only ever learns by hurting real users first.",
-          "note": "The probe asks a yes/no question: are you answering? So a server replying in 800ms passes and keeps taking your users' requests. *Up* and *healthy* are not the same word, and that gap is where this lesson lives."
+          "body": "The load balancer sends a probe such as `GET /health` to each backend at a configured interval. A timeout, status check, and failure threshold classify the backend as unhealthy and remove it from selection. A success threshold admits a recovering backend again.",
+          "note": "A shallow probe can admit a server whose dependencies are broken; a deep probe can evict all backends that depend on one failed shared service."
+        },
+        {
+          "id": "load-balancing-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: Active health checks control which backends receive traffic",
+          "viz": {
+            "nodes": [
+              {
+                "id": "lb",
+                "label": "Load Balancer",
+                "sub": "GET /health",
+                "col": 0,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "sub": "200 OK",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "b",
+                "sub": "200 OK",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "c",
+                "sub": "no reply",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "lb",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "b",
+                "kind": "request"
+              },
+              {
+                "from": "lb",
+                "to": "c",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "palette": [
+            "Server A",
+            "Server B",
+            "Server C",
+            "Clients",
+            "App Server"
+          ],
+          "answer": {
+            "a": "Server A",
+            "b": "Server B",
+            "c": "Server C"
+          },
+          "why": "The load balancer sends a probe such as `GET /health` to each backend at a configured interval. A timeout, status check, and failure threshold classify the backend as unhealthy and remove it from selection. A success threshold admits a recovering backend again. A shallow probe can admit a server whose dependencies are broken; a deep probe can evict all backends that depend on one failed shared service."
         },
         {
           "id": "lb-3-1",
@@ -382,7 +961,7 @@
             "It doesn't; an engineer has to remove it"
           ],
           "answer": 1,
-          "why": "Dead machines can't announce anything, so the balancer has to keep asking. That's an active health check — probing an endpoint like `/health` on a schedule. The alternative is passive: watch real traffic and notice failures, which costs nothing extra but only learns by hurting real users first, whereas active spends probes to find out before anyone gets hurt."
+          "why": "An active health check periodically probes an endpoint such as `/health`. After the configured failure threshold, the balancer removes an unresponsive server from rotation; periodic success checks can later return it to the pool."
         },
         {
           "id": "lb-3-2",
@@ -395,7 +974,7 @@
             "It's too slow"
           ],
           "answer": 1,
-          "why": "A hardcoded 200 tests one thing: the process is running and can serve a route. It says nothing about whether this server can fulfil a real request. So a good check exercises the dependencies the server truly needs — but don't over-swing, because if your check queries the database then one database blip fails the check on every server at once and the balancer dutifully removes your entire fleet. Too shallow keeps broken servers; too deep takes everything out together."
+          "why": "An unconditional `200 OK` proves that the process and route can respond, while a real request may still fail because a required dependency is unavailable. Health checks should cover dependencies necessary for serving, while a shared dependency must be handled carefully because its failure could mark every server unhealthy simultaneously."
         },
         {
           "id": "lb-3-3",
@@ -408,7 +987,7 @@
             "The LB adds new servers"
           ],
           "answer": 1,
-          "why": "You removed capacity from an overloaded system: the load didn't leave, it redistributed onto fewer machines and pushed them over the same line, one after another. That's a cascading failure, and the bitter part is the health check did exactly what it was told — a slow-but-working server was worth keeping, and the check couldn't tell 'overloaded' from 'broken.' Some balancers guard against this with a floor that never removes more than a set fraction of the pool, precisely because 'everything looks unhealthy at once' more often means overload than mass death."
+          "why": "Timed-out checks remove servers while incoming demand remains unchanged. The same load is then divided across fewer servers, increasing their latency until they also miss the timeout; this positive feedback produces a cascading failure. Eviction thresholds or a minimum healthy-pool floor can limit the cascade."
         },
         {
           "id": "lb-3-4",
@@ -425,7 +1004,7 @@
             1,
             2
           ],
-          "why": "Shallow, deep, and aggressive are all real failure modes, and they pull against each other — so you're tuning between them rather than eliminating them. Checking many servers is just work the balancer does. Every one of these is the same 'is it dead or just slow?' question from the replication unit in different clothes: you can't answer it from outside, so you're choosing which mistake to make — keep a broken server, or evict a healthy one."
+          "why": "A shallow check can admit a server that cannot serve real requests. A check coupled to shared dependencies can evict the whole fleet during one dependency failure, and short timeouts or low failure thresholds can evict healthy servers during transient slowness. The configuration balances detection speed against false eviction."
         },
         {
           "id": "lb-3-5",
@@ -438,7 +1017,7 @@
             "Sharding"
           ],
           "answer": 0,
-          "why": "Draining stops new traffic while in-flight requests complete, so nobody eats an error just because you deployed. Skipping it is why so many deploys produce a small spike of 502s — the machine vanished mid-request — and it's the difference between deploys nobody notices and deploys that quietly fail a few hundred people every time, for years, because nobody looks at a spike that small."
+          "why": "Draining removes a server from new request selection while allowing its existing requests to complete before shutdown. This prevents deploys or maintenance from terminating in-flight work and producing avoidable gateway errors such as `502 Bad Gateway`."
         },
         {
           "id": "lb-3-6",
@@ -451,18 +1030,25 @@
             "There's no risk"
           ],
           "answer": 1,
-          "why": "A freshly-started server looks identical to a warm one from outside, but nothing's cached and nothing's connected — so a full share dealt instantly can buckle it straight back out of the pool. The mitigation is slow start: ramp a returning server's share up over some seconds instead of dealing it a full hand, which turns a flapping loop of join-die-join-die into an uneventful recovery."
+          "why": "A recovered server may have cold caches and empty connection pools, so its initial requests cost more than requests on warm peers. Giving it a full traffic share can overload it and trigger another failure; slow start ramps its share while those resources warm."
         }
       ]
     },
     {
-      "id": "lb-4",
-      "title": "The hard parts",
+      "id": "lb-pool-sim",
+      "title": "A balancer cannot route to capacity that does not exist",
       "exercises": [
         {
-          "id": "lb-4-0",
+          "id": "lb-pool-sim-card",
           "type": "concept",
-          "title": "A single point of failure is something you relocate, not something you delete",
+          "title": "Fleet capacity is healthy instances multiplied by measured per-instance capacity",
+          "body": "A load balancer chooses destinations; it does not create processing capacity. Six servers at 3,000 requests/sec each provide 18,000 requests/sec only while requests have the measured cost and all six instances remain healthy.",
+          "note": "Operating exactly at the arithmetic limit leaves no room for bursts or one failed server."
+        },
+        {
+          "id": "lb-pool-sim-0",
+          "type": "simulate",
+          "prompt": "Traffic is 18,000 req/s. Each interchangeable server sustains 3,000 req/s. Choose the *fewest* healthy servers the load balancer needs.",
           "viz": {
             "nodes": [
               {
@@ -473,26 +1059,13 @@
               },
               {
                 "id": "lb",
-                "label": "Load Balancer",
-                "sub": "everything",
+                "label": "Load balancer",
                 "col": 1,
                 "kind": "lb"
               },
               {
-                "id": "s1",
-                "label": "App Server",
-                "col": 2,
-                "kind": "server"
-              },
-              {
-                "id": "s2",
-                "label": "App Server",
-                "col": 2,
-                "kind": "server"
-              },
-              {
-                "id": "s3",
-                "label": "App Server",
+                "id": "fleet",
+                "label": "Healthy server pool",
                 "col": 2,
                 "kind": "server"
               }
@@ -500,37 +1073,198 @@
             "edges": [
               {
                 "from": "c",
-                "to": "lb"
+                "to": "lb",
+                "kind": "request"
               },
               {
                 "from": "lb",
-                "to": "s1"
-              },
-              {
-                "from": "lb",
-                "to": "s2"
-              },
-              {
-                "from": "lb",
-                "to": "s3"
+                "to": "fleet",
+                "kind": "request"
               }
             ]
           },
-          "body": "Every request now flows through one box. Real setups run several balancers and share the address between them — DNS handing out multiple IPs, a floating IP that jumps to a standby, or anycast. None of those deletes the last shared thing; they shrink it and shorten how long it's broken. The question is never *whether*, but *where, and how fast it's replaced*.",
-          "note": "Notice where those mitigations live: not one of them is inside the balancer. Each pushes the shared thing further out — into DNS, into a routing table — until what's left is small and dumb enough to be trusted."
+          "sim": {
+            "input": 18000,
+            "inputLabel": "Requests/sec",
+            "chain": [
+              "lb",
+              "fleet"
+            ],
+            "capacity": {},
+            "watch": "fleet",
+            "watchLabel": "Traffic / fleet capacity",
+            "absorb": {
+              "node": "lb",
+              "label": "Healthy servers",
+              "min": 1,
+              "max": 10,
+              "start": 1,
+              "unit": " servers"
+            },
+            "model": {
+              "kind": "pool",
+              "servicePerUnit": 3000
+            }
+          },
+          "answerRange": [
+            6,
+            6
+          ],
+          "why": "Five servers provide 15,000 req/s and overload. Six provide exactly 18,000. A production fleet keeps additional failure and burst headroom rather than operating at this mathematical minimum."
+        }
+      ]
+    },
+    {
+      "id": "lb-4",
+      "title": "The hard parts",
+      "exercises": [
+        {
+          "id": "lb-4-0",
+          "type": "concept",
+          "title": "Load-balancer availability requires redundant balancers and traffic failover",
+          "viz": {
+            "nodes": [
+              {
+                "id": "c",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "vip",
+                "label": "Anycast address",
+                "sub": "routes to survivor",
+                "col": 1,
+                "kind": "gw"
+              },
+              {
+                "id": "lb1",
+                "label": "Load Balancer A",
+                "col": 2,
+                "kind": "lb"
+              },
+              {
+                "id": "lb2",
+                "label": "Load Balancer B",
+                "col": 2,
+                "kind": "lb"
+              },
+              {
+                "id": "pool",
+                "label": "App Server Pool",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "c",
+                "to": "vip",
+                "kind": "request"
+              },
+              {
+                "from": "vip",
+                "to": "lb1",
+                "kind": "request"
+              },
+              {
+                "from": "vip",
+                "to": "lb2",
+                "kind": "request"
+              },
+              {
+                "from": "lb1",
+                "to": "pool",
+                "kind": "request"
+              },
+              {
+                "from": "lb2",
+                "to": "pool",
+                "kind": "request"
+              }
+            ]
+          },
+          "body": "Deployments run multiple load balancer instances and provide a way for clients to reach a surviving one. DNS can publish several addresses, a floating virtual IP can move to a standby, and anycast can route the same address to another site. The failover mechanism sits outside the failed balancer.",
+          "note": "Failure detection and address convergence determine outage duration; stale DNS caches or routing state can keep sending traffic to a failed instance."
         },
         {
           "id": "lb-4-1",
-          "type": "multiple_choice",
-          "prompt": "You put a load balancer in front of your servers so no single machine can take you down. Then the load balancer dies. What have you built?",
-          "choices": [
-            "A resilient system",
-            "A new single point of failure — you moved it rather than removed it",
-            "Nothing has changed",
-            "A faster system"
+          "type": "build_diagram",
+          "prompt": "Remove the load-balancer single point of failure. Build an entry path that can route clients through either balancer to the app pool.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "clients",
+                "label": "Clients",
+                "col": 0,
+                "kind": "client"
+              },
+              {
+                "id": "entry",
+                "sub": "stable public endpoint",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "lb_a",
+                "sub": "active path",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "lb_b",
+                "sub": "surviving path",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "pool",
+                "label": "App Server Pool",
+                "col": 3,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "clients",
+                "to": "entry",
+                "kind": "request"
+              },
+              {
+                "from": "entry",
+                "to": "lb_a",
+                "kind": "request"
+              },
+              {
+                "from": "entry",
+                "to": "lb_b",
+                "kind": "request"
+              },
+              {
+                "from": "lb_a",
+                "to": "pool",
+                "kind": "request"
+              },
+              {
+                "from": "lb_b",
+                "to": "pool",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Anycast Address",
+            "Load Balancer A",
+            "Load Balancer B",
+            "Shared Session Store",
+            "Read Replica"
           ],
-          "answer": 1,
-          "why": "Everything now flows through one box, so its death is total — precisely the property you added it to fix. The honest framing is that you don't remove single points of failure so much as push them somewhere you can afford: real setups run multiple balancers, via DNS handing out several addresses, a floating IP that moves between them, or anycast. The question is never 'is there a SPOF?' but 'where is it, and how fast can it be replaced?'"
+          "answer": {
+            "entry": "Anycast Address",
+            "lb_a": "Load Balancer A",
+            "lb_b": "Load Balancer B"
+          },
+          "why": "The anycast address is an entry mechanism outside either balancer and can route clients to a surviving load-balancer instance; both balancers reach the same app pool. If the design has only one balancer, its failure still removes the sole request path even though every app server is healthy; stale routing convergence can also extend the outage after failover begins."
         },
         {
           "id": "lb-4-2",
@@ -554,7 +1288,7 @@
               "right": "Smarter routing decisions"
             }
           ],
-          "why": "L4 moves packets between addresses without opening them; L7 understands HTTP, so it can send /api one way and /images another, and pays overhead for the privilege of understanding. The tell for which you need: are you routing on anything INSIDE the request — path, host, header, cookie? That's L7, because L4 literally cannot see those. If you're just spreading connections across identical servers, L4 does it with less machinery."
+          "why": "A Layer 4 balancer routes transport connections using network addresses and ports, with relatively little per-connection processing. A Layer 7 balancer parses application data such as HTTP paths, hosts, headers, or cookies, enabling content-aware routing at additional processing cost."
         },
         {
           "id": "lb-4-3",
@@ -567,7 +1301,7 @@
             "Yes, and it also improves load distribution"
           ],
           "answer": 1,
-          "why": "Sticky sessions work by giving up interchangeability — the session still exists in exactly one place, you've just arranged for the user to keep going back to it. So you inherit what that implies: that server dying logs those users out, load distributes worse because a machine with heavy users stays hot, and draining for a deploy pushes people off their sessions anyway. Moving session state out of local memory (unit 5) fixes the cause instead of the symptom."
+          "why": "Sticky sessions route a user back to the server holding that user's local session, so ordinary requests can succeed. The session remains tied to one failure domain, and affinity can skew load or complicate draining; a shared session store restores server interchangeability."
         },
         {
           "id": "lb-4-4",
@@ -579,7 +1313,7 @@
             55,
             100
           ],
-          "why": "Sticky sessions buy you today at the cost of every day after: servers stay non-interchangeable, so deploys, failures, and autoscaling all keep hurting. They're defensible as a deliberate stopgap while you do the real work, or for something genuinely local and cheap to lose. What makes them a smell is being load-bearing forever — at that point your architecture has quietly decided machines aren't disposable, and everything downstream gets harder."
+          "why": "Moving sessions to a shared store lets any healthy server serve a user, which supports balanced routing, autoscaling, and draining. Sticky sessions require less immediate change but preserve dependence on one server, so the answer range favors shared storage while allowing affinity as a temporary migration measure."
         },
         {
           "id": "lb-4-5",
@@ -592,7 +1326,7 @@
             "Yes, if you use least connections"
           ],
           "answer": 1,
-          "why": "Balancing decides who does the work, not how much work exists — so if the total exceeds your fleet's capacity, spreading it perfectly still exceeds your fleet's capacity. Protection from too much load is a different tool entirely: shedding it (rejecting early with a 429, unit 2), limiting it, or adding capacity. Confusing 'balanced' with 'protected' is a common and expensive mistake, because an evenly overloaded fleet is still an overloaded fleet."
+          "why": "A load balancer redistributes incoming work but does not reduce its total cost. If demand is ten times the fleet's capacity, even distribution overloads every server; protection requires additional capacity or admission control such as rate limiting and early rejection with `429 Too Many Requests`."
         },
         {
           "id": "lb-4-6",
@@ -605,7 +1339,7 @@
             "Users have stale DNS"
           ],
           "answer": 1,
-          "why": "Two gaps compound: no draining means in-flight requests die with the process, and a 30-second interval means the balancer keeps confidently routing to a dead machine until its next probe. The interval is a tradeoff you're making whether you notice or not — probe often and you spend requests while risking eviction on a blip; probe rarely and you feed traffic to corpses. Draining is what makes the interval mostly stop mattering, because the machine leaves on purpose instead of being discovered missing."
+          "why": "Without draining, stopping a server terminates its in-flight requests. Until the next health check detects the shutdown, the balancer may also assign new requests to that server; with a 30-second interval, this routing gap can last nearly 30 seconds."
         },
         {
           "id": "lb-4-7",
@@ -618,7 +1352,21 @@
             "It removes the need for health checks"
           ],
           "answer": 1,
-          "why": "It's the component that makes a fleet usable as one service, and it doesn't reduce load, speed up requests, or remove failure — it relocates and manages them. Look at what it actually delivered: not capacity (the servers did that) and not speed (nothing got faster), but indirection, which bought disposable machines. Almost every operational nicety you like about running a fleet traces back to that one thing."
+          "why": "A load balancer turns a changing server pool into one service endpoint and enables distribution, health-based routing, and draining. Its design still requires an algorithm suited to the workload, health-check thresholds that avoid false eviction, and redundancy for the balancer tier itself."
+        },
+        {
+          "id": "xfer-lb",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "Two rendering workers receive equal job counts, but one gets ten-minute videos and the other ten-second clips. Which policy uses the better load signal?",
+          "choices": [
+            "Round robin by job count only",
+            "Always choose worker one",
+            "DNS TTL",
+            "Least active work or measured load"
+          ],
+          "answer": 3,
+          "why": "Equal counts do not mean equal remaining work when job cost varies. Active-work, queue-depth, or latency signals better represent the actual imbalance."
         }
       ]
     }

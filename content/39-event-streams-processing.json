@@ -1,0 +1,772 @@
+{
+  "unitId": "event-streams-processing",
+  "tier": 5,
+  "title": "Event Streams & Stream Processing",
+  "subtitle": "Process replayable ordered partitions while making time, state, and duplicate effects explicit",
+  "objectives": [
+    "Distinguish a durable event log from a work queue",
+    "Choose partition keys from ordering requirements",
+    "Use checkpoints and idempotent sinks for replay",
+    "Reason about event time, watermarks, and late data"
+  ],
+  "lessons": [
+    {
+      "id": "stream-1",
+      "title": "A durable ordered log",
+      "exercises": [
+        {
+          "id": "stream-1-0",
+          "type": "concept",
+          "title": "A stream retains ordered events within each partition and tracks consumer position",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Producers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "s",
+                "label": "Partitioned log",
+                "sub": "append + retain",
+                "col": 1,
+                "kind": "queue"
+              },
+              {
+                "id": "c",
+                "label": "Consumer groups",
+                "sub": "independent offsets",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "s",
+                "kind": "event"
+              },
+              {
+                "from": "s",
+                "to": "c",
+                "kind": "event"
+              }
+            ]
+          },
+          "body": "Producers append immutable events to partitions. Consumers record offsets and can replay retained history, while separate consumer groups process the same events independently. Ordering is defined within a partition, not across the entire stream by default.",
+          "note": "Retention and replay distinguish a durable log from a queue that removes work after acknowledgement."
+        },
+        {
+          "id": "event-streams-processing-diagram-drill-3",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Show the minimum components and flows that implement this mechanism: A stream retains ordered events within each partition and tracks consumer position",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Producers",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "s",
+                "sub": "append + retain",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "c",
+                "sub": "independent offsets",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "s",
+                "kind": "request"
+              },
+              {
+                "from": "s",
+                "to": "c",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Partitioned log",
+            "Consumer groups",
+            "Account 42 events",
+            "Random partitions"
+          ],
+          "answer": {
+            "s": "Partitioned log",
+            "c": "Consumer groups"
+          },
+          "why": "Producers append immutable events to partitions. Consumers record offsets and can replay retained history, while separate consumer groups process the same events independently. Ordering is defined within a partition, not across the entire stream by default. Retention and replay distinguish a durable log from a queue that removes work after acknowledgement.",
+          "connectEdges": true
+        },
+        {
+          "id": "stream-change-1",
+          "type": "system_change",
+          "prompt": "Updates for one bank account land in different partitions and consumers apply them out of order. Preserve per-account order without forcing one global partition.",
+          "actionLabel": "Partition by account ID",
+          "choices": [
+            "Choose a random partition per event",
+            "Use `account_id` as the partition key",
+            "Put every account in one global partition"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "Random placement removes the ordering relationship between one account's events.",
+            "A stable account key sends related events to one ordered partition.",
+            "One partition preserves order but unnecessarily limits parallelism across independent accounts."
+          ],
+          "beforeStatus": "ACCOUNT 42 · event 8 applied before event 7",
+          "afterStatus": "ACCOUNT 42 · events share one partition · applied in log order",
+          "result": "Required ordering is scoped to the entity",
+          "viz": {
+            "nodes": [
+              {
+                "id": "e",
+                "label": "Account 42 events",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "Random partitions",
+                "sub": "order split",
+                "col": 1,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "e",
+                "to": "p",
+                "kind": "event"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "e",
+                "label": "Account 42 events",
+                "sub": "same key",
+                "col": 0,
+                "kind": "server"
+              },
+              {
+                "id": "p",
+                "label": "One partition",
+                "sub": "ordered",
+                "col": 1,
+                "kind": "queue"
+              }
+            ],
+            "edges": [
+              {
+                "from": "e",
+                "to": "p",
+                "kind": "event"
+              }
+            ]
+          },
+          "why": "A stable partition key colocates events whose relative order matters while allowing other accounts to process in parallel. A hot account can still create a hot partition and may require a more specialized model."
+        },
+        {
+          "id": "event-streams-processing-diagram-drill-1",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: Updates for one bank account land in different partitions and consumers apply them out of order. Preserve per-account order without forcing one global partition. Place Account 42 events, One partition. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "e",
+                "sub": "same key",
+                "col": 0,
+                "hole": true
+              },
+              {
+                "id": "p",
+                "sub": "ordered",
+                "col": 1,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "e",
+                "to": "p",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Account 42 events",
+            "One partition",
+            "Producers",
+            "Partitioned log"
+          ],
+          "answer": {
+            "e": "Account 42 events",
+            "p": "One partition"
+          },
+          "why": "The completed diagram contains these directed flows: Account 42 events → One partition. That topology is the evidence for the answer: A stable partition key colocates events whose relative order matters while allowing other accounts to process in parallel. A hot account can still create a hot partition and may require a more specialized model."
+        },
+        {
+          "id": "stream-1-1",
+          "type": "match_pairs",
+          "prompt": "Match each stream term to its role.",
+          "pairs": [
+            {
+              "left": "Partition",
+              "right": "Unit of ordering and parallel ownership"
+            },
+            {
+              "left": "Offset",
+              "right": "Consumer position in a partition"
+            },
+            {
+              "left": "Consumer group",
+              "right": "Cooperating consumers that divide partitions"
+            }
+          ],
+          "why": "Partitions define ordered shards, offsets record progress, and a consumer group assigns each partition to one active member at a time for parallel processing."
+        }
+      ]
+    },
+    {
+      "id": "stream-2",
+      "title": "Replay and processing state",
+      "exercises": [
+        {
+          "id": "stream-2-0",
+          "type": "concept",
+          "title": "A processor commits input progress only after its output state is recoverable",
+          "body": "A stream processor reads events, updates state or an external sink, and advances its checkpoint. If output and checkpoint are not coordinated, a crash can repeat an effect or skip an event; idempotent sinks and transactional state reduce this gap.",
+          "note": "Exactly-once processing claims require a defined boundary. An external email or payment provider may still observe retries."
+        },
+        {
+          "id": "stream-change-2",
+          "type": "system_change",
+          "prompt": "A processor commits offset 900 before writing its database result. It crashes, restarts at 901, and permanently skips event 900.",
+          "actionLabel": "Checkpoint after recoverable output",
+          "choices": [
+            "Commit offsets before work",
+            "Write idempotently, then commit the corresponding offset",
+            "Delete failed events"
+          ],
+          "answer": 1,
+          "choiceFeedback": [
+            "A crash between checkpoint and output creates a skipped event.",
+            "Recoverable output before progress makes a replay safe and prevents permanent omission.",
+            "Deletion hides the failed event and loses its intended effect."
+          ],
+          "beforeStatus": "CRASH GAP · offset committed · output missing",
+          "afterStatus": "RECOVERY · event replays · idempotent output converges",
+          "result": "Input progress no longer outruns durable output",
+          "viz": {
+            "nodes": [
+              {
+                "id": "s",
+                "label": "Event 900",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "o",
+                "label": "Offset 900",
+                "sub": "committed first",
+                "col": 1,
+                "kind": "storage"
+              },
+              {
+                "id": "d",
+                "label": "Output",
+                "sub": "missing",
+                "col": 2,
+                "kind": "db"
+              }
+            ],
+            "edges": [
+              {
+                "from": "s",
+                "to": "o",
+                "kind": "event"
+              },
+              {
+                "from": "o",
+                "to": "d",
+                "kind": "broken",
+                "label": "crash · output skipped"
+              }
+            ]
+          },
+          "afterViz": {
+            "nodes": [
+              {
+                "id": "s",
+                "label": "Event 900",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "d",
+                "label": "Idempotent output",
+                "sub": "durable",
+                "col": 1,
+                "kind": "db"
+              },
+              {
+                "id": "o",
+                "label": "Offset 900",
+                "sub": "commit after",
+                "col": 2,
+                "kind": "storage"
+              }
+            ],
+            "edges": [
+              {
+                "from": "s",
+                "to": "d",
+                "kind": "event"
+              },
+              {
+                "from": "d",
+                "to": "o",
+                "kind": "data"
+              }
+            ]
+          },
+          "why": "Persisting replay-safe output before advancing the offset makes a crash repeat work rather than omit it. A unique event ID, upsert, or transactional state store can make the repeated output converge."
+        },
+        {
+          "id": "event-streams-processing-diagram-drill-2",
+          "type": "build_diagram",
+          "diagramExpansion": true,
+          "prompt": "Complete the system for this case: A processor commits offset 900 before writing its database result. It crashes, restarts at 901, and permanently skips event 900. Place Idempotent output, Offset 900. Then connect the components in the direction that requests, data, or events move.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "s",
+                "label": "Event 900",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "d",
+                "sub": "durable",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "o",
+                "sub": "commit after",
+                "col": 2,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "s",
+                "to": "d",
+                "kind": "event"
+              },
+              {
+                "from": "d",
+                "to": "o",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Idempotent output",
+            "Offset 900",
+            "Producers",
+            "Partitioned log"
+          ],
+          "answer": {
+            "d": "Idempotent output",
+            "o": "Offset 900"
+          },
+          "why": "The completed diagram contains these directed flows: Event 900 → Idempotent output; Idempotent output → Offset 900. That topology is the evidence for the answer: Persisting replay-safe output before advancing the offset makes a crash repeat work rather than omit it. A unique event ID, upsert, or transactional state store can make the repeated output converge."
+        },
+        {
+          "id": "stream-2-1",
+          "type": "multi_select",
+          "prompt": "Which operations make replay safer? Select all.",
+          "choices": [
+            "Store processed event IDs where the effect occurs",
+            "Use deterministic upserts",
+            "Keep durable checkpoints",
+            "Send every replay as a new payment"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "Deduplication at the effect boundary, deterministic state updates, and durable checkpoints let replay converge. Treating a repeated event as a new payment duplicates an irreversible side effect."
+        }
+      ]
+    },
+    {
+      "id": "stream-3",
+      "title": "Event time and late data",
+      "exercises": [
+        {
+          "id": "stream-3-0",
+          "type": "concept",
+          "title": "Event time describes when an event occurred; processing time describes when the system handled it",
+          "body": "Networks, offline clients, and retries make events arrive late or out of order. A watermark estimates how far event time has progressed and lets a window close after an allowed-lateness policy, with explicit handling for later arrivals.",
+          "note": "Waiting longer improves completeness but delays results and retains more state."
+        },
+        {
+          "id": "stream-3-1",
+          "type": "order_steps",
+          "prompt": "Build an event-time window update for a late event that is still within allowed lateness.",
+          "steps": [
+            "Read the event's event-time timestamp",
+            "Assign it to the corresponding event-time window",
+            "Compare its timestamp with the current watermark and lateness policy",
+            "Update the window's aggregate",
+            "Emit an updated result or correction"
+          ],
+          "why": "Event time selects the logical window, the watermark determines whether it remains amendable, and accepted late data updates the aggregate with an explicit correction policy."
+        },
+        {
+          "id": "stream-3-2",
+          "type": "tradeoff_slider",
+          "prompt": "Fraud detection needs results within seconds; finance reconciliation can correct totals for 24 hours. Choose the fraud watermark emphasis.",
+          "leftLabel": "Close quickly · accept later corrections",
+          "rightLabel": "Wait many hours for completeness",
+          "answerRange": [
+            0,
+            30
+          ],
+          "why": "Fraud response values low latency, so windows close quickly and late events follow a correction or secondary-review path. Finance can use a longer lateness allowance because complete totals matter more than immediate output."
+        }
+      ]
+    },
+    {
+      "id": "stream-pool-sim",
+      "title": "Workers help only when partitions expose parallelism",
+      "exercises": [
+        {
+          "id": "stream-pool-sim-card",
+          "type": "concept",
+          "title": "Consumer capacity is bounded by workers, partitions, and the slowest downstream step",
+          "body": "A consumer group can assign each active partition to one worker. Extra workers add capacity only while unassigned partitions exist and the sink can keep up. One hot partition remains one serial stream unless its key strategy changes.",
+          "note": "Worker count greater than partition count creates idle workers, not additional parallelism."
+        },
+        {
+          "id": "stream-pool-sim-0",
+          "type": "simulate",
+          "prompt": "A stream receives 24,000 events/sec across enough partitions. Each consumer worker processes 3,000/sec. Choose the *fewest* assigned workers that can keep up.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "log",
+                "label": "Stream partitions",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "group",
+                "label": "Consumer group",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "workers",
+                "label": "Assigned workers",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "log",
+                "to": "group",
+                "kind": "event"
+              },
+              {
+                "from": "group",
+                "to": "workers",
+                "kind": "request"
+              }
+            ]
+          },
+          "sim": {
+            "input": 24000,
+            "inputLabel": "Events/sec",
+            "chain": [
+              "group",
+              "workers"
+            ],
+            "capacity": {},
+            "watch": "workers",
+            "watchLabel": "Events / worker capacity",
+            "absorb": {
+              "node": "group",
+              "label": "Assigned workers",
+              "min": 1,
+              "max": 12,
+              "start": 1,
+              "unit": " workers"
+            },
+            "model": {
+              "kind": "pool",
+              "servicePerUnit": 3000
+            }
+          },
+          "answerRange": [
+            8,
+            8
+          ],
+          "why": "Seven workers provide 21,000 events/sec; eight provide 24,000. This assumes at least eight active partitions and balanced keys. Otherwise extra workers remain idle or one hot partition still lags."
+        }
+      ]
+    },
+    {
+      "id": "stream-sim",
+      "title": "Consumer parallelism stops at the partition count",
+      "exercises": [
+        {
+          "id": "stream-sim-0",
+          "type": "concept",
+          "title": "Reassigning partitions changes each consumer pool's arrival rate",
+          "body": "Twelve thousand events/sec overload a pool that processes six thousand. A second pool helps only when partitions can be reassigned to it; extra workers with no partitions remain idle. Hot partitions can still dominate one assigned worker.",
+          "note": "This simulation assumes splittable traffic across several partitions, not one indivisible hot partition."
+        },
+        {
+          "id": "stream-sim-1",
+          "type": "simulate",
+          "prompt": "A partition set receives 12,000 events/sec. Consumer Pool A handles 6,000. Drag the *smallest* share of partitions to Pool B that stops Pool A's lag from growing.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "log",
+                "label": "Event partitions",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "assign",
+                "label": "Group assignment",
+                "col": 1,
+                "kind": "lb"
+              },
+              {
+                "id": "a",
+                "label": "Consumer Pool A",
+                "col": 2,
+                "kind": "server"
+              },
+              {
+                "id": "b",
+                "label": "Consumer Pool B",
+                "sub": "reassigned partitions",
+                "col": 2,
+                "kind": "server"
+              }
+            ],
+            "edges": [
+              {
+                "from": "log",
+                "to": "assign",
+                "kind": "event"
+              },
+              {
+                "from": "assign",
+                "to": "a",
+                "kind": "request"
+              },
+              {
+                "from": "assign",
+                "to": "b",
+                "dash": true,
+                "kind": "optional"
+              }
+            ]
+          },
+          "sim": {
+            "input": 12000,
+            "inputLabel": "Events/sec",
+            "chain": [
+              "assign",
+              "a"
+            ],
+            "capacity": {
+              "assign": 50000,
+              "a": 6000
+            },
+            "watch": "a",
+            "watchLabel": "Pool A arrivals",
+            "absorb": {
+              "node": "assign",
+              "label": "Partition traffic reassigned to Pool B",
+              "min": 0,
+              "max": 100,
+              "start": 0,
+              "unit": "%"
+            }
+          },
+          "answerRange": [
+            50,
+            50
+          ],
+          "why": "A 50% reassignment leaves 6,000 events/sec on Pool A and sends 6,000 to Pool B. If one partition alone exceeds 6,000, adding consumers cannot split it without changing the partitioning strategy."
+        }
+      ]
+    },
+    {
+      "id": "stream-4",
+      "title": "Operate the stream when records misbehave",
+      "exercises": [
+        {
+          "id": "stream-4-0",
+          "type": "concept",
+          "title": "One poison record can stop an ordered partition",
+          "body": "A consumer that retries the same deterministic failure forever cannot advance its partition offset. A bounded retry policy moves the record to a quarantine path with its payload, error, and source position, allowing later records to proceed while preserving evidence for repair and replay.",
+          "note": "Skipping without durable quarantine converts a visible stall into silent data loss."
+        },
+        {
+          "id": "stream-4-1",
+          "type": "multiple_choice",
+          "prompt": "One event always crashes the deserializer. The consumer retries it forever while later events wait. What is the bounded recovery?",
+          "choices": [
+            "Commit past it and discard the payload",
+            "After bounded retries, quarantine it with partition and offset, then advance under an explicit policy",
+            "Add more producers",
+            "Reset every consumer to the beginning"
+          ],
+          "answer": 1,
+          "why": "Quarantine preserves the failed input and its exact log position for repair. Advancing is then a deliberate loss/deferral policy rather than an accidental infinite retry or silent discard."
+        },
+        {
+          "id": "stream-4-2",
+          "type": "multi_select",
+          "prompt": "A consumer group adds workers but throughput does not increase. Which explanations are plausible? Select all.",
+          "choices": [
+            "There are fewer active partitions than workers",
+            "One hot key concentrates traffic in one partition",
+            "The sink database is saturated",
+            "Consumer groups guarantee linear scaling"
+          ],
+          "answer": [
+            0,
+            1,
+            2
+          ],
+          "why": "A partition can be actively consumed by only one group member at a time, skew can overload one partition, and downstream capacity can dominate. Worker count alone does not create parallel work or sink capacity."
+        },
+        {
+          "id": "stream-4-3",
+          "type": "build_diagram",
+          "prompt": "Build a poison-record path that preserves partition progress and keeps the failed event available for repair.",
+          "viz": {
+            "nodes": [
+              {
+                "id": "p",
+                "label": "Partition",
+                "col": 0,
+                "kind": "queue"
+              },
+              {
+                "id": "h1",
+                "col": 1,
+                "hole": true
+              },
+              {
+                "id": "h2",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h3",
+                "col": 2,
+                "hole": true
+              },
+              {
+                "id": "h4",
+                "col": 3,
+                "hole": true
+              }
+            ],
+            "edges": [
+              {
+                "from": "p",
+                "to": "h1",
+                "kind": "event"
+              },
+              {
+                "from": "h1",
+                "to": "h2",
+                "kind": "request"
+              },
+              {
+                "from": "h1",
+                "to": "h3",
+                "kind": "request"
+              },
+              {
+                "from": "h3",
+                "to": "h4",
+                "kind": "request"
+              }
+            ]
+          },
+          "palette": [
+            "Consumer + bounded retries",
+            "Successful sink",
+            "Quarantine topic",
+            "Repair + replay worker",
+            "Infinite retry loop",
+            "Offset reset scheduler"
+          ],
+          "answer": {
+            "h1": "Consumer + bounded retries",
+            "h2": "Successful sink",
+            "h3": "Quarantine topic",
+            "h4": "Repair + replay worker"
+          },
+          "why": "Normal records reach the sink. A deterministically failing record enters durable quarantine with its source coordinates, so the partition can advance and a separate repair process can replay it intentionally."
+        },
+        {
+          "id": "stream-4-4",
+          "type": "multiple_choice",
+          "prompt": "During a rebalance, a record is processed before the previous owner commits its offset. The new owner receives it again. What must protect the side effect?",
+          "choices": [
+            "A stable event identity and idempotent or transactional sink handling",
+            "A larger message",
+            "A second timestamp",
+            "Fewer metrics"
+          ],
+          "answer": 0,
+          "why": "Ownership transfer cannot prove whether an uncommitted side effect happened. A stable identity lets the sink reject or reconcile the repeated effect; partition ordering alone does not remove this crash window."
+        },
+        {
+          "id": "xfer-streams",
+          "type": "multiple_choice",
+          "transfer": true,
+          "prompt": "A fraud rule groups purchases into ten-minute event-time windows. A mobile device uploads an old purchase after reconnecting. What determines whether it updates a closed window?",
+          "choices": [
+            "The partition count",
+            "The HTTP status of the upload",
+            "The watermark and allowed-lateness policy",
+            "The consumer's wall-clock alone"
+          ],
+          "answer": 2,
+          "why": "Event time places the purchase in its logical window. The watermark estimates completeness, and allowed lateness defines whether a later arrival updates, retracts, or enters a separate late-data path."
+        }
+      ]
+    }
+  ]
+}
